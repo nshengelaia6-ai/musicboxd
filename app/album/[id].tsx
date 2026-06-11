@@ -70,7 +70,7 @@ export default function AlbumPage() {
           return (
             <View key={s} style={{ width: starWidth, alignItems: 'center' }}>
               <Text style={[styles.star, (filled || half) && styles.starActive]}>
-                {half ? '½' : '★'}
+                ★
               </Text>
             </View>
           );
@@ -145,7 +145,6 @@ export default function AlbumPage() {
           <View style={styles.rateSection}>
             <Text style={styles.rateLabel}>Rate</Text>
             {renderStars()}
-            {rating > 0 && <Text style={styles.ratingValue}>{rating} / 5</Text>}
           </View>
 
           {['Review or log', 'Add to lists', 'Share'].map((label) => (
@@ -179,22 +178,21 @@ const styles = StyleSheet.create({
   playBtn: { fontSize: 16, color: '#1DB954' },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: { backgroundColor: '#1c1c1e', padding: 24, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
-  sheetCover: { width: 48, height: 48, borderRadius: 6 },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  sheetCover: { width: 48, height: 48, borderRadius: 6, marginRight: 12 },
   sheetTitle: { color: 'white', fontSize: 16, fontWeight: 'bold' },
   sheetArtist: { color: '#888', fontSize: 13, marginTop: 2 },
   sheetActions: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 24 },
-  actionBtn: { alignItems: 'center', gap: 8 },
-  actionIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center' },
-  actionActive: { backgroundColor: '#1DB954' },
+  actionBtn: { alignItems: 'center' },
+  actionIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  actionActive: { backgroundColor: '#ffb6c1' },
   actionEmoji: { fontSize: 24 },
   actionText: { color: '#aaa', fontSize: 12 },
   rateSection: { alignItems: 'center', marginBottom: 24 },
   rateLabel: { color: '#888', fontSize: 13, marginBottom: 10 },
-  stars: { flexDirection: 'row', gap: 8 },
+  stars: { flexDirection: 'row' },
   star: { fontSize: 36, color: '#333' },
-  starActive: { color: '#f5c518' },
-  ratingValue: { color: '#888', fontSize: 13, marginTop: 8 },
+  starActive: { color: '#ffb6c1' },
   menuItem: { paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#2a2a2a', alignItems: 'center' },
   menuText: { color: 'white', fontSize: 16 },
   doneBtn: { backgroundColor: '#2a2a2a', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
