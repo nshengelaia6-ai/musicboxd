@@ -140,9 +140,7 @@ export default function Home() {
    <ScrollView style={styles.container}>
      <View style={styles.header}>
        <Text style={styles.pageTitle}>For You</Text>
-       <TouchableOpacity onPress={logout}>
-         <Text style={styles.logoutText}>გამოსვლა</Text>
-       </TouchableOpacity>
+       
      </View>
 
      <Text style={styles.heading}>New Releases</Text>

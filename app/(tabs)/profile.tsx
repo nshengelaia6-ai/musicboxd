@@ -178,16 +178,7 @@ export default function Profile() {
           ))}
         </View>
 
-        {/* On My Radar */}
-        <Text style={styles.sectionTitle}>🎯 On My Radar</Text>
-        <View style={styles.grid}>
-          {onMyRadar.map(album => (
-            <View key={album.id} style={styles.gridItem}>
-              <View style={styles.albumArt} />
-              <Text style={styles.gridLabel} numberOfLines={1}>{album.title}</Text>
-            </View>
-          ))}
-        </View>
+       
 
         {/* Menu */}
         <View style={styles.menu}>
