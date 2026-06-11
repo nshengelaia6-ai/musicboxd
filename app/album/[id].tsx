@@ -2,12 +2,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function AlbumPage() {
   const { id } = useLocalSearchParams();
   const [album, setAlbum] = useState<any>(null);
   const [tracks, setTracks] = useState<any[]>([]);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [listened, setListened] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [wantToListen, setWantToListen] = useState(false);
 
   useEffect(() => {
     loadAlbum();
@@ -37,6 +41,9 @@ export default function AlbumPage() {
           <Text style={styles.albumName}>{album.name}</Text>
           <Text style={styles.meta}>{album.artists?.[0]?.name}</Text>
           <Text style={styles.meta}>{album.album_type} • {album.release_date} • {album.total_tracks} tracks</Text>
+          <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.dotsBtn}>
+            <Text style={styles.dots}>···</Text>
+          </TouchableOpacity>
         </View>
       )}
       <FlatList
@@ -54,6 +61,26 @@ export default function AlbumPage() {
           </TouchableOpacity>
         )}
       />
+
+      <Modal visible={menuVisible} transparent animationType="slide">
+        <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)} />
+        <View style={styles.sheet}>
+          <View style={styles.sheetActions}>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => setListened(!listened)}>
+              <Text style={styles.actionIcon}>{listened ? '✅' : '👁'}</Text>
+              <Text style={styles.actionText}>Listened</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => setLiked(!liked)}>
+              <Text style={styles.actionIcon}>{liked ? '❤️' : '🤍'}</Text>
+              <Text style={styles.actionText}>Like</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => setWantToListen(!wantToListen)}>
+              <Text style={styles.actionIcon}>{wantToListen ? '🔖' : '🔖'}</Text>
+              <Text style={styles.actionText}>Want to Listen</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -64,10 +91,18 @@ const styles = StyleSheet.create({
   cover: { width: 200, height: 200, borderRadius: 8, marginBottom: 16 },
   albumName: { color: 'white', fontSize: 22, fontWeight: 'bold', textAlign: 'center' },
   meta: { color: '#888', fontSize: 14, marginTop: 4, textAlign: 'center' },
+  dotsBtn: { position: 'absolute', top: 60, right: 20, padding: 8 },
+  dots: { color: 'white', fontSize: 24 },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
   num: { color: '#555', fontSize: 14, width: 28 },
   info: { flex: 1 },
   trackName: { color: 'white', fontSize: 15 },
   artist: { color: '#888', fontSize: 13, marginTop: 2 },
   playBtn: { fontSize: 16, color: '#1DB954' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+  sheet: { backgroundColor: '#1a1a1a', padding: 24, borderTopLeftRadius: 16, borderTopRightRadius: 16 },
+  sheetActions: { flexDirection: 'row', justifyContent: 'space-around' },
+  actionBtn: { alignItems: 'center', gap: 8 },
+  actionIcon: { fontSize: 28 },
+  actionText: { color: 'white', fontSize: 13 },
 });
