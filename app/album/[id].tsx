@@ -12,10 +12,9 @@ export default function AlbumPage() {
   const [listened, setListened] = useState(false);
   const [liked, setLiked] = useState(false);
   const [wantToListen, setWantToListen] = useState(false);
+  const [rating, setRating] = useState(0);
 
-  useEffect(() => {
-    loadAlbum();
-  }, []);
+  useEffect(() => { loadAlbum(); }, []);
 
   async function loadAlbum() {
     const token = await AsyncStorage.getItem('spotify_token');
@@ -29,9 +28,10 @@ export default function AlbumPage() {
   }
 
   async function openTrack(track: any) {
-    const url = `https://open.spotify.com/track/${track.id}`;
-    await WebBrowser.openBrowserAsync(url);
+    await WebBrowser.openBrowserAsync(`https://open.spotify.com/track/${track.id}`);
   }
+
+  const stars = [1, 2, 3, 4, 5];
 
   return (
     <ScrollView style={styles.container}>
@@ -65,20 +65,61 @@ export default function AlbumPage() {
       <Modal visible={menuVisible} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)} />
         <View style={styles.sheet}>
+          {album && (
+            <View style={styles.sheetHeader}>
+              <Image source={{ uri: album.images?.[0]?.url }} style={styles.sheetCover} />
+              <View>
+                <Text style={styles.sheetTitle} numberOfLines={1}>{album.name}</Text>
+                <Text style={styles.sheetArtist}>{album.artists?.[0]?.name}</Text>
+              </View>
+            </View>
+          )}
+
           <View style={styles.sheetActions}>
             <TouchableOpacity style={styles.actionBtn} onPress={() => setListened(!listened)}>
-              <Text style={styles.actionIcon}>{listened ? '✅' : '👁'}</Text>
+              <View style={[styles.actionIcon, listened && styles.actionActive]}>
+                <Text style={styles.actionEmoji}>👁</Text>
+              </View>
               <Text style={styles.actionText}>Listened</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionBtn} onPress={() => setLiked(!liked)}>
-              <Text style={styles.actionIcon}>{liked ? '❤️' : '🤍'}</Text>
+              <View style={[styles.actionIcon, liked && styles.actionActive]}>
+                <Text style={styles.actionEmoji}>{liked ? '♥' : '♡'}</Text>
+              </View>
               <Text style={styles.actionText}>Like</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionBtn} onPress={() => setWantToListen(!wantToListen)}>
-              <Text style={styles.actionIcon}>{wantToListen ? '🔖' : '🔖'}</Text>
+              <View style={[styles.actionIcon, wantToListen && styles.actionActive]}>
+                <Text style={styles.actionEmoji}>🕐</Text>
+              </View>
               <Text style={styles.actionText}>Want to Listen</Text>
             </TouchableOpacity>
           </View>
+
+          <View style={styles.rateSection}>
+            <Text style={styles.rateLabel}>Rate</Text>
+            <View style={styles.stars}>
+              {stars.map((s) => (
+                <TouchableOpacity key={s} onPress={() => setRating(s)}>
+                  <Text style={[styles.star, rating >= s && styles.starActive]}>★</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {[
+            { label: 'Review or log', icon: '📝' },
+            { label: 'Share', icon: '↑' },
+          ].map(({ label, icon }) => (
+            <TouchableOpacity key={label} style={styles.menuItem}>
+              <Text style={styles.menuIcon}>{icon}</Text>
+              <Text style={styles.menuText}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+
+          <TouchableOpacity style={styles.doneBtn} onPress={() => setMenuVisible(false)}>
+            <Text style={styles.doneBtnText}>Done</Text>
+          </TouchableOpacity>
         </View>
       </Modal>
     </ScrollView>
@@ -99,10 +140,26 @@ const styles = StyleSheet.create({
   trackName: { color: 'white', fontSize: 15 },
   artist: { color: '#888', fontSize: 13, marginTop: 2 },
   playBtn: { fontSize: 16, color: '#1DB954' },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
-  sheet: { backgroundColor: '#1a1a1a', padding: 24, borderTopLeftRadius: 16, borderTopRightRadius: 16 },
-  sheetActions: { flexDirection: 'row', justifyContent: 'space-around' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
+  sheet: { backgroundColor: '#1c1c1e', padding: 24, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  sheetCover: { width: 48, height: 48, borderRadius: 6 },
+  sheetTitle: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  sheetArtist: { color: '#888', fontSize: 13, marginTop: 2 },
+  sheetActions: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 24 },
   actionBtn: { alignItems: 'center', gap: 8 },
-  actionIcon: { fontSize: 28 },
-  actionText: { color: 'white', fontSize: 13 },
+  actionIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center' },
+  actionActive: { backgroundColor: '#1DB954' },
+  actionEmoji: { fontSize: 24 },
+  actionText: { color: '#aaa', fontSize: 12 },
+  rateSection: { alignItems: 'center', marginBottom: 24 },
+  rateLabel: { color: '#888', fontSize: 13, marginBottom: 10 },
+  stars: { flexDirection: 'row', gap: 8 },
+  star: { fontSize: 32, color: '#333' },
+  starActive: { color: '#f5c518' },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#2a2a2a', gap: 16 },
+  menuIcon: { color: '#fff', fontSize: 20, width: 24, textAlign: 'center' },
+  menuText: { color: 'white', fontSize: 16 },
+  doneBtn: { backgroundColor: '#2a2a2a', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
+  doneBtnText: { color: 'white', fontSize: 16, fontWeight: '600' },
 });
