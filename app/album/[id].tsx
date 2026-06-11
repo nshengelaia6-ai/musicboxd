@@ -56,28 +56,34 @@ export default function AlbumPage() {
     setRating(Math.max(0.5, rounded));
   }
 
-  function renderStars() {
-    return (
-      <View
-        ref={starsRef}
-        onLayout={(e) => { starsLayout.current = e.nativeEvent.layout; }}
-        {...panResponder.panHandlers}
-        style={styles.stars}
-      >
-        {[1, 2, 3, 4, 5].map((s) => {
-          const filled = rating >= s;
-          const half = !filled && rating >= s - 0.5;
-          return (
-            <View key={s} style={{ width: starWidth, alignItems: 'center' }}>
-              <Text style={[styles.star, (filled || half) && styles.starActive]}>
-                ★
-              </Text>
+function renderStars() {
+  return (
+    <View
+      ref={starsRef}
+      onLayout={(e) => { starsLayout.current = e.nativeEvent.layout; }}
+      {...panResponder.panHandlers}
+      style={styles.stars}
+    >
+      {[1, 2, 3, 4, 5].map((s) => {
+        const filled = rating >= s;
+        const half = !filled && rating >= s - 0.5;
+        return (
+          <View key={s} style={{ width: starWidth, alignItems: 'center' }}>
+            <View style={{ width: starWidth, height: 40 }}>
+              <Text style={[styles.star, styles.starInactive]}>★</Text>
+              <Text style={[styles.star, styles.starActive, {
+                position: 'absolute',
+                width: filled ? starWidth : half ? starWidth / 2 : 0,
+                overflow: 'hidden',
+              }]}>★</Text>
             </View>
-          );
-        })}
-      </View>
-    );
-  }
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 
   return (
     <ScrollView style={styles.container}>
