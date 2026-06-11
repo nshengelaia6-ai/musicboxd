@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useState } from 'react';
-import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { FlatList, Image, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function AlbumPage() {
   const { id } = useLocalSearchParams();
@@ -13,6 +13,8 @@ export default function AlbumPage() {
   const [liked, setLiked] = useState(false);
   const [wantToListen, setWantToListen] = useState(false);
   const [rating, setRating] = useState(0);
+  const starsRef = useRef<View>(null);
+  const starsLayout = useRef<any>(null);
 
   useEffect(() => { loadAlbum(); }, []);
 
@@ -31,7 +33,51 @@ export default function AlbumPage() {
     await WebBrowser.openBrowserAsync(`https://open.spotify.com/track/${track.id}`);
   }
 
-  const stars = [1, 2, 3, 4, 5];
+  const starWidth = 40;
+  const starGap = 8;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (e) => updateRating(e.nativeEvent.pageX),
+      onPanResponderMove: (e) => updateRating(e.nativeEvent.pageX),
+    })
+  ).current;
+
+  function updateRating(pageX: number) {
+    if (!starsLayout.current) return;
+    const { x } = starsLayout.current;
+    const relX = pageX - x;
+    const totalWidth = 5 * starWidth + 4 * starGap;
+    const clamped = Math.max(0, Math.min(relX, totalWidth));
+    const raw = (clamped / totalWidth) * 5;
+    const rounded = Math.round(raw * 2) / 2;
+    setRating(Math.max(0.5, rounded));
+  }
+
+  function renderStars() {
+    return (
+      <View
+        ref={starsRef}
+        onLayout={(e) => { starsLayout.current = e.nativeEvent.layout; }}
+        {...panResponder.panHandlers}
+        style={styles.stars}
+      >
+        {[1, 2, 3, 4, 5].map((s) => {
+          const filled = rating >= s;
+          const half = !filled && rating >= s - 0.5;
+          return (
+            <View key={s} style={{ width: starWidth, alignItems: 'center' }}>
+              <Text style={[styles.star, (filled || half) && styles.starActive]}>
+                {half ? '½' : '★'}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -98,21 +144,12 @@ export default function AlbumPage() {
 
           <View style={styles.rateSection}>
             <Text style={styles.rateLabel}>Rate</Text>
-            <View style={styles.stars}>
-              {stars.map((s) => (
-                <TouchableOpacity key={s} onPress={() => setRating(s)}>
-                  <Text style={[styles.star, rating >= s && styles.starActive]}>★</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {renderStars()}
+            {rating > 0 && <Text style={styles.ratingValue}>{rating} / 5</Text>}
           </View>
 
-          {[
-            { label: 'Review or log', icon: '📝' },
-            { label: 'Share', icon: '↑' },
-          ].map(({ label, icon }) => (
+          {['Review or log', 'Add to lists', 'Share'].map((label) => (
             <TouchableOpacity key={label} style={styles.menuItem}>
-              <Text style={styles.menuIcon}>{icon}</Text>
               <Text style={styles.menuText}>{label}</Text>
             </TouchableOpacity>
           ))}
@@ -155,10 +192,10 @@ const styles = StyleSheet.create({
   rateSection: { alignItems: 'center', marginBottom: 24 },
   rateLabel: { color: '#888', fontSize: 13, marginBottom: 10 },
   stars: { flexDirection: 'row', gap: 8 },
-  star: { fontSize: 32, color: '#333' },
+  star: { fontSize: 36, color: '#333' },
   starActive: { color: '#f5c518' },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#2a2a2a', gap: 16 },
-  menuIcon: { color: '#fff', fontSize: 20, width: 24, textAlign: 'center' },
+  ratingValue: { color: '#888', fontSize: 13, marginTop: 8 },
+  menuItem: { paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#2a2a2a', alignItems: 'center' },
   menuText: { color: 'white', fontSize: 16 },
   doneBtn: { backgroundColor: '#2a2a2a', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
   doneBtnText: { color: 'white', fontSize: 16, fontWeight: '600' },
