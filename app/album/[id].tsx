@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useRef, useState } from 'react';
 import { FlatList, Image, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function AlbumPage() {
   const { id } = useLocalSearchParams();
+  const router = useRouter();
   const [album, setAlbum] = useState<any>(null);
   const [tracks, setTracks] = useState<any[]>([]);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -56,34 +57,28 @@ export default function AlbumPage() {
     setRating(Math.max(0.5, rounded));
   }
 
-function renderStars() {
-  return (
-    <View
-      ref={starsRef}
-      onLayout={(e) => { starsLayout.current = e.nativeEvent.layout; }}
-      {...panResponder.panHandlers}
-      style={styles.stars}
-    >
-      {[1, 2, 3, 4, 5].map((s) => {
-        const filled = rating >= s;
-        const half = !filled && rating >= s - 0.5;
-        return (
-          <View key={s} style={{ width: starWidth, alignItems: 'center' }}>
-            <View style={{ width: starWidth, height: 40 }}>
-              <Text style={[styles.star, styles.starInactive]}>★</Text>
-              <Text style={[styles.star, styles.starActive, {
-                position: 'absolute',
-                width: filled ? starWidth : half ? starWidth / 2 : 0,
-                overflow: 'hidden',
-              }]}>★</Text>
+  function renderStars() {
+    return (
+      <View
+        ref={starsRef}
+        onLayout={(e) => { starsLayout.current = e.nativeEvent.layout; }}
+        {...panResponder.panHandlers}
+        style={styles.stars}
+      >
+        {[1, 2, 3, 4, 5].map((s) => {
+          const filled = rating >= s;
+          const half = !filled && rating >= s - 0.5;
+          return (
+            <View key={s} style={{ width: starWidth, alignItems: 'center' }}>
+              <Text style={[styles.star, (filled || half) && styles.starActive]}>
+                ★
+              </Text>
             </View>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
+          );
+        })}
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -153,11 +148,27 @@ function renderStars() {
             {renderStars()}
           </View>
 
-          {['Review or log', 'Add to lists', 'Share'].map((label) => (
-            <TouchableOpacity key={label} style={styles.menuItem}>
-              <Text style={styles.menuText}>{label}</Text>
-            </TouchableOpacity>
-          ))}
+          <TouchableOpacity style={styles.menuItem} onPress={() => {
+            setMenuVisible(false);
+            router.push({
+              pathname: '/review/new',
+              params: {
+                albumName: album.name,
+                albumArtist: album.artists?.[0]?.name,
+                albumCover: album.images?.[0]?.url,
+              }
+            });
+          }}>
+            <Text style={styles.menuText}>Review or log</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuText}>Add to lists</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuText}>Share</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.doneBtn} onPress={() => setMenuVisible(false)}>
             <Text style={styles.doneBtnText}>Done</Text>
