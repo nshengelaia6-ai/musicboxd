@@ -1,9 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Image, PanResponder, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ReviewPage() {
-  const { albumName, albumArtist, albumCover } = useLocalSearchParams();
+  const { albumName, albumArtist, albumCover, albumId } = useLocalSearchParams();
   const router = useRouter();
   const [review, setReview] = useState('');
   const [rating, setRating] = useState(0);
@@ -33,6 +34,31 @@ export default function ReviewPage() {
     setRating(Math.max(0.5, rounded));
   }
 
+  async function handleSave() {
+    if (rating === 0) return;
+
+    const entry = {
+      id: Date.now().toString(),
+      albumId: albumId as string,
+      albumName: albumName as string,
+      albumArtist: albumArtist as string,
+      albumCover: albumCover as string,
+      rating,
+      review,
+      date: new Date().toISOString(),
+    };
+
+    try {
+      const existing = await AsyncStorage.getItem('reviews');
+      const reviews = existing ? JSON.parse(existing) : [];
+      reviews.unshift(entry);
+      await AsyncStorage.setItem('reviews', JSON.stringify(reviews));
+      router.back();
+    } catch (e) {
+      console.error('შენახვა ვერ მოხერხდა', e);
+    }
+  }
+
   function renderStars() {
     return (
       <View
@@ -45,9 +71,7 @@ export default function ReviewPage() {
           const half = !filled && rating >= s - 0.5;
           return (
             <View key={s} style={{ width: starWidth, height: starWidth, alignItems: 'center', justifyContent: 'center' }}>
-              {/* ცარიელი ვარსკვლავი */}
               <Text style={styles.starEmpty}>★</Text>
-              {/* შევსებული — მთლიანი ან ნახევარი */}
               {(filled || half) && (
                 <View style={[
                   StyleSheet.absoluteFillObject,
@@ -70,8 +94,8 @@ export default function ReviewPage() {
           <Text style={styles.cancel}>Cancel</Text>
         </TouchableOpacity>
         <Text style={styles.title}>I Listened...</Text>
-        <TouchableOpacity>
-          <Text style={styles.save}>Save</Text>
+        <TouchableOpacity onPress={handleSave}>
+          <Text style={[styles.save, rating === 0 && { opacity: 0.4 }]}>Save</Text>
         </TouchableOpacity>
       </View>
 
