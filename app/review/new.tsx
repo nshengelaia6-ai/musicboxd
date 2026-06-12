@@ -44,8 +44,18 @@ export default function ReviewPage() {
           const filled = rating >= s;
           const half = !filled && rating >= s - 0.5;
           return (
-            <View key={s} style={{ width: starWidth, alignItems: 'center' }}>
-              <Text style={[styles.star, (filled || half) && styles.starActive]}>★</Text>
+            <View key={s} style={{ width: starWidth, height: starWidth, alignItems: 'center', justifyContent: 'center' }}>
+              {/* ცარიელი ვარსკვლავი */}
+              <Text style={styles.starEmpty}>★</Text>
+              {/* შევსებული — მთლიანი ან ნახევარი */}
+              {(filled || half) && (
+                <View style={[
+                  StyleSheet.absoluteFillObject,
+                  { overflow: 'hidden', width: filled ? starWidth : starWidth / 2 }
+                ]}>
+                  <Text style={styles.starFilled}>★</Text>
+                </View>
+              )}
             </View>
           );
         })}
@@ -110,8 +120,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#4a6080' },
   label: { color: '#ccc', fontSize: 16 },
   date: { color: '#fff', fontSize: 15 },
-  starsRow: { flexDirection: 'row' },
-  star: { fontSize: 32, color: '#444' },
-  starActive: { color: '#ffb6c1' },
+  starsRow: { flexDirection: 'row', gap: 6 },
+  starEmpty: { fontSize: 32, color: '#555', position: 'absolute' },
+  starFilled: { fontSize: 32, color: '#ffb6c1' },
   reviewInput: { color: '#fff', fontSize: 15, padding: 16, minHeight: 200, textAlignVertical: 'top' },
 });
