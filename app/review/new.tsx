@@ -154,4 +154,5 @@ const styles = StyleSheet.create({
  label: { color: '#ccc', fontSize: 16 },
  date: { color: '#fff', fontSize: 15 },
  starsRow: { flexDirection: 'row', gap: 6 },
- starEmpty: { fontSize: 32, color: '#555
+starEmpty: { fontSize: 32, color: '#555', position: 'absolute' },
+
