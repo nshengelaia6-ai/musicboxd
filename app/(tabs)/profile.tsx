@@ -1,19 +1,6 @@
-import { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useState } from 'react';
 import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-
-const recentActivity = [
-  { id: '1', type: 'rating', album: 'After Hours', artist: 'The Weeknd', rating: 5, cover: 'https://i.scdn.co/image/ab67616d0000b273ef017e899c05477da4c9a7dc' },
-  { id: '2', type: 'review', album: 'Future Nostalgia', artist: 'Dua Lipa', rating: 4, cover: 'https://i.scdn.co/image/ab67616d0000b2732734b308c531dc41b29a0621' },
-  { id: '3', type: 'rating', album: 'Dawn FM', artist: 'The Weeknd', rating: 4, cover: 'https://i.scdn.co/image/ab67616d0000b2732e8ed79e177ff6011079e4a7' },
-  { id: '4', type: 'rating', album: 'Happier Than Ever', artist: 'Billie Eilish', rating: 5, cover: 'https://i.scdn.co/image/ab67616d0000b273c2f6bdf01bd6fc069f0c12ae' },
-];
-
-const diaryEntries = [
-  { id: '1', month: 'MAY 2026', day: '27', album: 'Happier Than Ever', artist: 'Billie Eilish', year: '2021', rating: 5, cover: 'https://i.scdn.co/image/ab67616d0000b273c2f6bdf01bd6fc069f0c12ae' },
-  { id: '2', month: 'MAY 2026', day: '25', album: 'After Hours', artist: 'The Weeknd', year: '2020', rating: 5, cover: 'https://i.scdn.co/image/ab67616d0000b273ef017e899c05477da4c9a7dc' },
-  { id: '3', month: 'APRIL 2026', day: '28', album: 'Future Nostalgia', artist: 'Dua Lipa', year: '2020', rating: 4, cover: 'https://i.scdn.co/image/ab67616d0000b2732734b308c531dc41b29a0621' },
-  { id: '4', month: 'APRIL 2026', day: '15', album: 'Dawn FM', artist: 'The Weeknd', year: '2022', rating: 4, cover: 'https://i.scdn.co/image/ab67616d0000b2732e8ed79e177ff6011079e4a7' },
-];
 
 const initialAlbums = [
   { id: '1', title: 'After Hours', cover: 'https://i.scdn.co/image/ab67616d0000b273ef017e899c05477da4c9a7dc' },
@@ -29,44 +16,55 @@ const initialArtists = [
   { id: '4', name: 'Olivia Rodrigo' },
 ];
 
-const onMyRadar = [
-  { id: '1', title: 'Radical Optimism' },
-  { id: '2', title: 'Hit Me Hard and Soft' },
-  { id: '3', title: 'GNX' },
-  { id: '4', title: "Short n' Sweet" },
-];
-
 const menuItems = ['Songs', 'Reviews', 'Lists', 'Following', 'Followers'];
 
 function Stars({ count }: { count: number }) {
-  return <Text style={styles.stars}>{'★'.repeat(count)}{'☆'.repeat(5 - count)}</Text>;
+  const full = Math.floor(count);
+  const half = count % 1 >= 0.5;
+  return (
+    <Text style={styles.stars}>
+      {'★'.repeat(full)}{half ? '½' : ''}{'☆'.repeat(5 - full - (half ? 1 : 0))}
+    </Text>
+  );
 }
 
-function groupByMonth(entries: typeof diaryEntries) {
-  const grouped: { [key: string]: typeof diaryEntries } = {};
+function groupByMonth(entries: any[]) {
+  const grouped: { [key: string]: any[] } = {};
   entries.forEach(e => {
-    if (!grouped[e.month]) grouped[e.month] = [];
-    grouped[e.month].push(e);
+    const month = new Date(e.date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
+    if (!grouped[month]) grouped[month] = [];
+    grouped[month].push(e);
   });
   return grouped;
 }
 
 export default function Profile() {
-  const grouped = groupByMonth(diaryEntries);
+  const [reviews, setReviews] = useState<any[]>([]);
   const [showShare, setShowShare] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [username, setUsername] = useState('nia');
   const [bio, setBio] = useState('music is life 🎵');
   const [editUsername, setEditUsername] = useState('nia');
   const [editBio, setEditBio] = useState('music is life 🎵');
-  const [favoriteAlbums, setFavoriteAlbums] = useState(initialAlbums);
-  const [favoriteArtists, setFavoriteArtists] = useState(initialArtists);
+  const [favoriteAlbums] = useState(initialAlbums);
+  const [favoriteArtists] = useState(initialArtists);
+
+  useEffect(() => {
+    loadReviews();
+  }, []);
+
+  async function loadReviews() {
+    const data = await AsyncStorage.getItem('reviews');
+    if (data) setReviews(JSON.parse(data));
+  }
 
   function saveProfile() {
     setUsername(editUsername);
     setBio(editBio);
     setShowSettings(false);
   }
+
+  const grouped = groupByMonth(reviews);
 
   return (
     <View style={{ flex: 1 }}>
@@ -76,18 +74,16 @@ export default function Profile() {
           <TouchableOpacity style={styles.headerBtnLeft} onPress={() => { setEditUsername(username); setEditBio(bio); setShowSettings(true); }}>
             <Text style={styles.headerBtnText}>🎛️</Text>
           </TouchableOpacity>
-
           <TouchableOpacity style={styles.headerBtnRight} onPress={() => setShowShare(true)}>
             <Text style={styles.headerBtnText}>•••</Text>
           </TouchableOpacity>
-
           <View style={styles.avatar} />
           <Text style={styles.username}>@{username}</Text>
           <Text style={styles.bio}>{bio}</Text>
           <View style={styles.stats}>
             <View style={styles.stat}>
-              <Text style={styles.statNum}>124</Text>
-              <Text style={styles.statLabel}>Songs</Text>
+              <Text style={styles.statNum}>{reviews.length}</Text>
+              <Text style={styles.statLabel}>Reviews</Text>
             </View>
             <View style={styles.stat}>
               <Text style={styles.statNum}>38</Text>
@@ -133,52 +129,65 @@ export default function Profile() {
         </View>
 
         {/* Recent Activity */}
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
-        <FlatList
-          horizontal
-          data={recentActivity}
-          keyExtractor={item => item.id}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
-          renderItem={({ item }) => (
-            <View style={styles.activityCard}>
-              <Image source={{ uri: item.cover }} style={styles.activityCover} />
-              <View style={styles.activityBadge}>
-                <Text style={styles.activityBadgeText}>{item.type === 'rating' ? '★' : '✎'}</Text>
-              </View>
-              {item.type === 'rating' && <Text style={styles.activityRating}>{'★'.repeat(item.rating ?? 0)}</Text>}
-              {item.type === 'review' && <Text style={styles.activityReviewLabel}>Review</Text>}
-              <Text style={styles.activityAlbum} numberOfLines={1}>{item.album}</Text>
-            </View>
-          )}
-        />
+        {reviews.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            <FlatList
+              horizontal
+              data={reviews.slice(0, 10)}
+              keyExtractor={item => item.id}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
+              renderItem={({ item }) => (
+                <View style={styles.activityCard}>
+                  {item.albumCover
+                    ? <Image source={{ uri: item.albumCover }} style={styles.activityCover} />
+                    : <View style={[styles.activityCover, { backgroundColor: '#2a2a2a' }]} />}
+                  <View style={styles.activityBadge}>
+                    <Text style={styles.activityBadgeText}>{item.review ? '✎' : '★'}</Text>
+                  </View>
+                  <Text style={styles.activityRating}>{'★'.repeat(Math.floor(item.rating))}</Text>
+                  <Text style={styles.activityAlbum} numberOfLines={1}>{item.albumName}</Text>
+                </View>
+              )}
+            />
+          </>
+        )}
 
         {/* Songs Diary */}
         <Text style={styles.sectionTitle}>Songs Diary</Text>
-        <View style={styles.diarySection}>
-          {Object.entries(grouped).map(([month, entries]) => (
-            <View key={month}>
-              <View style={styles.monthHeader}>
-                <Text style={styles.monthText}>{month}</Text>
-              </View>
-              {entries.map(entry => (
-                <View key={entry.id} style={styles.diaryRow}>
-                  <Text style={styles.diaryDay}>{entry.day}</Text>
-                  <Image source={{ uri: entry.cover }} style={styles.diaryCover} />
-                  <View style={styles.diaryInfo}>
-                    <Text style={styles.diaryTitle} numberOfLines={1}>
-                      {entry.album} <Text style={styles.diaryYear}>{entry.year}</Text>
-                    </Text>
-                    <Text style={styles.diaryArtist}>{entry.artist}</Text>
-                    <Stars count={entry.rating} />
-                  </View>
+        {reviews.length === 0 ? (
+          <Text style={{ color: '#555', paddingHorizontal: 20, paddingVertical: 12 }}>ჯერ არ გაქვს reviews</Text>
+        ) : (
+          <View style={styles.diarySection}>
+            {Object.entries(grouped).map(([month, entries]) => (
+              <View key={month}>
+                <View style={styles.monthHeader}>
+                  <Text style={styles.monthText}>{month}</Text>
                 </View>
-              ))}
-            </View>
-          ))}
-        </View>
-
-       
+                {entries.map(entry => (
+                  <View key={entry.id} style={styles.diaryRow}>
+                    <Text style={styles.diaryDay}>
+                      {new Date(entry.date).getDate()}
+                    </Text>
+                    {entry.albumCover
+                      ? <Image source={{ uri: entry.albumCover }} style={styles.diaryCover} />
+                      : <View style={[styles.diaryCover, { backgroundColor: '#2a2a2a' }]} />}
+                    <View style={styles.diaryInfo}>
+                      <Text style={styles.diaryTitle} numberOfLines={1}>
+                        {entry.albumName}{' '}
+                        <Text style={styles.diaryYear}>{new Date(entry.date).getFullYear()}</Text>
+                      </Text>
+                      <Text style={styles.diaryArtist}>{entry.albumArtist}</Text>
+                      <Stars count={entry.rating} />
+                      {entry.review ? <Text style={styles.diaryReview} numberOfLines={2}>{entry.review}</Text> : null}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Menu */}
         <View style={styles.menu}>
@@ -213,15 +222,12 @@ export default function Profile() {
           <View style={[styles.bottomSheet, { paddingBottom: 40 }]}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Settings</Text>
-
-            {/* Profile photo in settings */}
             <View style={styles.settingsAvatarContainer}>
               <View style={styles.settingsAvatar} />
               <TouchableOpacity>
                 <Text style={styles.changePhotoText}>Change</Text>
               </TouchableOpacity>
             </View>
-
             <Text style={styles.settingsLabel}>Username</Text>
             <TextInput
               style={styles.settingsInput}
@@ -230,7 +236,6 @@ export default function Profile() {
               placeholderTextColor="#555"
               placeholder="username"
             />
-
             <Text style={styles.settingsLabel}>Bio</Text>
             <TextInput
               style={[styles.settingsInput, { height: 70 }]}
@@ -240,7 +245,6 @@ export default function Profile() {
               placeholder="bio"
               multiline
             />
-
             <TouchableOpacity style={styles.sheetOption}>
               <Text style={styles.sheetOptionText}>💿  Edit Favorite Albums</Text>
             </TouchableOpacity>
@@ -250,12 +254,10 @@ export default function Profile() {
             <TouchableOpacity style={styles.sheetOption}>
               <Text style={styles.sheetOptionText}>🔒  Privacy Settings</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.saveBtn} onPress={saveProfile}>
               <Text style={styles.saveBtnText}>Save Changes</Text>
             </TouchableOpacity>
-
-          <TouchableOpacity style={styles.logoutBtn}>
+            <TouchableOpacity style={styles.logoutBtn}>
               <Text style={styles.logoutBtnText}>Log Out</Text>
             </TouchableOpacity>
           </View>
@@ -292,7 +294,6 @@ const styles = StyleSheet.create({
   activityBadge: { position: 'absolute', top: 6, right: 6, backgroundColor: '#1DB954', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   activityBadgeText: { fontSize: 11, color: '#000' },
   activityRating: { color: '#1DB954', fontSize: 11, marginTop: 4 },
-  activityReviewLabel: { color: '#aaa', fontSize: 11, marginTop: 4 },
   activityAlbum: { color: '#fff', fontSize: 11, marginTop: 2, fontWeight: '600' },
   diarySection: { paddingHorizontal: 0 },
   monthHeader: { backgroundColor: '#1e1e1e', paddingHorizontal: 20, paddingVertical: 8 },
@@ -304,6 +305,7 @@ const styles = StyleSheet.create({
   diaryTitle: { color: '#fff', fontSize: 14, fontWeight: '600' },
   diaryYear: { color: '#666', fontSize: 12, fontWeight: 'normal' },
   diaryArtist: { color: '#888', fontSize: 12, marginTop: 1 },
+  diaryReview: { color: '#666', fontSize: 11, marginTop: 3, fontStyle: 'italic' },
   stars: { color: '#1DB954', fontSize: 12, marginTop: 2 },
   menu: { marginTop: 24, borderTopWidth: 1, borderTopColor: '#222' },
   menuRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
