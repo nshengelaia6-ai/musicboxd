@@ -38,8 +38,8 @@ export default function ReviewPage() {
     if (rating === 0) return;
 
     const userId = await AsyncStorage.getItem('user_id');
-
     const entry = {
+      id: Date.now().toString(),
       userId,
       albumId: albumId as string,
       albumName: albumName as string,
@@ -51,16 +51,16 @@ export default function ReviewPage() {
     };
 
     try {
-      await fetch('https://musicboxd-backend-production.up.railway.app/reviews', {
+      const existing = await AsyncStorage.getItem('reviews');
+      const reviews = existing ? JSON.parse(existing) : [];
+      reviews.unshift(entry);
+      await AsyncStorage.setItem('reviews', JSON.stringify(reviews));
+
+      fetch('https://musicboxd-backend-production.up.railway.app/reviews', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(entry),
-      });
-
-      const existing = await AsyncStorage.getItem('reviews');
-      const reviews = existing ? JSON.parse(existing) : [];
-      reviews.unshift({ ...entry, id: Date.now().toString() });
-      await AsyncStorage.setItem('reviews', JSON.stringify(reviews));
+      }).catch(() => {});
 
       router.back();
     } catch (e) {
