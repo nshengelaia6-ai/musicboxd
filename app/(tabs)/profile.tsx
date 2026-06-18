@@ -156,8 +156,8 @@ export default function Profile() {
        {/* Menu */}
        <View style={styles.menu}>
          {[
-          { label: 'Albums Diary', route: '/album-diary' },
-          { label: 'Songs Diary', route: '/diary' },
+          { label: 'Songs', route: '/songs' },
+          { label: 'Diary', route: '/diary' },
           { label: 'Reviews', route: '/reviews' },
           { label: 'Lists', route: '/lists' },
           { label: 'Want to Listen', route: '/want-to-listen' },
