@@ -121,9 +121,7 @@ export default function Profile() {
              style={styles.slot}
              onPress={() => router.push({ pathname: '/search', params: { mode: 'pickAlbum', index: i } } as any)}
            >
-             {album
-               ? <Image source={{ uri: album.cover }} style={styles.slotImage} />
-               : <Text style={styles.slotPlus}>+</Text>}
+             {album && <Image source={{ uri: album.cover }} style={styles.slotImage} />}
            </TouchableOpacity>
          ))}
        </View>
@@ -227,6 +225,23 @@ export default function Profile() {
              blurOnSubmit={true}
              onSubmitEditing={() => Keyboard.dismiss()}
            />
+
+           {/* Favorite Albums in Settings */}
+           <Text style={styles.settingsLabel}>Favorite Albums</Text>
+           <View style={styles.settingsSlotsRow}>
+             {favoriteAlbums.map((album, i) => (
+               <TouchableOpacity
+                 key={i}
+                 style={styles.settingsSlot}
+                 onPress={() => router.push({ pathname: '/search', params: { mode: 'pickAlbum', index: i } } as any)}
+               >
+                 {album
+                   ? <Image source={{ uri: album.cover }} style={styles.settingsSlotImage} />
+                   : <Text style={styles.settingsSlotPlus}>+</Text>}
+               </TouchableOpacity>
+             ))}
+           </View>
+
            <TouchableOpacity style={styles.sheetOption}>
              <Text style={styles.sheetOptionText}>🔒  Privacy Settings</Text>
            </TouchableOpacity>
@@ -259,9 +274,12 @@ const styles = StyleSheet.create({
  statLabel: { color: '#888', fontSize: 12 },
  sectionTitle: { color: '#888', fontSize: 11, fontWeight: '700', letterSpacing: 1.5, paddingHorizontal: 20, marginTop: 28, marginBottom: 12 },
  slotsRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 8 },
- slot: { flex: 1, aspectRatio: 1, backgroundColor: '#1e1e1e', borderRadius: 6, borderWidth: 1, borderColor: '#333', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
+ slot: { flex: 1, aspectRatio: 1, backgroundColor: '#1e1e1e', borderRadius: 6 },
  slotImage: { width: '100%', height: '100%', borderRadius: 6 },
- slotPlus: { color: '#555', fontSize: 24 },
+ settingsSlotsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+ settingsSlot: { flex: 1, aspectRatio: 1, backgroundColor: '#2a2a2a', borderRadius: 6, borderWidth: 1, borderColor: '#444', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
+ settingsSlotImage: { width: '100%', height: '100%', borderRadius: 6 },
+ settingsSlotPlus: { color: '#666', fontSize: 20 },
  activityCard: { width: 110, alignItems: 'center' },
  activityCover: { width: 110, height: 110, borderRadius: 8 },
  activityBadge: { position: 'absolute', top: 6, right: 6, backgroundColor: '#1DB954', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
