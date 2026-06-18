@@ -1,1 +1,85 @@
-b
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+function Stars({ count }: { count: number }) {
+  const full = Math.floor(count);
+  const half = count % 1 >= 0.5;
+  return (
+    <Text style={styles.stars}>
+      {'★'.repeat(full)}{half ? '½' : ''}{'☆'.repeat(5 - full - (half ? 1 : 0))}
+    </Text>
+  );
+}
+
+export default function SongsScreen() {
+  const router = useRouter();
+  const [listened, setListened] = useState<any[]>([]);
+  const [tab, setTab] = useState<'albums' | 'tracks'>('albums');
+
+  useEffect(() => {
+    AsyncStorage.getItem('listened').then(data => {
+      if (data) setListened(JSON.parse(data));
+    });
+  }, []);
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backText}>‹</Text>
+        </Pressable>
+        <Text style={styles.headerTitle}>Songs</Text>
+      </View>
+
+      <View style={styles.tabs}>
+        <TouchableOpacity style={[styles.tab, tab === 'albums' && styles.tabActive]} onPress={() => setTab('albums')}>
+          <Text style={[styles.tabText, tab === 'albums' && styles.tabTextActive]}>Albums</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.tab, tab === 'tracks' && styles.tabActive]} onPress={() => setTab('tracks')}>
+          <Text style={[styles.tabText, tab === 'tracks' && styles.tabTextActive]}>Tracks</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView>
+        {listened.length === 0 ? (
+          <Text style={styles.empty}>ჯერ არ გაქვს listened items</Text>
+        ) : (
+          <View style={styles.grid}>
+            {listened
+              .filter(item => tab === 'albums' ? item.type === 'album' : item.type === 'track')
+              .map(item => (
+                <View key={item.id} style={styles.gridItem}>
+                  {item.cover
+                    ? <Image source={{ uri: item.cover }} style={styles.gridCover} />
+                    : <View style={[styles.gridCover, { backgroundColor: '#2a2a2a' }]} />}
+                  {item.rating ? <Stars count={item.rating} /> : null}
+                  <Text style={styles.gridTitle} numberOfLines={1}>{item.name}</Text>
+                </View>
+              ))}
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#141414' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingTop: 60, paddingBottom: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#222' },
+  backBtn: { marginRight: 12 },
+  backText: { color: '#fff', fontSize: 32, lineHeight: 36 },
+  headerTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
+  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#222' },
+  tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: '#1DB954' },
+  tabText: { color: '#888', fontSize: 15 },
+  tabTextActive: { color: '#fff', fontWeight: 'bold' },
+  empty: { color: '#555', paddingHorizontal: 20, paddingVertical: 20 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingVertical: 12, gap: 8 },
+  gridItem: { width: '23%', alignItems: 'center' },
+  gridCover: { width: '100%', aspectRatio: 1, borderRadius: 4 },
+  gridTitle: { color: '#ccc', fontSize: 10, marginTop: 3, textAlign: 'center' },
+  stars: { color: '#1DB954', fontSize: 10, marginTop: 2 },
+});
