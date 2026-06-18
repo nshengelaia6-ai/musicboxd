@@ -414,7 +414,7 @@ export default function AlbumPage() {
           <View style={styles.rateSection}>
             <Text style={styles.rateLabel}>Rate</Text>
             {renderTrackStars()}
-            {trackRating > 0 && <Text style={styles.ratingValue}>{trackRating} / 5</Text>}
+            
           </View>
 
           <TouchableOpacity style={styles.menuItem} onPress={() => {
