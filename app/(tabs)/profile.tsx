@@ -256,20 +256,6 @@ export default function Profile() {
   onSubmitEditing={() => Keyboard.dismiss()}
 />
 
-
-           <Text style={styles.settingsLabel}>Bio</Text>
-       <TextInput
-  style={[styles.settingsInput, { height: 70 }]}
-  value={editBio}
-  onChangeText={setEditBio}
-  placeholderTextColor="#555"
-  placeholder="bio"
-  multiline
-  blurOnSubmit={true}
-  returnKeyType="done"
-  onSubmitEditing={() => Keyboard.dismiss()}
-/>
-
            <TouchableOpacity style={styles.sheetOption}>
              <Text style={styles.sheetOptionText}>💿  Edit Favorite Albums</Text>
            </TouchableOpacity>
