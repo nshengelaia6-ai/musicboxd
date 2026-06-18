@@ -255,6 +255,16 @@ export default function Profile() {
   blurOnSubmit={true}
   onSubmitEditing={() => Keyboard.dismiss()}
 />
+<Text style={styles.settingsLabel}>Bio</Text>
+<TextInput
+ style={styles.settingsInput}
+ value={editBio}
+ onChangeText={setEditBio}
+ placeholderTextColor="#555"
+ placeholder="bio"
+ blurOnSubmit={true}
+ onSubmitEditing={() => Keyboard.dismiss()}
+/>
 
            <TouchableOpacity style={styles.sheetOption}>
              <Text style={styles.sheetOptionText}>💿  Edit Favorite Albums</Text>
