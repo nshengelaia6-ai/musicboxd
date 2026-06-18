@@ -154,28 +154,28 @@ export default function Profile() {
        )}
 
        {/* Menu */}
-       <View style={styles.menu}>
-         {[
-          { label: 'Songs', route: '/songs' },
-          { label: 'Diary', route: '/diary' },
-          { label: 'Reviews', route: '/reviews' },
-          { label: 'Lists', route: '/lists' },
-          { label: 'Want to Listen', route: '/want-to-listen' },
-          { label: 'Likes', route: '/likes' },
-          { label: 'Following', route: '/following' },
-          { label: 'Followers', route: '/followers' },
+<View style={styles.menu}>
+  {[
+    { label: 'Songs', route: '/songs' },
+    { label: 'Diary', route: '/diary' },
+    { label: 'Reviews', route: '/reviews' },
+    { label: 'Lists', route: '/lists' },
+    { label: 'Want to Listen', route: '/wanttolisten' },
+    { label: 'Likes', route: '/likes' },
+    { label: 'Following', route: '/following' },
+    { label: 'Followers', route: '/followers' },
+  ].map(item => (
+    <Pressable
+      key={item.label}
+      style={styles.menuRow}
+      onPress={() => router.push(item.route as any)}
+    >
+      <Text style={styles.menuText}>{item.label}</Text>
+      <Text style={styles.arrow}>›</Text>
+    </Pressable>
+  ))}
+</View>
 
-         ].map(item => (
-           <Pressable
-             key={item.label}
-             style={styles.menuRow}
-             onPress={() => router.push(item.route as any)}
-           >
-             <Text style={styles.menuText}>{item.label}</Text>
-             <Text style={styles.arrow}>›</Text>
-           </Pressable>
-         ))}
-       </View>
 
      </ScrollView>
 
