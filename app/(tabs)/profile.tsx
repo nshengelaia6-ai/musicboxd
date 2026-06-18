@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 
 const initialAlbums = [
  { id: '1', title: 'After Hours', cover: 'https://i.scdn.co/image/ab67616d0000b273ef017e899c05477da4c9a7dc' },
@@ -48,10 +49,22 @@ export default function Profile() {
  const [editBio, setEditBio] = useState('music is life 🎵');
  const [favoriteAlbums] = useState(initialAlbums);
  const [favoriteArtists] = useState(initialArtists);
+const [editAvatar, setEditAvatar] = useState<string | null>(null);
 
  useEffect(() => {
    loadReviews();
  }, []);
+async function pickImage() {
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    aspect: [1, 1],
+    quality: 0.8,
+  });
+  if (!result.canceled) {
+    setEditAvatar(result.assets[0].uri);
+  }
+}
 
  async function loadReviews() {
    const data = await AsyncStorage.getItem('reviews');
@@ -201,9 +214,17 @@ export default function Profile() {
          <View style={[styles.bottomSheet, { paddingBottom: 40 }]}>
            <View style={styles.sheetHandle} />
            <Text style={styles.sheetTitle}>Settings</Text>
-           <View style={styles.settingsAvatarContainer}>
-             <View style={styles.settingsAvatar} />
-             <TouchableOpacity>
+         <View style={styles.settingsAvatarContainer}>
+  {editAvatar ? (
+    <Image source={{ uri: editAvatar }} style={styles.settingsAvatar} />
+  ) : (
+    <View style={styles.settingsAvatar} />
+  )}
+  <TouchableOpacity onPress={pickImage}>
+    <Text style={styles.changePhotoText}>Change</Text>
+  </TouchableOpacity>
+</View>
+
                <Text style={styles.changePhotoText}>Change</Text>
              </TouchableOpacity>
            </View>
