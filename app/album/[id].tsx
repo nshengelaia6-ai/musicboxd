@@ -94,15 +94,30 @@ export default function AlbumPage() {
  ).current;
 
  function updateRating(pageX: number) {
-   if (!starsLayout.current) return;
-   const { x } = starsLayout.current;
-   const relX = pageX - x;
-   const totalWidth = 5 * starWidth + 4 * starGap;
-   const clamped = Math.max(0, Math.min(relX, totalWidth));
-   const raw = (clamped / totalWidth) * 5;
-   const rounded = Math.round(raw * 2) / 2;
-   setRating(Math.max(0.5, rounded));
- }
+  if (!starsLayout.current) return;
+  const { x } = starsLayout.current;
+  const relX = pageX - x;
+  const totalWidth = 5 * starWidth + 4 * starGap;
+  const clamped = Math.max(0, Math.min(relX, totalWidth));
+  const raw = (clamped / totalWidth) * 5;
+  const rounded = Math.round(raw * 2) / 2;
+  const newRating = Math.max(0.5, rounded);
+  setRating(newRating);
+  saveRating(newRating);
+}
+
+async function saveRating(newRating: number) {
+  const existing = await AsyncStorage.getItem('reviews');
+  const list = existing ? JSON.parse(existing) : [];
+  const idx = list.findIndex((i: any) => i.albumId === album?.id);
+  if (idx !== -1) {
+    list[idx].rating = newRating;
+  } else {
+    list.unshift({ albumId: album?.id, albumName: album?.name, albumCover: album?.images?.[0]?.url, rating: newRating, date: new Date().toISOString() });
+  }
+  await AsyncStorage.setItem('reviews', JSON.stringify(list));
+}
+
 
  const trackPanResponder = useRef(
    PanResponder.create({
