@@ -181,6 +181,7 @@ export default function AlbumPage() {
              </View>
            </View>
          )}
+
          <View style={styles.sheetActions}>
            <TouchableOpacity style={styles.actionBtn} onPress={async () => {
              const newVal = !listened;
@@ -195,7 +196,7 @@ export default function AlbumPage() {
                    name: album.name,
                    cover: album.images?.[0]?.url,
                    type: 'album',
-                   rating: rating,
+                   rating,
                    date: new Date().toISOString(),
                  });
                  await AsyncStorage.setItem('listened', JSON.stringify(list));
@@ -215,7 +216,24 @@ export default function AlbumPage() {
              <Text style={styles.actionText}>Like</Text>
            </TouchableOpacity>
 
-           <TouchableOpacity style={styles.actionBtn} onPress={() => setWantToListen(!wantToListen)}>
+           <TouchableOpacity style={styles.actionBtn} onPress={async () => {
+             const newVal = !wantToListen;
+             setWantToListen(newVal);
+             if (newVal && album) {
+               const existing = await AsyncStorage.getItem('wantToListen');
+               const list = existing ? JSON.parse(existing) : [];
+               const already = list.find((i: any) => i.id === album.id);
+               if (!already) {
+                 list.unshift({
+                   id: album.id,
+                   name: album.name,
+                   cover: album.images?.[0]?.url,
+                   type: 'album',
+                 });
+                 await AsyncStorage.setItem('wantToListen', JSON.stringify(list));
+               }
+             }
+           }}>
              <View style={[styles.actionIcon, wantToListen && styles.actionActive]}>
                <Text style={styles.actionEmoji}>🕐</Text>
              </View>
@@ -270,6 +288,7 @@ export default function AlbumPage() {
              </View>
            </View>
          )}
+
          <View style={styles.sheetActions}>
            <TouchableOpacity style={styles.actionBtn} onPress={async () => {
              const newVal = !trackListened;
@@ -304,7 +323,24 @@ export default function AlbumPage() {
              <Text style={styles.actionText}>Like</Text>
            </TouchableOpacity>
 
-           <TouchableOpacity style={styles.actionBtn} onPress={() => setTrackWantToListen(!trackWantToListen)}>
+           <TouchableOpacity style={styles.actionBtn} onPress={async () => {
+             const newVal = !trackWantToListen;
+             setTrackWantToListen(newVal);
+             if (newVal && selectedTrack) {
+               const existing = await AsyncStorage.getItem('wantToListen');
+               const list = existing ? JSON.parse(existing) : [];
+               const already = list.find((i: any) => i.id === selectedTrack.id);
+               if (!already) {
+                 list.unshift({
+                   id: selectedTrack.id,
+                   name: selectedTrack.name,
+                   cover: album?.images?.[0]?.url,
+                   type: 'track',
+                 });
+                 await AsyncStorage.setItem('wantToListen', JSON.stringify(list));
+               }
+             }
+           }}>
              <View style={[styles.actionIcon, trackWantToListen && styles.actionActive]}>
                <Text style={styles.actionEmoji}>🕐</Text>
              </View>
