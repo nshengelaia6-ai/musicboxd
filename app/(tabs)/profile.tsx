@@ -115,7 +115,8 @@ export default function Profile() {
            <View style={styles.avatar} />
          )}
          <Text style={styles.username}>@{username}</Text>
-         <Text style={styles.bio}>{bio}</Text>
+       <Text style={styles.bio}>{bio || editBio}</Text>
+
          <View style={styles.stats}>
            <View style={styles.stat}>
              <Text style={styles.statNum}>{reviews.length}</Text>
