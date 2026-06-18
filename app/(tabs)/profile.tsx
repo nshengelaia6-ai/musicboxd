@@ -119,7 +119,13 @@ export default function Profile() {
            <TouchableOpacity
              key={i}
              style={styles.slot}
-             onPress={() => router.push({ pathname: '/search', params: { mode: 'pickAlbum', index: i } } as any)}
+           onPress={() => {
+  setShowSettings(false);
+  setTimeout(() => {
+    router.push({ pathname: '/search', params: { mode: 'pickAlbum', index: i } } as any);
+  }, 300);
+}}
+
            >
              {album && <Image source={{ uri: album.cover }} style={styles.slotImage} />}
            </TouchableOpacity>
