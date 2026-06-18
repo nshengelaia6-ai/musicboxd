@@ -49,7 +49,8 @@ export default function Profile() {
  const [editBio, setEditBio] = useState('music is life 🎵');
  const [favoriteAlbums] = useState(initialAlbums);
  const [favoriteArtists] = useState(initialArtists);
-const [editAvatar, setEditAvatar] = useState<string | null>(null);
+ const [editAvatar, setEditAvatar] = useState<string | null>(null);
+ const [avatar, setAvatar] = useState<string | null>(null);
 
  useEffect(() => {
    loadReviews();
@@ -70,12 +71,29 @@ async function pickImage() {
    const data = await AsyncStorage.getItem('reviews');
    if (data) setReviews(JSON.parse(data));
  }
+AsyncStorage.getItem('profile').then(data => {
+  if (data) {
+    const p = JSON.parse(data);
+    setUsername(p.username || '');
+    setBio(p.bio || '');
+    setEditUsername(p.username || '');
+    setEditBio(p.bio || '');
+    if (p.avatar) setEditAvatar(p.avatar);
+  }
+});
 
- function saveProfile() {
-   setUsername(editUsername);
-   setBio(editBio);
-   setShowSettings(false);
- }
+async function saveProfile() {
+  setUsername(editUsername);
+  setBio(editBio);
+  if (editAvatar) setAvatar(editAvatar);
+  await AsyncStorage.setItem('profile', JSON.stringify({
+    username: editUsername,
+    bio: editBio,
+    avatar: editAvatar,
+  }));
+  setShowSettings(false);
+}
+
 
  return (
    <View style={{ flex: 1 }}>
