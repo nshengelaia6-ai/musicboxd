@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ..., Keyboard } from 'react-native';
 
 const initialAlbums = [
  { id: '1', title: 'After Hours', cover: 'https://i.scdn.co/image/ab67616d0000b273ef017e899c05477da4c9a7dc' },
@@ -253,14 +254,18 @@ export default function Profile() {
              placeholder="username"
            />
            <Text style={styles.settingsLabel}>Bio</Text>
-           <TextInput
-             style={[styles.settingsInput, { height: 70 }]}
-             value={editBio}
-             onChangeText={setEditBio}
-             placeholderTextColor="#555"
-             placeholder="bio"
-             multiline
-           />
+       <TextInput
+  style={[styles.settingsInput, { height: 70 }]}
+  value={editBio}
+  onChangeText={setEditBio}
+  placeholderTextColor="#555"
+  placeholder="bio"
+  multiline
+  blurOnSubmit={true}
+  returnKeyType="done"
+  onSubmitEditing={() => Keyboard.dismiss()}
+/>
+
            <TouchableOpacity style={styles.sheetOption}>
              <Text style={styles.sheetOptionText}>💿  Edit Favorite Albums</Text>
            </TouchableOpacity>
