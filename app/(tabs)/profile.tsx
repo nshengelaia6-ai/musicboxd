@@ -157,13 +157,13 @@ export default function Profile() {
        <View style={styles.menu}>
          {[
           { label: 'Albums Diary', route: '/album-diary' },
-{ label: 'Songs Diary', route: '/diary' },
-{ label: 'Reviews', route: '/reviews' },
-{ label: 'Lists', route: '/lists' },
-{ label: 'Want to Listen', route: '/want-to-listen' },
-{ label: 'Likes', route: '/likes' },
-{ label: 'Following', route: '/following' },
-{ label: 'Followers', route: '/followers' },
+          { label: 'Songs Diary', route: '/diary' },
+          { label: 'Reviews', route: '/reviews' },
+          { label: 'Lists', route: '/lists' },
+          { label: 'Want to Listen', route: '/want-to-listen' },
+          { label: 'Likes', route: '/likes' },
+          { label: 'Following', route: '/following' },
+          { label: 'Followers', route: '/followers' },
 
          ].map(item => (
            <Pressable
