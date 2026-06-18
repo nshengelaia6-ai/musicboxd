@@ -246,16 +246,16 @@ export default function Profile() {
              </TouchableOpacity>
            </View>
            <Text style={styles.settingsLabel}>Username</Text>
-           <TextInput
-  style={[styles.settingsInput, { height: 70 }]}
+         <TextInput
+  style={styles.settingsInput}
   value={editBio}
   onChangeText={setEditBio}
   placeholderTextColor="#555"
   placeholder="bio"
-  multiline
   blurOnSubmit={true}
   onSubmitEditing={() => Keyboard.dismiss()}
 />
+
 
            <Text style={styles.settingsLabel}>Bio</Text>
        <TextInput
