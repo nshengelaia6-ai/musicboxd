@@ -228,8 +228,10 @@ export default function Profile() {
      </Modal>
 
      <Modal visible={showSettings} transparent animationType="slide">
-       <Pressable style={styles.modalOverlay} onPress={() => setShowSettings(false)}>
-         <View style={[styles.bottomSheet, { paddingBottom: 40 }]}>
+       <View style={styles.modalOverlay}>
+         <Pressable style={{ flex: 1 }} onPress={() => setShowSettings(false)} />
+           <View style={[styles.bottomSheet, { paddingBottom: 40 }]}>
+
            <View style={styles.sheetHandle} />
            <Text style={styles.sheetTitle}>Settings</Text>
            <View style={styles.settingsAvatarContainer}>
@@ -275,7 +277,7 @@ export default function Profile() {
              <Text style={styles.logoutBtnText}>Log Out</Text>
            </TouchableOpacity>
          </View>
-       </Pressable>
+       </View>
      </Modal>
 
    </View>
