@@ -48,26 +48,38 @@ export default function AlbumPage() {
    const likedData = await AsyncStorage.getItem('liked');
    const likedList = likedData ? JSON.parse(likedData) : [];
    setLiked(!!likedList.find((i: any) => i.id === data.id));
+
+   const reviewsData = await AsyncStorage.getItem('reviews');
+   const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
+   const foundReview = reviewsList.find((i: any) => i.albumId === data.id);
+   setRating(foundReview ? foundReview.rating : 0);
  }
 
  async function openTrackMenu(track: any) {
-  setSelectedTrack(track);
-  setTrackRating(0);
-  setTrackMenuVisible(true);
+   setSelectedTrack(track);
+   setTrackMenuVisible(true);
 
-  const listenedData = await AsyncStorage.getItem('listened');
-  const listenedList = listenedData ? JSON.parse(listenedData) : [];
-  setTrackListened(!!listenedList.find((i: any) => i.id === track.id));
+   const listenedData = await AsyncStorage.getItem('listened');
+   const listenedList = listenedData ? JSON.parse(listenedData) : [];
+   setTrackListened(!!listenedList.find((i: any) => i.id === track.id));
 
-  const wantData = await AsyncStorage.getItem('wantToListen');
-  const wantList = wantData ? JSON.parse(wantData) : [];
-  setTrackWantToListen(!!wantList.find((i: any) => i.id === track.id));
+   const wantData = await AsyncStorage.getItem('wantToListen');
+   const wantList = wantData ? JSON.parse(wantData) : [];
+   setTrackWantToListen(!!wantList.find((i: any) => i.id === track.id));
 
-  const likedData = await AsyncStorage.getItem('liked');
-  const likedList = likedData ? JSON.parse(likedData) : [];
-  setTrackLiked(!!likedList.find((i: any) => i.id === track.id));
-}
+   const likedData = await AsyncStorage.getItem('liked');
+   const likedList = likedData ? JSON.parse(likedData) : [];
+   setTrackLiked(!!likedList.find((i: any) => i.id === track.id));
 
+   const reviewsData = await AsyncStorage.getItem('reviews');
+   const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
+   const foundReview = reviewsList.find((i: any) => i.albumId === track.id);
+   setTrackRating(foundReview ? foundReview.rating : 0);
+ }
+
+ async function openTrack(track: any) {
+   await WebBrowser.openBrowserAsync(`https://open.spotify.com/track/${track.id}`);
+ }
 
  const starWidth = 40;
  const starGap = 8;
