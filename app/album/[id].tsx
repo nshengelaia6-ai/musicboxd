@@ -219,6 +219,7 @@ export default function AlbumPage() {
             router.push({
               pathname: '/review/new',
               params: {
+                albumId: album.id,
                 albumName: album.name,
                 albumArtist: album.artists?.[0]?.name,
                 albumCover: album.images?.[0]?.url,
@@ -287,6 +288,7 @@ export default function AlbumPage() {
             router.push({
               pathname: '/review/new',
               params: {
+                albumId: selectedTrack?.id,
                 albumName: selectedTrack?.name,
                 albumArtist: selectedTrack?.artists?.[0]?.name,
                 albumCover: album?.images?.[0]?.url,
