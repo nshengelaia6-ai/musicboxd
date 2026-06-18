@@ -36,6 +36,7 @@ export default function Profile() {
  const [editAvatar, setEditAvatar] = useState<string | null>(null);
  const [avatar, setAvatar] = useState<string | null>(null);
  const [favoriteAlbums, setFavoriteAlbums] = useState<(any | null)[]>([null, null, null, null]);
+ const [pendingSlotIndex, setPendingSlotIndex] = useState<number | null>(null);
 
  useEffect(() => {
    loadReviews();
@@ -119,13 +120,7 @@ export default function Profile() {
            <TouchableOpacity
              key={i}
              style={styles.slot}
-           onPress={() => {
-  setShowSettings(false);
-  setTimeout(() => {
-    router.push({ pathname: '/search', params: { mode: 'pickAlbum', index: i } } as any);
-  }, 300);
-}}
-
+             onPress={() => router.push({ pathname: '/search', params: { mode: 'pickAlbum', index: i } } as any)}
            >
              {album && <Image source={{ uri: album.cover }} style={styles.slotImage} />}
            </TouchableOpacity>
@@ -197,7 +192,17 @@ export default function Profile() {
        </Pressable>
      </Modal>
 
-     <Modal visible={showSettings} transparent animationType="slide">
+     <Modal
+       visible={showSettings}
+       transparent
+       animationType="slide"
+       onDismiss={() => {
+         if (pendingSlotIndex !== null) {
+           router.push({ pathname: '/search', params: { mode: 'pickAlbum', index: pendingSlotIndex } } as any);
+           setPendingSlotIndex(null);
+         }
+       }}
+     >
        <View style={styles.modalOverlay}>
          <Pressable style={{ flex: 1 }} onPress={() => setShowSettings(false)} />
          <View style={[styles.bottomSheet, { paddingBottom: 40 }]}>
@@ -232,14 +237,16 @@ export default function Profile() {
              onSubmitEditing={() => Keyboard.dismiss()}
            />
 
-           {/* Favorite Albums in Settings */}
            <Text style={styles.settingsLabel}>Favorite Albums</Text>
            <View style={styles.settingsSlotsRow}>
              {favoriteAlbums.map((album, i) => (
                <TouchableOpacity
                  key={i}
                  style={styles.settingsSlot}
-                 onPress={() => router.push({ pathname: '/search', params: { mode: 'pickAlbum', index: i } } as any)}
+                 onPress={() => {
+                   setPendingSlotIndex(i);
+                   setShowSettings(false);
+                 }}
                >
                  {album
                    ? <Image source={{ uri: album.cover }} style={styles.settingsSlotImage} />
