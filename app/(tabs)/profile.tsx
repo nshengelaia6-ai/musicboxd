@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 
 const initialAlbums = [
  { id: '1', title: 'After Hours', cover: 'https://i.scdn.co/image/ab67616d0000b273ef017e899c05477da4c9a7dc' },
@@ -54,52 +54,54 @@ export default function Profile() {
 
  useEffect(() => {
    loadReviews();
+   AsyncStorage.getItem('profile').then(data => {
+     if (data) {
+       const p = JSON.parse(data);
+       setUsername(p.username || 'nia');
+       setBio(p.bio || 'music is life 🎵');
+       setEditUsername(p.username || 'nia');
+       setEditBio(p.bio || 'music is life 🎵');
+       if (p.avatar) {
+         setEditAvatar(p.avatar);
+         setAvatar(p.avatar);
+       }
+     }
+   });
  }, []);
-async function pickImage() {
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    allowsEditing: true,
-    aspect: [1, 1],
-    quality: 0.8,
-  });
-  if (!result.canceled) {
-    setEditAvatar(result.assets[0].uri);
-  }
-}
+
+ async function pickImage() {
+   const result = await ImagePicker.launchImageLibraryAsync({
+     mediaTypes: ImagePicker.MediaTypeOptions.Images,
+     allowsEditing: true,
+     aspect: [1, 1],
+     quality: 0.8,
+   });
+   if (!result.canceled) {
+     setEditAvatar(result.assets[0].uri);
+   }
+ }
 
  async function loadReviews() {
    const data = await AsyncStorage.getItem('reviews');
    if (data) setReviews(JSON.parse(data));
  }
-AsyncStorage.getItem('profile').then(data => {
-  if (data) {
-    const p = JSON.parse(data);
-    setUsername(p.username || '');
-    setBio(p.bio || '');
-    setEditUsername(p.username || '');
-    setEditBio(p.bio || '');
-    if (p.avatar) setEditAvatar(p.avatar);
-  }
-});
 
-async function saveProfile() {
-  setUsername(editUsername);
-  setBio(editBio);
-  if (editAvatar) setAvatar(editAvatar);
-  await AsyncStorage.setItem('profile', JSON.stringify({
-    username: editUsername,
-    bio: editBio,
-    avatar: editAvatar,
-  }));
-  setShowSettings(false);
-}
-
+ async function saveProfile() {
+   setUsername(editUsername);
+   setBio(editBio);
+   if (editAvatar) setAvatar(editAvatar);
+   await AsyncStorage.setItem('profile', JSON.stringify({
+     username: editUsername,
+     bio: editBio,
+     avatar: editAvatar,
+   }));
+   setShowSettings(false);
+ }
 
  return (
    <View style={{ flex: 1 }}>
      <ScrollView style={styles.container}>
 
-       {/* Header */}
        <View style={styles.header}>
          <TouchableOpacity style={styles.headerBtnLeft} onPress={() => { setEditUsername(username); setEditBio(bio); setShowSettings(true); }}>
            <Text style={styles.headerBtnText}>🎛️</Text>
@@ -107,7 +109,11 @@ async function saveProfile() {
          <TouchableOpacity style={styles.headerBtnRight} onPress={() => setShowShare(true)}>
            <Text style={styles.headerBtnText}>•••</Text>
          </TouchableOpacity>
-         <View style={styles.avatar} />
+         {avatar ? (
+           <Image source={{ uri: avatar }} style={[styles.avatar, { borderRadius: 40 }]} />
+         ) : (
+           <View style={styles.avatar} />
+         )}
          <Text style={styles.username}>@{username}</Text>
          <Text style={styles.bio}>{bio}</Text>
          <View style={styles.stats}>
@@ -126,7 +132,6 @@ async function saveProfile() {
          </View>
        </View>
 
-       {/* Favorite Albums */}
        <Text style={styles.sectionTitle}>Favorite Albums</Text>
        <View style={styles.grid}>
          {favoriteAlbums.map(album => (
@@ -142,7 +147,6 @@ async function saveProfile() {
          </View>
        </View>
 
-       {/* Favorite Artists */}
        <Text style={styles.sectionTitle}>Favorite Artists</Text>
        <View style={styles.grid}>
          {favoriteArtists.map(artist => (
@@ -158,7 +162,6 @@ async function saveProfile() {
          </View>
        </View>
 
-       {/* Recent Activity */}
        {reviews.length > 0 && (
          <>
            <Text style={styles.sectionTitle}>Recent Activity</Text>
@@ -184,33 +187,30 @@ async function saveProfile() {
          </>
        )}
 
-       {/* Menu */}
-<View style={styles.menu}>
-  {[
-    { label: 'Songs', route: '/songs' },
-    { label: 'Diary', route: '/diary' },
-    { label: 'Reviews', route: '/reviews' },
-    { label: 'Lists', route: '/lists' },
-    { label: 'Want to Listen', route: '/wanttolisten' },
-    { label: 'Likes', route: '/likes' },
-    { label: 'Following', route: '/following' },
-    { label: 'Followers', route: '/followers' },
-  ].map(item => (
-    <Pressable
-      key={item.label}
-      style={styles.menuRow}
-      onPress={() => router.push(item.route as any)}
-    >
-      <Text style={styles.menuText}>{item.label}</Text>
-      <Text style={styles.arrow}>›</Text>
-    </Pressable>
-  ))}
-</View>
-
+       <View style={styles.menu}>
+         {[
+           { label: 'Songs', route: '/songs' },
+           { label: 'Diary', route: '/diary' },
+           { label: 'Reviews', route: '/reviews' },
+           { label: 'Lists', route: '/lists' },
+           { label: 'Want to Listen', route: '/wanttolisten' },
+           { label: 'Likes', route: '/likes' },
+           { label: 'Following', route: '/following' },
+           { label: 'Followers', route: '/followers' },
+         ].map(item => (
+           <Pressable
+             key={item.label}
+             style={styles.menuRow}
+             onPress={() => router.push(item.route as any)}
+           >
+             <Text style={styles.menuText}>{item.label}</Text>
+             <Text style={styles.arrow}>›</Text>
+           </Pressable>
+         ))}
+       </View>
 
      </ScrollView>
 
-     {/* Share Modal */}
      <Modal visible={showShare} transparent animationType="slide">
        <Pressable style={styles.modalOverlay} onPress={() => setShowShare(false)}>
          <View style={styles.bottomSheet}>
@@ -226,24 +226,21 @@ async function saveProfile() {
        </Pressable>
      </Modal>
 
-     {/* Settings Modal */}
      <Modal visible={showSettings} transparent animationType="slide">
        <Pressable style={styles.modalOverlay} onPress={() => setShowSettings(false)}>
          <View style={[styles.bottomSheet, { paddingBottom: 40 }]}>
            <View style={styles.sheetHandle} />
            <Text style={styles.sheetTitle}>Settings</Text>
-         <View style={styles.settingsAvatarContainer}>
-  {editAvatar ? (
-    <Image source={{ uri: editAvatar }} style={styles.settingsAvatar} />
-  ) : (
-    <View style={styles.settingsAvatar} />
-  )}
-  <TouchableOpacity onPress={pickImage}>
-    <Text style={styles.changePhotoText}>Change</Text>
-  </TouchableOpacity>
-</View>
-
-              
+           <View style={styles.settingsAvatarContainer}>
+             {editAvatar ? (
+               <Image source={{ uri: editAvatar }} style={styles.settingsAvatar} />
+             ) : (
+               <View style={styles.settingsAvatar} />
+             )}
+             <TouchableOpacity onPress={pickImage}>
+               <Text style={styles.changePhotoText}>Change</Text>
+             </TouchableOpacity>
+           </View>
            <Text style={styles.settingsLabel}>Username</Text>
            <TextInput
              style={styles.settingsInput}
