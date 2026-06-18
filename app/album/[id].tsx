@@ -17,6 +17,15 @@ export default function AlbumPage() {
   const starsRef = useRef<View>(null);
   const starsLayout = useRef<any>(null);
 
+  // ტრექის მენიუსთვის
+  const [trackMenuVisible, setTrackMenuVisible] = useState(false);
+  const [selectedTrack, setSelectedTrack] = useState<any>(null);
+  const [trackListened, setTrackListened] = useState(false);
+  const [trackLiked, setTrackLiked] = useState(false);
+  const [trackWantToListen, setTrackWantToListen] = useState(false);
+  const [trackRating, setTrackRating] = useState(0);
+  const trackStarsLayout = useRef<any>(null);
+
   useEffect(() => { loadAlbum(); }, []);
 
   async function loadAlbum() {
@@ -32,6 +41,15 @@ export default function AlbumPage() {
 
   async function openTrack(track: any) {
     await WebBrowser.openBrowserAsync(`https://open.spotify.com/track/${track.id}`);
+  }
+
+  function openTrackMenu(track: any) {
+    setSelectedTrack(track);
+    setTrackListened(false);
+    setTrackLiked(false);
+    setTrackWantToListen(false);
+    setTrackRating(0);
+    setTrackMenuVisible(true);
   }
 
   const starWidth = 40;
@@ -57,6 +75,27 @@ export default function AlbumPage() {
     setRating(Math.max(0.5, rounded));
   }
 
+  // ცალკე PanResponder ტრექის ვარსკვლავებისთვის
+  const trackPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (e) => updateTrackRating(e.nativeEvent.pageX),
+      onPanResponderMove: (e) => updateTrackRating(e.nativeEvent.pageX),
+    })
+  ).current;
+
+  function updateTrackRating(pageX: number) {
+    if (!trackStarsLayout.current) return;
+    const { x } = trackStarsLayout.current;
+    const relX = pageX - x;
+    const totalWidth = 5 * starWidth + 4 * starGap;
+    const clamped = Math.max(0, Math.min(relX, totalWidth));
+    const raw = (clamped / totalWidth) * 5;
+    const rounded = Math.round(raw * 2) / 2;
+    setTrackRating(Math.max(0.5, rounded));
+  }
+
   function renderStars() {
     return (
       <View
@@ -68,6 +107,28 @@ export default function AlbumPage() {
         {[1, 2, 3, 4, 5].map((s) => {
           const filled = rating >= s;
           const half = !filled && rating >= s - 0.5;
+          return (
+            <View key={s} style={{ width: starWidth, alignItems: 'center' }}>
+              <Text style={[styles.star, (filled || half) && styles.starActive]}>
+                ★
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    );
+  }
+
+  function renderTrackStars() {
+    return (
+      <View
+        onLayout={(e) => { trackStarsLayout.current = e.nativeEvent.layout; }}
+        {...trackPanResponder.panHandlers}
+        style={styles.stars}
+      >
+        {[1, 2, 3, 4, 5].map((s) => {
+          const filled = trackRating >= s;
+          const half = !filled && trackRating >= s - 0.5;
           return (
             <View key={s} style={{ width: starWidth, alignItems: 'center' }}>
               <Text style={[styles.star, (filled || half) && styles.starActive]}>
@@ -98,17 +159,22 @@ export default function AlbumPage() {
         keyExtractor={(item) => item.id}
         scrollEnabled={false}
         renderItem={({ item, index }) => (
-          <TouchableOpacity style={styles.row} onPress={() => openTrack(item)}>
-            <Text style={styles.num}>{index + 1}</Text>
-            <View style={styles.info}>
-              <Text style={styles.trackName}>{item.name}</Text>
-              <Text style={styles.artist}>{item.artists?.[0]?.name}</Text>
-            </View>
-            <Text style={styles.playBtn}>▶</Text>
-          </TouchableOpacity>
+          <View style={styles.row}>
+            <TouchableOpacity style={styles.rowMain} onPress={() => openTrack(item)}>
+              <Text style={styles.num}>{index + 1}</Text>
+              <View style={styles.info}>
+                <Text style={styles.trackName}>{item.name}</Text>
+                <Text style={styles.artist}>{item.artists?.[0]?.name}</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.trackDotsBtn} onPress={() => openTrackMenu(item)}>
+              <Text style={styles.trackDots}>···</Text>
+            </TouchableOpacity>
+          </View>
         )}
       />
 
+      {/* Album Menu */}
       <Modal visible={menuVisible} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)} />
         <View style={styles.sheet}>
@@ -175,6 +241,74 @@ export default function AlbumPage() {
           </TouchableOpacity>
         </View>
       </Modal>
+
+      {/* Track Menu */}
+      <Modal visible={trackMenuVisible} transparent animationType="slide">
+        <Pressable style={styles.overlay} onPress={() => setTrackMenuVisible(false)} />
+        <View style={styles.sheet}>
+          {selectedTrack && (
+            <View style={styles.sheetHeader}>
+              <Image source={{ uri: album?.images?.[0]?.url }} style={styles.sheetCover} />
+              <View>
+                <Text style={styles.sheetTitle} numberOfLines={1}>{selectedTrack.name}</Text>
+                <Text style={styles.sheetArtist}>{selectedTrack.artists?.[0]?.name}</Text>
+              </View>
+            </View>
+          )}
+
+          <View style={styles.sheetActions}>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => setTrackListened(!trackListened)}>
+              <View style={[styles.actionIcon, trackListened && styles.actionActive]}>
+                <Text style={styles.actionEmoji}>👁</Text>
+              </View>
+              <Text style={styles.actionText}>Listened</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => setTrackLiked(!trackLiked)}>
+              <View style={[styles.actionIcon, trackLiked && styles.actionActive]}>
+                <Text style={styles.actionEmoji}>{trackLiked ? '♥' : '♡'}</Text>
+              </View>
+              <Text style={styles.actionText}>Like</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => setTrackWantToListen(!trackWantToListen)}>
+              <View style={[styles.actionIcon, trackWantToListen && styles.actionActive]}>
+                <Text style={styles.actionEmoji}>🕐</Text>
+              </View>
+              <Text style={styles.actionText}>Want to Listen</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.rateSection}>
+            <Text style={styles.rateLabel}>Rate</Text>
+            {renderTrackStars()}
+          </View>
+
+          <TouchableOpacity style={styles.menuItem} onPress={() => {
+            setTrackMenuVisible(false);
+            router.push({
+              pathname: '/review/new',
+              params: {
+                albumName: selectedTrack?.name,
+                albumArtist: selectedTrack?.artists?.[0]?.name,
+                albumCover: album?.images?.[0]?.url,
+              }
+            });
+          }}>
+            <Text style={styles.menuText}>Review or log</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuText}>Add to lists</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuText}>Share</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.doneBtn} onPress={() => setTrackMenuVisible(false)}>
+            <Text style={styles.doneBtnText}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -188,11 +322,13 @@ const styles = StyleSheet.create({
   dotsBtn: { position: 'absolute', top: 60, right: 20, padding: 8 },
   dots: { color: 'white', fontSize: 24 },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
+  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   num: { color: '#555', fontSize: 14, width: 28 },
   info: { flex: 1 },
   trackName: { color: 'white', fontSize: 15 },
   artist: { color: '#888', fontSize: 13, marginTop: 2 },
-  playBtn: { fontSize: 16, color: '#1DB954' },
+  trackDotsBtn: { padding: 8, paddingLeft: 12 },
+  trackDots: { color: '#888', fontSize: 20 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: { backgroundColor: '#1c1c1e', padding: 24, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
