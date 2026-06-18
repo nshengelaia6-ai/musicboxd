@@ -50,18 +50,24 @@ export default function AlbumPage() {
    setLiked(!!likedList.find((i: any) => i.id === data.id));
  }
 
- async function openTrack(track: any) {
-   await WebBrowser.openBrowserAsync(`https://open.spotify.com/track/${track.id}`);
- }
+ async function openTrackMenu(track: any) {
+  setSelectedTrack(track);
+  setTrackRating(0);
+  setTrackMenuVisible(true);
 
- function openTrackMenu(track: any) {
-   setSelectedTrack(track);
-   setTrackListened(false);
-   setTrackLiked(false);
-   setTrackWantToListen(false);
-   setTrackRating(0);
-   setTrackMenuVisible(true);
- }
+  const listenedData = await AsyncStorage.getItem('listened');
+  const listenedList = listenedData ? JSON.parse(listenedData) : [];
+  setTrackListened(!!listenedList.find((i: any) => i.id === track.id));
+
+  const wantData = await AsyncStorage.getItem('wantToListen');
+  const wantList = wantData ? JSON.parse(wantData) : [];
+  setTrackWantToListen(!!wantList.find((i: any) => i.id === track.id));
+
+  const likedData = await AsyncStorage.getItem('liked');
+  const likedList = likedData ? JSON.parse(likedData) : [];
+  setTrackLiked(!!likedList.find((i: any) => i.id === track.id));
+}
+
 
  const starWidth = 40;
  const starGap = 8;
