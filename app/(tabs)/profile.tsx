@@ -225,9 +225,7 @@ async function pickImage() {
   </TouchableOpacity>
 </View>
 
-               <Text style={styles.changePhotoText}>Change</Text>
-             </TouchableOpacity>
-           </View>
+              
            <Text style={styles.settingsLabel}>Username</Text>
            <TextInput
              style={styles.settingsInput}
