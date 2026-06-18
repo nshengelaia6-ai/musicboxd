@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 function Stars({ count }: { count: number }) {
   const full = Math.floor(count);
@@ -26,6 +26,7 @@ function groupByMonth(entries: any[]) {
 export default function DiaryScreen() {
   const router = useRouter();
   const [reviews, setReviews] = useState<any[]>([]);
+  const [tab, setTab] = useState<'albums' | 'tracks'>('albums');
 
   useEffect(() => {
     AsyncStorage.getItem('reviews').then(data => {
@@ -44,9 +45,43 @@ export default function DiaryScreen() {
         <Text style={styles.headerTitle}>Songs Diary</Text>
       </View>
 
+      <View style={styles.tabs}>
+        <TouchableOpacity
+          style={[styles.tab, tab === 'albums' && styles.tabActive]}
+          onPress={() => setTab('albums')}
+        >
+          <Text style={[styles.tabText, tab === 'albums' && styles.tabTextActive]}>Albums</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, tab === 'tracks' && styles.tabActive]}
+          onPress={() => setTab('tracks')}
+        >
+          <Text style={[styles.tabText, tab === 'tracks' && styles.tabTextActive]}>Tracks</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView>
         {reviews.length === 0 ? (
-          <Text style={styles.empty}>ჯერ არ გაქვს reviews</Text>
+          <Text style={styles.empty}>ჯერ არ გაქვს entries</Text>
+        ) : tab === 'albums' ? (
+          Object.entries(grouped).map(([month, entries]) => (
+            <View key={month}>
+              <View style={styles.monthHeader}>
+                <Text style={styles.monthText}>{month}</Text>
+              </View>
+              <View style={styles.grid}>
+                {entries.map(entry => (
+                  <View key={entry.id} style={styles.gridItem}>
+                    {entry.albumCover
+                      ? <Image source={{ uri: entry.albumCover }} style={styles.gridCover} />
+                      : <View style={[styles.gridCover, { backgroundColor: '#2a2a2a' }]} />}
+                    <Stars count={entry.rating} />
+                    <Text style={styles.gridTitle} numberOfLines={1}>{entry.albumName}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ))
         ) : (
           Object.entries(grouped).map(([month, entries]) => (
             <View key={month}>
@@ -84,21 +119,22 @@ export default function DiaryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#141414' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 60,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#222',
-  },
+  header: { flexDirection: 'row', alignItems: 'center', paddingTop: 60, paddingBottom: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#222' },
   backBtn: { marginRight: 12 },
   backText: { color: '#fff', fontSize: 32, lineHeight: 36 },
   headerTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
+  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#222' },
+  tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: '#1DB954' },
+  tabText: { color: '#888', fontSize: 15 },
+  tabTextActive: { color: '#fff', fontWeight: 'bold' },
   empty: { color: '#555', paddingHorizontal: 20, paddingVertical: 20 },
   monthHeader: { backgroundColor: '#1e1e1e', paddingHorizontal: 20, paddingVertical: 8 },
   monthText: { color: '#888', fontSize: 12, fontWeight: '700', letterSpacing: 1 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingVertical: 12, gap: 8 },
+  gridItem: { width: '23%', alignItems: 'center' },
+  gridCover: { width: '100%', aspectRatio: 1, borderRadius: 4, backgroundColor: '#2a2a2a' },
+  gridTitle: { color: '#ccc', fontSize: 10, marginTop: 3, textAlign: 'center' },
   diaryRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 },
   diaryDay: { color: '#555', fontSize: 16, fontWeight: 'bold', width: 28, textAlign: 'center' },
   diaryCover: { width: 48, height: 48, borderRadius: 4 },
