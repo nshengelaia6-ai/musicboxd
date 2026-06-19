@@ -117,13 +117,9 @@ export default function Profile() {
        <Text style={styles.sectionTitle}>FAVORITE ALBUMS</Text>
        <View style={styles.slotsRow}>
          {favoriteAlbums.map((album, i) => (
-           <TouchableOpacity
-             key={i}
-             style={styles.slot}
-             onPress={() => router.push({ pathname: '/search', params: { mode: 'pickAlbum', index: i } } as any)}
-           >
+           <View key={i} style={styles.slot}>
              {album && <Image source={{ uri: album.cover }} style={styles.slotImage} />}
-           </TouchableOpacity>
+           </View>
          ))}
        </View>
 
@@ -198,7 +194,7 @@ export default function Profile() {
        animationType="slide"
        onDismiss={() => {
          if (pendingSlotIndex !== null) {
-           router.push({ pathname: '/search', params: { mode: 'pickAlbum', index: pendingSlotIndex } } as any);
+           router.push({ pathname: '/pick-album', params: { index: pendingSlotIndex } } as any);
            setPendingSlotIndex(null);
          }
        }}
