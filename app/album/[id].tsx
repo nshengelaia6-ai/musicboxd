@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useRef, useState } from 'react';
-import { FlatList, Image, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function AlbumPage() {
   const { id } = useLocalSearchParams();
@@ -14,8 +14,6 @@ export default function AlbumPage() {
   const [liked, setLiked] = useState(false);
   const [wantToListen, setWantToListen] = useState(false);
   const [rating, setRating] = useState(0);
-  const starsRef = useRef<View>(null);
-  const starsLayout = useRef<any>(null);
 
   const [trackMenuVisible, setTrackMenuVisible] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
@@ -23,8 +21,6 @@ export default function AlbumPage() {
   const [trackLiked, setTrackLiked] = useState(false);
   const [trackWantToListen, setTrackWantToListen] = useState(false);
   const [trackRating, setTrackRating] = useState(0);
-  const trackStarsRef = useRef<View>(null);
-  const trackStarsLayout = useRef<any>(null);
 
   useEffect(() => { loadAlbum(); }, []);
 
@@ -85,24 +81,7 @@ export default function AlbumPage() {
   const starWidth = 40;
   const starGap = 8;
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e) => updateRating(e.nativeEvent.pageX),
-      onPanResponderMove: (e) => updateRating(e.nativeEvent.pageX),
-    })
-  ).current;
-
-  function updateRating(pageX: number) {
-    if (!starsLayout.current) return;
-    const { x } = starsLayout.current;
-    const relX = pageX - x;
-    const totalWidth = 5 * starWidth + 4 * starGap;
-    const clamped = Math.max(0, Math.min(relX, totalWidth));
-    const raw = (clamped / totalWidth) * 5;
-    const rounded = Math.round(raw * 2) / 2;
-    const newRating = Math.max(0.5, rounded);
+  function updateRating(newRating: number) {
     setRating(newRating);
     AsyncStorage.getItem('reviews').then(existing => {
       const list = existing ? JSON.parse(existing) : [];
@@ -116,24 +95,7 @@ export default function AlbumPage() {
     });
   }
 
-  const trackPanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e) => updateTrackRating(e.nativeEvent.pageX),
-      onPanResponderMove: (e) => updateTrackRating(e.nativeEvent.pageX),
-    })
-  ).current;
-
-  function updateTrackRating(pageX: number) {
-    if (!trackStarsLayout.current) return;
-    const { x } = trackStarsLayout.current;
-    const relX = pageX - x;
-    const totalWidth = 5 * starWidth + 4 * starGap;
-    const clamped = Math.max(0, Math.min(relX, totalWidth));
-    const raw = (clamped / totalWidth) * 5;
-    const rounded = Math.round(raw * 2) / 2;
-    const newRating = Math.max(0.5, rounded);
+  function updateTrackRating(newRating: number) {
     setTrackRating(newRating);
     AsyncStorage.getItem('reviews').then(existing => {
       const list = existing ? JSON.parse(existing) : [];
@@ -149,28 +111,26 @@ export default function AlbumPage() {
 
   function renderStars() {
     return (
-      <View
-        ref={starsRef}
-        onLayout={() => {
-          // measure() აბსოლუტურ (page) კოორდინატს აბრუნებს, onLayout-ის x კი parent-ფარდობითია — ეს იყო ბაგი
-          starsRef.current?.measure((x, y, width, height, pageX, pageY) => {
-            starsLayout.current = { x: pageX, y: pageY, width, height };
-          });
-        }}
-        {...panResponder.panHandlers}
-        style={styles.stars}
-      >
+      <View style={styles.stars}>
         {[1, 2, 3, 4, 5].map((s) => {
           const filled = rating >= s;
           const half = !filled && rating >= s - 0.5;
           return (
-            <View key={s} style={{ width: starWidth, height: starWidth, alignItems: 'center', justifyContent: 'center' }}>
+            <View key={s} style={{ width: starWidth, height: starWidth }}>
               <Text style={styles.star}>★</Text>
               {(filled || half) && (
                 <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', width: filled ? starWidth : starWidth / 2 }]}>
                   <Text style={styles.starActive}>★</Text>
                 </View>
               )}
+              <Pressable
+                style={[StyleSheet.absoluteFillObject, { left: 0, width: starWidth / 2 }]}
+                onPress={() => updateRating(s - 0.5)}
+              />
+              <Pressable
+                style={[StyleSheet.absoluteFillObject, { left: starWidth / 2, width: starWidth / 2 }]}
+                onPress={() => updateRating(s)}
+              />
             </View>
           );
         })}
@@ -180,27 +140,26 @@ export default function AlbumPage() {
 
   function renderTrackStars() {
     return (
-      <View
-        ref={trackStarsRef}
-        onLayout={() => {
-          trackStarsRef.current?.measure((x, y, width, height, pageX, pageY) => {
-            trackStarsLayout.current = { x: pageX, y: pageY, width, height };
-          });
-        }}
-        {...trackPanResponder.panHandlers}
-        style={styles.stars}
-      >
+      <View style={styles.stars}>
         {[1, 2, 3, 4, 5].map((s) => {
           const filled = trackRating >= s;
           const half = !filled && trackRating >= s - 0.5;
           return (
-            <View key={s} style={{ width: starWidth, height: starWidth, alignItems: 'center', justifyContent: 'center' }}>
+            <View key={s} style={{ width: starWidth, height: starWidth }}>
               <Text style={styles.star}>★</Text>
               {(filled || half) && (
                 <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', width: filled ? starWidth : starWidth / 2 }]}>
                   <Text style={styles.starActive}>★</Text>
                 </View>
               )}
+              <Pressable
+                style={[StyleSheet.absoluteFillObject, { left: 0, width: starWidth / 2 }]}
+                onPress={() => updateTrackRating(s - 0.5)}
+              />
+              <Pressable
+                style={[StyleSheet.absoluteFillObject, { left: starWidth / 2, width: starWidth / 2 }]}
+                onPress={() => updateTrackRating(s)}
+              />
             </View>
           );
         })}
@@ -499,8 +458,8 @@ const styles = StyleSheet.create({
   rateSection: { alignItems: 'center', marginBottom: 24 },
   rateLabel: { color: '#888', fontSize: 13, marginBottom: 10 },
   stars: { flexDirection: 'row' },
-  star: { fontSize: 36, color: '#333' },
-  starActive: { color: '#ffb6c1' },
+  star: { fontSize: 36, color: '#333', textAlign: 'center' },
+  starActive: { color: '#ffb6c1', fontSize: 36, textAlign: 'center' },
   ratingValue: { color: '#888', fontSize: 13, marginTop: 8 },
   menuItem: { paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#2a2a2a', alignItems: 'center' },
   menuText: { color: 'white', fontSize: 16 },
