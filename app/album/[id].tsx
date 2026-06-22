@@ -312,7 +312,7 @@ function renderTrackStars() {
           <View style={styles.rateSection}>
             <Text style={styles.rateLabel}>Rate</Text>
             {renderStars()}
-            {rating > 0 && <Text style={styles.ratingValue}>{rating} / 5</Text>}
+            
           </View>
 
           <TouchableOpacity style={styles.menuItem} onPress={() => {
