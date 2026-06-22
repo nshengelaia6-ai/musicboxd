@@ -79,9 +79,6 @@ export default function AlbumPage() {
     await WebBrowser.openBrowserAsync(`https://open.spotify.com/track/${track.id}`);
   }
 
-  const starWidth = 40;
-  const starGap = 8;
-
   function updateRating(newRating: number) {
     setRating(newRating);
     AsyncStorage.getItem('reviews').then(existing => {
@@ -108,64 +105,6 @@ export default function AlbumPage() {
       }
       AsyncStorage.setItem('reviews', JSON.stringify(list));
     });
-  }
-
-  function renderStars() {
-    return (
-      <View style={styles.stars}>
-        {[1, 2, 3, 4, 5].map((s) => {
-          const filled = rating >= s;
-          const half = !filled && rating >= s - 0.5;
-          return (
-            <View key={s} style={{ width: starWidth, height: starWidth }}>
-              <Text style={styles.star}>★</Text>
-              {(filled || half) && (
-                <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', width: filled ? starWidth : starWidth / 2 }]}>
-                  <Text style={styles.starActive}>★</Text>
-                </View>
-              )}
-              <Pressable
-                style={[StyleSheet.absoluteFillObject, { left: 0, width: starWidth / 2 }]}
-                onPress={() => updateRating(s - 0.5)}
-              />
-              <Pressable
-                style={[StyleSheet.absoluteFillObject, { left: starWidth / 2, width: starWidth / 2 }]}
-                onPress={() => updateRating(s)}
-              />
-            </View>
-          );
-        })}
-      </View>
-    );
-  }
-
-  function renderTrackStars() {
-    return (
-      <View style={styles.stars}>
-        {[1, 2, 3, 4, 5].map((s) => {
-          const filled = trackRating >= s;
-          const half = !filled && trackRating >= s - 0.5;
-          return (
-            <View key={s} style={{ width: starWidth, height: starWidth }}>
-              <Text style={styles.star}>★</Text>
-              {(filled || half) && (
-                <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', width: filled ? starWidth : starWidth / 2 }]}>
-                  <Text style={styles.starActive}>★</Text>
-                </View>
-              )}
-              <Pressable
-                style={[StyleSheet.absoluteFillObject, { left: 0, width: starWidth / 2 }]}
-                onPress={() => updateTrackRating(s - 0.5)}
-              />
-              <Pressable
-                style={[StyleSheet.absoluteFillObject, { left: starWidth / 2, width: starWidth / 2 }]}
-                onPress={() => updateTrackRating(s)}
-              />
-            </View>
-          );
-        })}
-      </View>
-    );
   }
 
   return (
@@ -281,7 +220,7 @@ export default function AlbumPage() {
 
           <View style={styles.rateSection}>
             <Text style={styles.rateLabel}>Rate</Text>
-            {renderStars()}
+            <StarRating rating={rating} onChange={updateRating} />
           </View>
 
           <TouchableOpacity style={styles.menuItem} onPress={() => {
@@ -393,7 +332,7 @@ export default function AlbumPage() {
 
           <View style={styles.rateSection}>
             <Text style={styles.rateLabel}>Rate</Text>
-            {renderTrackStars()}
+            <StarRating rating={trackRating} onChange={updateTrackRating} />
           </View>
 
           <TouchableOpacity style={styles.menuItem} onPress={() => {
@@ -458,10 +397,6 @@ const styles = StyleSheet.create({
   actionText: { color: '#aaa', fontSize: 12 },
   rateSection: { alignItems: 'center', marginBottom: 24 },
   rateLabel: { color: '#888', fontSize: 13, marginBottom: 10 },
-  stars: { flexDirection: 'row' },
-  star: { fontSize: 36, color: '#333', textAlign: 'center' },
-  starActive: { color: '#ffb6c1', fontSize: 36, textAlign: 'center' },
-  ratingValue: { color: '#888', fontSize: 13, marginTop: 8 },
   menuItem: { paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#2a2a2a', alignItems: 'center' },
   menuText: { color: 'white', fontSize: 16 },
   doneBtn: { backgroundColor: '#2a2a2a', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
