@@ -147,45 +147,56 @@ export default function AlbumPage() {
   }
 
   function renderStars() {
-    return (
-      <View
-        ref={starsRef}
-        onLayout={(e) => { starsLayout.current = e.nativeEvent.layout; }}
-        {...panResponder.panHandlers}
-        style={styles.stars}
-      >
-        {[1, 2, 3, 4, 5].map((s) => {
-          const filled = rating >= s;
-          const half = !filled && rating >= s - 0.5;
-          return (
-            <View key={s} style={{ width: starWidth, alignItems: 'center' }}>
-              <Text style={[styles.star, (filled || half) && styles.starActive]}>★</Text>
-            </View>
-          );
-        })}
-      </View>
-    );
-  }
+  return (
+    <View
+      ref={starsRef}
+      onLayout={(e) => { starsLayout.current = e.nativeEvent.layout; }}
+      {...panResponder.panHandlers}
+      style={styles.stars}
+    >
+      {[1, 2, 3, 4, 5].map((s) => {
+        const filled = rating >= s;
+        const half = !filled && rating >= s - 0.5;
+        return (
+          <View key={s} style={{ width: starWidth, height: starWidth, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={styles.star}>★</Text>
+            {(filled || half) && (
+              <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', width: filled ? starWidth : starWidth / 2 }]}>
+                <Text style={styles.starActive}>★</Text>
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
-  function renderTrackStars() {
-    return (
-      <View
-        onLayout={(e) => { trackStarsLayout.current = e.nativeEvent.layout; }}
-        {...trackPanResponder.panHandlers}
-        style={styles.stars}
-      >
-        {[1, 2, 3, 4, 5].map((s) => {
-          const filled = trackRating >= s;
-          const half = !filled && trackRating >= s - 0.5;
-          return (
-            <View key={s} style={{ width: starWidth, alignItems: 'center' }}>
-              <Text style={[styles.star, (filled || half) && styles.starActive]}>★</Text>
-            </View>
-          );
-        })}
-      </View>
-    );
-  }
+function renderTrackStars() {
+  return (
+    <View
+      onLayout={(e) => { trackStarsLayout.current = e.nativeEvent.layout; }}
+      {...trackPanResponder.panHandlers}
+      style={styles.stars}
+    >
+      {[1, 2, 3, 4, 5].map((s) => {
+        const filled = trackRating >= s;
+        const half = !filled && trackRating >= s - 0.5;
+        return (
+          <View key={s} style={{ width: starWidth, height: starWidth, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={styles.star}>★</Text>
+            {(filled || half) && (
+              <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', width: filled ? starWidth : starWidth / 2 }]}>
+                <Text style={styles.starActive}>★</Text>
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 
   return (
     <ScrollView style={styles.container}>
