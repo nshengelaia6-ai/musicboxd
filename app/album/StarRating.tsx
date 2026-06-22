@@ -20,7 +20,8 @@ export default function StarRating({
 
   function ratingFromX(x: number) {
     const raw = x / starWidth + 1;
-    const clamped = Math.max(0.5, Math.min(starCount, raw));
+    const clamped = Math.max(0, Math.min(starCount, raw));
+
     return Math.round(clamped * 2) / 2;
   }
 
