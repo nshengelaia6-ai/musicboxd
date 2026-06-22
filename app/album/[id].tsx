@@ -122,7 +122,8 @@ export default function AlbumPage() {
       )}
       <FlatList
         data={tracks}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => item.albumId ? `${item.albumId}-${item.date}` : index.toString()}
+
         scrollEnabled={false}
         renderItem={({ item, index }) => (
           <View style={styles.row}>
