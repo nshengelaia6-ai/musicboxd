@@ -54,7 +54,8 @@ export default function DiaryScreen() {
                 <Text style={styles.monthText}>{month}</Text>
               </View>
               {entries.map((entry, index) => (
-               <View key={entry.id ?? `${entry.albumId}-${entry.date}-${index}`} style={styles.diaryR...
+               <View key={entry.id ?? `${entry.albumId}-${entry.date}-${index}`} style={styles.diaryRow}>
+
 
                   <Text style={styles.diaryDay}>
                     {new Date(entry.date).getDate()}
