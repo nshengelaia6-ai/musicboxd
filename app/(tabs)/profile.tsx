@@ -53,6 +53,16 @@ export default function Profile() {
    });
  }, []);
 
+ useEffect(() => {
+   if (!showSettings && pendingSlotIndex !== null) {
+     const idx = pendingSlotIndex;
+     setPendingSlotIndex(null);
+     setTimeout(() => {
+       router.push({ pathname: '/pick-album', params: { index: idx } } as any);
+     }, 100);
+   }
+ }, [showSettings]);
+
  async function pickImage() {
    const result = await ImagePicker.launchImageLibraryAsync({
      mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -192,12 +202,6 @@ export default function Profile() {
        visible={showSettings}
        transparent
        animationType="slide"
-       onDismiss={() => {
-         if (pendingSlotIndex !== null) {
-           router.push({ pathname: '/pick-album', params: { index: pendingSlotIndex } } as any);
-           setPendingSlotIndex(null);
-         }
-       }}
      >
        <View style={styles.modalOverlay}>
          <Pressable style={{ flex: 1 }} onPress={() => setShowSettings(false)} />
