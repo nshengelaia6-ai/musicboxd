@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -41,6 +41,8 @@ export default function Lists() {
 
  return (
    <View style={styles.container}>
+     <Stack.Screen options={{ headerShown: false }} />
+
      <View style={styles.header}>
        <TouchableOpacity onPress={() => router.back()}>
          <Text style={styles.back}>‹</Text>
@@ -135,7 +137,7 @@ export default function Lists() {
 
 const styles = StyleSheet.create({
  container: { flex: 1, backgroundColor: '#141414' },
- header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16 },
+ header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#222' },
  back: { color: '#fff', fontSize: 32, lineHeight: 36 },
  title: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
  plus: { color: '#1DB954', fontSize: 32, lineHeight: 36 },
