@@ -137,25 +137,21 @@ export default function Profile() {
        {reviews.length > 0 && (
          <>
            <Text style={styles.sectionTitle}>RECENT ACTIVITY</Text>
-           <FlatList
-             horizontal
-             data={reviews.slice(0, 10)}
-             keyExtractor={item => item.id}
-             showsHorizontalScrollIndicator={false}
-             contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
-             renderItem={({ item }) => (
-               <View style={styles.activityCard}>
-                 {item.albumCover
-                   ? <Image source={{ uri: item.albumCover }} style={styles.activityCover} />
-                   : <View style={[styles.activityCover, { backgroundColor: '#2a2a2a' }]} />}
-                 <View style={styles.activityBadge}>
-                   <Text style={styles.activityBadgeText}>{item.review ? '✎' : '★'}</Text>
-                 </View>
-                 <Text style={styles.activityRating}>{'★'.repeat(Math.floor(item.rating))}</Text>
-                 <Text style={styles.activityAlbum} numberOfLines={1}>{item.albumName}</Text>
-               </View>
-             )}
-           />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
+  {reviews.slice(0, 10).map(item => (
+    <View key={item.id} style={styles.activityCard}>
+      {item.albumCover
+        ? <Image source={{ uri: item.albumCover }} style={styles.activityCover} />
+        : <View style={[styles.activityCover, { backgroundColor: '#2a2a2a' }]} />}
+      <View style={styles.activityBadge}>
+        <Text style={styles.activityBadgeText}>{item.review ? '✎' : '★'}</Text>
+      </View>
+      <Text style={styles.activityRating}>{'★'.repeat(Math.floor(item.rating))}</Text>
+      <Text style={styles.activityAlbum} numberOfLines={1}>{item.albumName}</Text>
+    </View>
+  ))}
+</ScrollView>
+
          </>
        )}
 
