@@ -39,15 +39,17 @@ export default function Reviews() {
               style={styles.card}
               onPress={() => router.push({
                 pathname: '/review/detail',
-                params: {
-                  id: item.id,
-                  albumName: item.albumName,
-                  albumArtist: item.albumArtist,
-                  albumCover: item.albumCover,
-                  rating: item.rating,
-                  review: item.review,
-                  date: item.date,
-                }
+             params: {
+  id: item.id,
+  albumId: item.albumId,
+  albumName: item.albumName,
+  albumArtist: item.albumArtist,
+  albumCover: item.albumCover,
+  rating: item.rating,
+  review: item.review,
+  date: item.date,
+}
+
               })}
             >
               {item.albumCover
