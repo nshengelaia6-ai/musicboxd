@@ -15,8 +15,22 @@ export default function ArtistPage() {
    loadArtist();
  }, []);
 
+ async function getToken() {
+   let token = await AsyncStorage.getItem('spotify_token');
+   if (!token) return null;
+   const test = await fetch('https://api.spotify.com/v1/me', {
+     headers: { Authorization: `Bearer ${token}` },
+   });
+   if (test.status === 401) {
+     await AsyncStorage.removeItem('spotify_token');
+     router.replace('/');
+     return null;
+   }
+   return token;
+ }
+
  async function loadArtist() {
-   const token = await AsyncStorage.getItem('spotify_token');
+   const token = await getToken();
    if (!token) return;
 
    const artistRes = await fetch(`https://api.spotify.com/v1/artists/${id}`, {
@@ -26,8 +40,7 @@ export default function ArtistPage() {
    setArtist(artistData);
 
    const albumsRes = await fetch(
-      `https://api.spotify.com/v1/artists/${id}/albums?limit=50&include_groups=album,single`,
-
+     `https://api.spotify.com/v1/artists/${id}/albums?limit=50&include_groups=album,single`,
      { headers: { Authorization: `Bearer ${token}` } }
    );
    const albumsData = await albumsRes.json();
@@ -90,20 +103,25 @@ export default function ArtistPage() {
      </ImageBackground>
 
      <Text style={styles.heading}>Albums & Singles</Text>
-     <FlatList
-       data={albums}
-       keyExtractor={(item) => item.id}
-       scrollEnabled={false}
-       renderItem={({ item }) => (
-         <TouchableOpacity style={styles.row} onPress={() => router.push(`/album/${item.id}`)}>
-           <Image source={{ uri: item.images?.[0]?.url }} style={styles.cover} />
-           <View style={styles.info}>
-             <Text style={styles.albumName}>{item.name}</Text>
-             <Text style={styles.albumMeta}>{item.album_type} • {item.release_date?.slice(0, 4)}</Text>
-           </View>
-         </TouchableOpacity>
-       )}
-     />
+
+     {albums.length === 0 ? (
+       <Text style={styles.empty}>იტვირთება...</Text>
+     ) : (
+       <FlatList
+         data={albums}
+         keyExtractor={(item) => item.id}
+         scrollEnabled={false}
+         renderItem={({ item }) => (
+           <TouchableOpacity style={styles.row} onPress={() => router.push(`/album/${item.id}`)}>
+             <Image source={{ uri: item.images?.[0]?.url }} style={styles.cover} />
+             <View style={styles.info}>
+               <Text style={styles.albumName}>{item.name}</Text>
+               <Text style={styles.albumMeta}>{item.album_type} • {item.release_date?.slice(0, 4)}</Text>
+             </View>
+           </TouchableOpacity>
+         )}
+       />
+     )}
 
      {/* About - სულ ბოლოს */}
      {artist && (
@@ -126,7 +144,6 @@ export default function ArtistPage() {
 
      <View style={{ height: 40 }} />
 
-     {/* Menu Modal */}
      <Modal visible={menuVisible} transparent animationType="slide">
        <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)} />
        <View style={styles.sheet}>
@@ -159,6 +176,7 @@ const styles = StyleSheet.create({
  followBtnText: { color: 'white', fontSize: 14, fontWeight: '600' },
  followBtnTextActive: { color: '#0a0a0a' },
  heading: { color: 'white', fontSize: 20, fontWeight: 'bold', margin: 16 },
+ empty: { color: '#555', paddingHorizontal: 16, paddingVertical: 8 },
  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 12 },
  cover: { width: 60, height: 60, borderRadius: 6 },
  info: { flex: 1 },
