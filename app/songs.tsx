@@ -42,6 +42,8 @@ export default function SongsScreen() {
         return true;
       });
       setListened(unique);
+await AsyncStorage.setItem('listened', JSON.stringify(unique));
+
     }
   });
 }, []);
