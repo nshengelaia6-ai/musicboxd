@@ -41,17 +41,18 @@ export default function Lists() {
 
  return (
    <View style={styles.container}>
-     <Stack.Screen options={{ headerShown: false }} />
-
-     <View style={styles.header}>
-       <TouchableOpacity onPress={() => router.back()}>
-         <Text style={styles.back}>‹</Text>
-       </TouchableOpacity>
-       <Text style={styles.title}>Lists</Text>
-       <TouchableOpacity onPress={() => setShowCreate(true)}>
-         <Text style={styles.plus}>+</Text>
-       </TouchableOpacity>
-     </View>
+     <Stack.Screen options={{
+       headerShown: true,
+       title: 'Lists',
+       headerStyle: { backgroundColor: '#141414' },
+       headerTintColor: '#fff',
+       headerTitleStyle: { fontWeight: 'bold' },
+       headerRight: () => (
+         <TouchableOpacity onPress={() => setShowCreate(true)}>
+           <Text style={{ color: '#1DB954', fontSize: 28, marginRight: 8 }}>+</Text>
+         </TouchableOpacity>
+       ),
+     }} />
 
      {lists.length === 0 ? (
        <View style={styles.empty}>
@@ -137,11 +138,6 @@ export default function Lists() {
 
 const styles = StyleSheet.create({
  container: { flex: 1, backgroundColor: '#141414' },
- header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#222' },
-
- back: { color: '#fff', fontSize: 32, lineHeight: 36 },
- title: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
- plus: { color: '#1DB954', fontSize: 32, lineHeight: 36 },
  empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
  emptyText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
  emptySubtext: { color: '#666', fontSize: 14, marginTop: 8 },
