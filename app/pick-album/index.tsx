@@ -81,4 +81,3 @@ const styles = StyleSheet.create({
   name: { color: '#fff', fontSize: 15, fontWeight: '600' },
   artist: { color: '#888', fontSize: 13 },
 });
-EOF
