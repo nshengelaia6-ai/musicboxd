@@ -33,7 +33,8 @@ export default function Reviews() {
       ) : (
         <FlatList
           data={reviews}
-          keyExtractor={item => item.id}
+          keyExtractor={(item, index) => item.id ?? index.toString()}
+
           contentContainerStyle={{ padding: 16 }}
           renderItem={({ item }) => (
             <View style={styles.card}>
