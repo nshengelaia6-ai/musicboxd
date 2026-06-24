@@ -1,9 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
-
+import { useState } from 'react';
 import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import StarRating from './StarRating';
 
@@ -25,7 +24,11 @@ export default function AlbumPage() {
  const [trackWantToListen, setTrackWantToListen] = useState(false);
  const [trackRating, setTrackRating] = useState(0);
 
- useEffect(() => { loadAlbum(); }, []);
+ useFocusEffect(
+   useCallback(() => {
+     loadAlbum();
+   }, [id])
+ );
 
  async function loadAlbum() {
    const token = await AsyncStorage.getItem('spotify_token');
@@ -84,16 +87,17 @@ export default function AlbumPage() {
  function updateRating(newRating: number) {
    setRating(newRating);
 
-   if (!listened) {
-     setListened(true);
-     AsyncStorage.getItem('listened').then(existing => {
-       const list = existing ? JSON.parse(existing) : [];
-       if (!list.find((i: any) => i.id === album?.id)) {
-         list.unshift({ id: album?.id, name: album?.name, cover: album?.images?.[0]?.url, type: 'album', rating: newRating, date: new Date().toISOString() });
-         AsyncStorage.setItem('listened', JSON.stringify(list));
-       }
-     });
-   }
+   AsyncStorage.getItem('listened').then(existing => {
+     const list = existing ? JSON.parse(existing) : [];
+     const idx = list.findIndex((i: any) => i.id === album?.id);
+     if (idx !== -1) {
+       list[idx].rating = newRating;
+     } else {
+       setListened(true);
+       list.unshift({ id: album?.id, name: album?.name, cover: album?.images?.[0]?.url, type: 'album', rating: newRating, date: new Date().toISOString() });
+     }
+     AsyncStorage.setItem('listened', JSON.stringify(list));
+   });
 
    AsyncStorage.getItem('reviews').then(existing => {
      const list = existing ? JSON.parse(existing) : [];
@@ -110,16 +114,17 @@ export default function AlbumPage() {
  function updateTrackRating(newRating: number) {
    setTrackRating(newRating);
 
-   if (!trackListened) {
-     setTrackListened(true);
-     AsyncStorage.getItem('listened').then(existing => {
-       const list = existing ? JSON.parse(existing) : [];
-       if (!list.find((i: any) => i.id === selectedTrack?.id)) {
-         list.unshift({ id: selectedTrack?.id, name: selectedTrack?.name, cover: album?.images?.[0]?.url, type: 'track', rating: newRating, date: new Date().toISOString() });
-         AsyncStorage.setItem('listened', JSON.stringify(list));
-       }
-     });
-   }
+   AsyncStorage.getItem('listened').then(existing => {
+     const list = existing ? JSON.parse(existing) : [];
+     const idx = list.findIndex((i: any) => i.id === selectedTrack?.id);
+     if (idx !== -1) {
+       list[idx].rating = newRating;
+     } else {
+       setTrackListened(true);
+       list.unshift({ id: selectedTrack?.id, name: selectedTrack?.name, cover: album?.images?.[0]?.url, type: 'track', rating: newRating, date: new Date().toISOString() });
+     }
+     AsyncStorage.setItem('listened', JSON.stringify(list));
+   });
 
    AsyncStorage.getItem('reviews').then(existing => {
      const list = existing ? JSON.parse(existing) : [];
@@ -148,7 +153,7 @@ export default function AlbumPage() {
      )}
      <FlatList
        data={tracks}
-       keyExtractor={(item, index) => item.id ? item.id : index.toString()}
+       keyExtractor={(item, index) => item.id ? `${item.id}-${index}` : index.toString()}
        scrollEnabled={false}
        renderItem={({ item, index }) => (
          <View style={styles.row}>
