@@ -13,8 +13,7 @@ export default function Reviews() {
 
   async function loadReviews() {
     const data = await AsyncStorage.getItem('reviews');
-  if (data) setReviews(JSON.parse(data).filter((r: any) => r.review && r.review.trim() !== ''));
-
+    if (data) setReviews(JSON.parse(data).filter((r: any) => r.review && r.review.trim() !== ''));
   }
 
   return (
@@ -34,10 +33,23 @@ export default function Reviews() {
         <FlatList
           data={reviews}
           keyExtractor={(item, index) => item.id ?? index.toString()}
-
           contentContainerStyle={{ padding: 16 }}
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => router.push({
+                pathname: '/review/detail',
+                params: {
+                  id: item.id,
+                  albumName: item.albumName,
+                  albumArtist: item.albumArtist,
+                  albumCover: item.albumCover,
+                  rating: item.rating,
+                  review: item.review,
+                  date: item.date,
+                }
+              })}
+            >
               {item.albumCover
                 ? <Image source={{ uri: item.albumCover }} style={styles.cover} />
                 : <View style={[styles.cover, { backgroundColor: '#2a2a2a' }]} />}
@@ -48,7 +60,7 @@ export default function Reviews() {
                 {item.review ? <Text style={styles.review}>{item.review}</Text> : null}
                 <Text style={styles.date}>{new Date(item.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           )}
         />
       )}
