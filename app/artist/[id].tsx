@@ -39,13 +39,15 @@ export default function ArtistPage() {
      fetch(`https://api.spotify.com/v1/artists/${id}`, {
        headers: { Authorization: `Bearer ${token}` },
      }),
-     fetch(`https://api.spotify.com/v1/artists/${id}/albums?limit=50&include_groups=album,single`, {
+     fetch(`https://api.spotify.com/v1/artists/${id}/albums?limit=50&include_groups=album,single&market=GE`, {
        headers: { Authorization: `Bearer ${token}` },
      })
    ]);
 
    const artistData = await artistRes.json();
    const albumsData = await albumsRes.json();
+
+   console.log('ALBUMS RESPONSE:', JSON.stringify(albumsData));
 
    setArtist(artistData);
    setAlbums(albumsData.items || []);
@@ -130,7 +132,6 @@ export default function ArtistPage() {
        />
      )}
 
-     {/* About - სულ ბოლოს */}
      {artist && albums.length > 0 && (
        <View style={styles.aboutSection}>
          <Text style={styles.aboutTitle}>About</Text>
