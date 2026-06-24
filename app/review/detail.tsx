@@ -80,7 +80,8 @@ export default function ReviewDetail() {
             setMenuVisible(false);
             router.push({
               pathname: '/review/new',
-              params: { albumId: id, albumName, albumArtist, albumCover },
+              params: { albumId: albumId, albumName, albumArtist, albumCover },
+
             });
           }}>
             <Text style={styles.menuText}>Edit</Text>
