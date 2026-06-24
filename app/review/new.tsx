@@ -54,65 +54,59 @@ export default function ReviewPage() {
   }
 
   async function handleSave() {
-    if (rating === 0) return;
+  if (rating === 0) return;
 
-    const userId = await AsyncStorage.getItem('user_id');
+  const userId = await AsyncStorage.getItem('user_id');
 
-    try {
-      const existing = await AsyncStorage.getItem('reviews');
-      const reviews = existing ? JSON.parse(existing) : [];
+  try {
+    const existing = await AsyncStorage.getItem('reviews');
+    const reviews = existing ? JSON.parse(existing) : [];
 
-      const existingIndex = albumId ? reviews.findIndex((r: any) => r.albumId === albumId) : -1;
+    const existingIndex = albumId ? reviews.findIndex((r: any) => r.albumId === albumId) : -1;
 
-      if (existingIndex !== -1) {
-        reviews[existingIndex] = {
-          ...reviews[existingIndex],
-          rating,
-          review,
-          date: new Date().toISOString(),
-        };
-      } else {
-        const entry = {
-          id: Date.now().toString(),
-          userId,
-          albumId: albumId as string,
-          albumName: albumName as string,
-          albumArtist: albumArtist as string,
-          albumCover: albumCover as string,
-          rating,
-          review,
-          date: new Date().toISOString(),
-        };
-        reviews.unshift(entry);
-      }
-    // listened ავტომატურად მოინიშნოს
-const listenedData = await AsyncStorage.getItem('listened');
-const listenedList = listenedData ? JSON.parse(listenedData) : [];
-if (!listenedList.find((i: any) => i.id === albumId)) {
-  listenedList.unshift({
-    id: albumId,
-    name: albumName,
-    cover: albumCover,
-    type: 'album',
-    rating,
-    date: new Date().toISOString(),
-  });
-  await AsyncStorage.setItem('listened', JSON.stringify(listenedList));
+    if (existingIndex !== -1) {
+      reviews[existingIndex] = {
+        ...reviews[existingIndex],
+        rating,
+        review,
+        date: new Date().toISOString(),
+      };
+    } else {
+      reviews.unshift({
+        id: Date.now().toString(),
+        userId,
+        albumId: albumId as string,
+        albumName: albumName as string,
+        albumArtist: albumArtist as string,
+        albumCover: albumCover as string,
+        rating,
+        review,
+        date: new Date().toISOString(),
+      });
+    }
+
+    await AsyncStorage.setItem('reviews', JSON.stringify(reviews));
+
+    const listenedData = await AsyncStorage.getItem('listened');
+    const listenedList = listenedData ? JSON.parse(listenedData) : [];
+    if (!listenedList.find((i: any) => i.id === albumId)) {
+      listenedList.unshift({
+        id: albumId,
+        name: albumName,
+        cover: albumCover,
+        type: 'album',
+        rating,
+        date: new Date().toISOString(),
+      });
+      await AsyncStorage.setItem('listened', JSON.stringify(listenedList));
+    }
+
+    router.back();
+  } catch (e) {
+    console.error('შენახვა ვერ მოხერხდა', e);
+  }
 }
 
-      await AsyncStorage.setItem('reviews', JSON.stringify(reviews));
-
-      fetch('https://musicboxd-backend-production.up.railway.app/reviews', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ albumId, rating, review }),
-      }).catch(() => {});
-
-      router.back();
-    } catch (e) {
-      console.error('შენახვა ვერ მოხერხდა', e);
-    }
-  }
 
   function renderStars() {
     return (
