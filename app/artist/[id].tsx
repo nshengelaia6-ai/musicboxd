@@ -10,6 +10,7 @@ export default function ArtistPage() {
  const [albums, setAlbums] = useState<any[]>([]);
  const [followed, setFollowed] = useState(false);
  const [menuVisible, setMenuVisible] = useState(false);
+ const [loading, setLoading] = useState(true);
 
  useEffect(() => {
    loadArtist();
@@ -30,21 +31,25 @@ export default function ArtistPage() {
  }
 
  async function loadArtist() {
+   setLoading(true);
    const token = await getToken();
    if (!token) return;
 
-   const artistRes = await fetch(`https://api.spotify.com/v1/artists/${id}`, {
-     headers: { Authorization: `Bearer ${token}` },
-   });
-   const artistData = await artistRes.json();
-   setArtist(artistData);
+   const [artistRes, albumsRes] = await Promise.all([
+     fetch(`https://api.spotify.com/v1/artists/${id}`, {
+       headers: { Authorization: `Bearer ${token}` },
+     }),
+     fetch(`https://api.spotify.com/v1/artists/${id}/albums?limit=50&include_groups=album,single`, {
+       headers: { Authorization: `Bearer ${token}` },
+     })
+   ]);
 
-   const albumsRes = await fetch(
-     `https://api.spotify.com/v1/artists/${id}/albums?limit=50&include_groups=album,single`,
-     { headers: { Authorization: `Bearer ${token}` } }
-   );
+   const artistData = await artistRes.json();
    const albumsData = await albumsRes.json();
+
+   setArtist(artistData);
    setAlbums(albumsData.items || []);
+   setLoading(false);
 
    const followedData = await AsyncStorage.getItem('followed_artists');
    const followedList = followedData ? JSON.parse(followedData) : [];
@@ -104,8 +109,10 @@ export default function ArtistPage() {
 
      <Text style={styles.heading}>Albums & Singles</Text>
 
-     {albums.length === 0 ? (
+     {loading ? (
        <Text style={styles.empty}>იტვირთება...</Text>
+     ) : albums.length === 0 ? (
+       <Text style={styles.empty}>ალბომები არ მოიძებნა</Text>
      ) : (
        <FlatList
          data={albums}
@@ -124,8 +131,7 @@ export default function ArtistPage() {
      )}
 
      {/* About - სულ ბოლოს */}
-{artist && albums.length > 0 && (
-
+     {artist && albums.length > 0 && (
        <View style={styles.aboutSection}>
          <Text style={styles.aboutTitle}>About</Text>
          <Image source={{ uri: artist.images?.[0]?.url }} style={styles.aboutImage} />
@@ -194,7 +200,7 @@ const styles = StyleSheet.create({
  sheet: { backgroundColor: '#1c1c1e', padding: 24, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
  sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
  sheetImage: { width: 44, height: 44, borderRadius: 22 },
- sheetName: { color: 'white', fontSize: 16, fontWeight: 'bold' },
- sheetItem: { paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#2a2a2a' },
+ sheetName: { color: 'white', fontSize: 16, fontWeight: '600' },
+ sheetItem: { paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#2a2a2a' },
  sheetItemText: { color: 'white', fontSize: 16, textAlign: 'center' },
 });
