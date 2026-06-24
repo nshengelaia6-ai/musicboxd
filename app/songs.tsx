@@ -77,7 +77,8 @@ export default function SongsScreen() {
             {listened
               .filter(item => tab === 'albums' ? item.type === 'album' : item.type === 'track')
               .map(item => (
-              <TouchableOpacity key={`${item.id}-${item.type}`} style={styles.gridItem} onPress={() => openItem(item)}>
+              <TouchableOpacity key={`${item.id}-${item.type}`}
+ style={styles.gridItem} onPress={() => openItem(item)}>
                   {item.cover
                     ? <Image source={{ uri: item.cover }} style={styles.gridCover} />
                     : <View style={[styles.gridCover, { backgroundColor: '#2a2a2a' }]} />}
