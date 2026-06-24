@@ -26,7 +26,7 @@ export default function ArtistPage() {
    setArtist(artistData);
 
    const albumsRes = await fetch(
-     `https://api.spotify.com/v1/artists/${id}/albums?limit=20&include_groups=album,single&market=US`,
+     `https://api.spotify.com/v1/artists/${id}/albums?limit=50&include_groups=album,single&market=GE`,
      { headers: { Authorization: `Bearer ${token}` } }
    );
    const albumsData = await albumsRes.json();
@@ -72,16 +72,11 @@ export default function ArtistPage() {
        blurRadius={2}
      >
        <View style={styles.heroOverlay}>
-         <TouchableOpacity
-           style={styles.menuBtn}
-           onPress={() => setMenuVisible(true)}
-         >
+         <TouchableOpacity style={styles.menuBtn} onPress={() => setMenuVisible(true)}>
            <Text style={styles.menuBtnText}>•••</Text>
          </TouchableOpacity>
-
          <Image source={{ uri: artist?.images?.[0]?.url }} style={styles.artistImage} />
          <Text style={styles.artistName}>{artist?.name}</Text>
-
          <TouchableOpacity
            style={[styles.followBtn, followed && styles.followBtnActive]}
            onPress={toggleFollow}
@@ -109,7 +104,7 @@ export default function ArtistPage() {
        )}
      />
 
-     {/* About */}
+     {/* About - სულ ბოლოს */}
      {artist && (
        <View style={styles.aboutSection}>
          <Text style={styles.aboutTitle}>About</Text>
@@ -118,7 +113,7 @@ export default function ArtistPage() {
            <Text style={styles.aboutName}>{artist.name}</Text>
            {artist.followers?.total && (
              <Text style={styles.aboutMeta}>
-               {(artist.followers.total / 1_000_000).toFixed(1)}M monthly listeners
+               {(artist.followers.total / 1_000_000).toFixed(1)}M followers
              </Text>
            )}
            {artist.genres?.length > 0 && (
@@ -127,6 +122,8 @@ export default function ArtistPage() {
          </View>
        </View>
      )}
+
+     <View style={{ height: 40 }} />
 
      {/* Menu Modal */}
      <Modal visible={menuVisible} transparent animationType="slide">
@@ -167,9 +164,9 @@ const styles = StyleSheet.create({
  albumName: { color: 'white', fontSize: 15, fontWeight: '600' },
  albumMeta: { color: '#888', fontSize: 13, marginTop: 2 },
  aboutSection: { margin: 16, backgroundColor: '#1a1a1a', borderRadius: 12, overflow: 'hidden' },
+ aboutTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', padding: 16 },
  aboutImage: { width: '100%', height: 200 },
  aboutInfo: { padding: 16 },
- aboutTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', margin: 16, marginBottom: 0 },
  aboutName: { color: 'white', fontSize: 22, fontWeight: 'bold', marginBottom: 4 },
  aboutMeta: { color: '#aaa', fontSize: 14, marginBottom: 4 },
  aboutGenres: { color: '#888', fontSize: 13 },
