@@ -63,7 +63,8 @@ export default function ReviewPage() {
     const existing = await AsyncStorage.getItem('reviews');
     const reviews = existing ? JSON.parse(existing) : [];
 
-    const existingIndex = albumId ? reviews.findIndex((r: any) => r.albumId === albumId) : -1;
+   const existingIndex = reviews.findIndex((r: any) => r.albumId === albumId || r.id === id);
+
 
     if (existingIndex !== -1) {
       reviews[existingIndex] = {
