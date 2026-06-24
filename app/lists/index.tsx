@@ -318,3 +318,9 @@ const styles = StyleSheet.create({
 
   resultRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
   resultImg: { width: 44, height: 44, borderRadius: 6, marginRight: 12 },
+  resultName: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  resultArtist: { color: '#888', fontSize: 13, marginTop: 2 },
+  resultCheck: { color: '#555', fontSize: 22, paddingHorizontal: 8 },
+  resultCheckActive: { color: '#1DB954', fontSize: 20, fontWeight: 'bold', paddingHorizontal: 8 },
+  doneAlbumsBtn: { backgroundColor: '#1DB954', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 16 },
+});
