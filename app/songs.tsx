@@ -15,7 +15,7 @@ function Stars({ count }: { count: number }) {
             <Text style={{ fontSize: starSize, color: '#555', position: 'absolute' }}>★</Text>
             {(filled || half) && (
               <View style={{ overflow: 'hidden', width: filled ? starSize : starSize / 2, position: 'absolute' }}>
-                <Text style={{ fontSize: starSize, color: '#1DB954' }}>★</Text>
+                <Text style={{ fontSize: starSize, color: '#ffb6c1' }}>★</Text>
               </View>
             )}
           </View>
