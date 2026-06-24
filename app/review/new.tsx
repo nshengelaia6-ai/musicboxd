@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Image, PanResponder, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function ReviewPage() {
-  const { albumName, albumArtist, albumCover, albumId } = useLocalSearchParams();
+ const { albumName, albumArtist, albumCover, albumId, id } = useLocalSearchParams();
   const router = useRouter();
   const [review, setReview] = useState('');
   const [rating, setRating] = useState(0);
