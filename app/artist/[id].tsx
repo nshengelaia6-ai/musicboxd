@@ -26,7 +26,8 @@ export default function ArtistPage() {
    setArtist(artistData);
 
    const albumsRes = await fetch(
-     `https://api.spotify.com/v1/artists/${id}/albums?limit=50&include_groups=album,single&market=GE`,
+      `https://api.spotify.com/v1/artists/${id}/albums?limit=50&include_groups=album,single`,
+
      { headers: { Authorization: `Bearer ${token}` } }
    );
    const albumsData = await albumsRes.json();
