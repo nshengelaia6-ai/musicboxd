@@ -55,14 +55,15 @@ export default function Profile() {
  }, []);
 
  useEffect(() => {
-   if (!showSettings && pendingSlotIndex !== null) {
-     const idx = pendingSlotIndex;
-     setPendingSlotIndex(null);
-     setTimeout(() => {
-       router.push({ pathname: '/pick-album', params: { index: idx } } as any);
-     }, 100);
-   }
- }, [showSettings]);
+  if (!showSettings && pendingSlotIndex !== null) {
+    const idx = pendingSlotIndex;
+    setPendingSlotIndex(null);
+    setTimeout(() => {
+      router.push(`/pick-album?index=${idx}` as any);
+    }, 300);
+  }
+}, [showSettings]);
+
 
  async function pickImage() {
    const result = await ImagePicker.launchImageLibraryAsync({
