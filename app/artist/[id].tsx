@@ -124,7 +124,8 @@ export default function ArtistPage() {
      )}
 
      {/* About - სულ ბოლოს */}
-     {artist && (
+{artist && albums.length > 0 && (
+
        <View style={styles.aboutSection}>
          <Text style={styles.aboutTitle}>About</Text>
          <Image source={{ uri: artist.images?.[0]?.url }} style={styles.aboutImage} />
