@@ -1,4 +1,3 @@
-cat > ~/musicboxd/my-app/app/pick-album/index.tsx << 'EOF'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
