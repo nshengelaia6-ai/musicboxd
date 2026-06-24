@@ -31,10 +31,21 @@ export default function SongsScreen() {
   const [tab, setTab] = useState<'albums' | 'tracks'>('albums');
 
   useEffect(() => {
-    AsyncStorage.getItem('listened').then(data => {
-      if (data) setListened(JSON.parse(data));
-    });
-  }, []);
+  AsyncStorage.getItem('listened').then(data => {
+    if (data) {
+      const all = JSON.parse(data);
+      const seen = new Set();
+      const unique = all.filter((item: any) => {
+        const key = `${item.id}-${item.type}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setListened(unique);
+    }
+  });
+}, []);
+
 
   function openItem(item: any) {
     if (item.type === 'album') {
