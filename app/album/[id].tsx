@@ -114,17 +114,6 @@ export default function AlbumPage() {
       }
       AsyncStorage.setItem('listened', JSON.stringify(list));
     });
-
-    AsyncStorage.getItem('reviews').then(existing => {
-      const list = existing ? JSON.parse(existing) : [];
-      const idx = list.findIndex((i: any) => i.albumId === album?.id);
-      if (idx !== -1) {
-        list[idx].rating = newRating;
-      } else {
-        list.unshift({ albumId: album?.id, albumName: album?.name, albumCover: album?.images?.[0]?.url, rating: newRating, date: new Date().toISOString() });
-      }
-      AsyncStorage.setItem('reviews', JSON.stringify(list));
-    });
   }
 
   function updateTrackRating(newRating: number) {
@@ -141,17 +130,6 @@ export default function AlbumPage() {
         list.unshift({ id: selectedTrack?.id, name: selectedTrack?.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id, rating: newRating, date: new Date().toISOString() });
       }
       AsyncStorage.setItem('listened', JSON.stringify(list));
-    });
-
-    AsyncStorage.getItem('reviews').then(existing => {
-      const list = existing ? JSON.parse(existing) : [];
-      const idx = list.findIndex((i: any) => i.albumId === selectedTrack?.id);
-      if (idx !== -1) {
-        list[idx].rating = newRating;
-      } else {
-        list.unshift({ albumId: selectedTrack?.id, albumName: selectedTrack?.name, albumCover: album?.images?.[0]?.url, rating: newRating, date: new Date().toISOString() });
-      }
-      AsyncStorage.setItem('reviews', JSON.stringify(list));
     });
   }
 
