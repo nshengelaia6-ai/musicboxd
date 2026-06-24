@@ -39,7 +39,7 @@ export default function ArtistPage() {
      fetch(`https://api.spotify.com/v1/artists/${id}`, {
        headers: { Authorization: `Bearer ${token}` },
      }),
-     fetch(`https://api.spotify.com/v1/artists/${id}/albums?limit=20&include_groups=album,single&market=GE`, {
+   fetch(`https://api.spotify.com/v1/artists/${id}/albums?include_groups=album,single&market=US`, {
 
        headers: { Authorization: `Bearer ${token}` },
      })
