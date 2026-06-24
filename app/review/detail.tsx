@@ -1,4 +1,3 @@
-cat > app/review/detail.tsx << 'EOF'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -50,4 +49,3 @@ const styles = StyleSheet.create({
   cover: { width: 100, height: 100, borderRadius: 8, backgroundColor: '#2a2a2a' },
   reviewText: { color: '#ccc', fontSize: 15, lineHeight: 24 },
 });
-EOF
