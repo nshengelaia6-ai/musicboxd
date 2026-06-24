@@ -59,7 +59,7 @@ export default function Profile() {
     const idx = pendingSlotIndex;
     setPendingSlotIndex(null);
     setTimeout(() => {
-      router.push(`/pick-album?index=${idx}` as any);
+      router.push({ pathname: '/pick-album', params: { index: String(idx) } } as any);
     }, 300);
   }
 }, [showSettings]);
