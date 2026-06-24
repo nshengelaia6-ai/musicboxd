@@ -9,9 +9,11 @@ export default function Reviews() {
   const router = useRouter();
   const [reviews, setReviews] = useState<any[]>([]);
 
-  useEffect(() => {
+ useFocusEffect(
+  useCallback(() => {
     loadReviews();
-  }, []);
+  }, [])
+);
 
   async function loadReviews() {
     const data = await AsyncStorage.getItem('reviews');
