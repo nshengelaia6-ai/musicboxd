@@ -238,22 +238,38 @@ style={styles.activityCard}>
            />
 
            <Text style={styles.settingsLabel}>Favorite Albums</Text>
-           <View style={styles.settingsSlotsRow}>
-             {favoriteAlbums.map((album, i) => (
-               <TouchableOpacity
-                 key={i}
-                 style={styles.settingsSlot}
-                 onPress={() => {
-                   setPendingSlotIndex(i);
-                   setShowSettings(false);
-                 }}
-               >
-                 {album
-                   ? <Image source={{ uri: album.cover }} style={styles.settingsSlotImage} />
-                   : <Text style={styles.settingsSlotPlus}>+</Text>}
-               </TouchableOpacity>
-             ))}
-           </View>
+         <View style={styles.settingsSlotsRow}>
+  {favoriteAlbums.map((album, i) => (
+    <View key={i} style={{ position: 'relative', flex: 1, aspectRatio: 1 }}>
+      <TouchableOpacity
+        style={styles.settingsSlot}
+        onPress={() => {
+          if (!album) {
+            setPendingSlotIndex(i);
+            setShowSettings(false);
+          }
+        }}
+      >
+        {album
+          ? <Image source={{ uri: album.cover }} style={styles.settingsSlotImage} />
+          : <Text style={styles.settingsSlotPlus}>+</Text>}
+      </TouchableOpacity>
+      {album && (
+        <TouchableOpacity
+          style={{ position: 'absolute', top: -6, right: -6, backgroundColor: '#ff4444', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }}
+          onPress={() => {
+            const updated = [...favoriteAlbums];
+            updated[i] = null;
+            setFavoriteAlbums(updated);
+          }}
+        >
+          <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>✕</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  ))}
+</View>
+
 
            <TouchableOpacity style={styles.sheetOption}>
              <Text style={styles.sheetOptionText}>🔒  Privacy Settings</Text>
