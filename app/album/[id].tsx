@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { findNodeHandle, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import StarRating from './StarRating';
 
 export default function AlbumPage() {
@@ -24,7 +24,8 @@ export default function AlbumPage() {
   const [trackRating, setTrackRating] = useState(0);
 
   const scrollViewRef = useRef<ScrollView>(null);
-  const trackRowRefs = useRef<{ [key: string]: View | null }>({});
+  const trackRowOffsets = useRef<{ [key: string]: number }>({});
+  const headerHeight = useRef(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -35,19 +36,11 @@ export default function AlbumPage() {
   useEffect(() => {
     if (!highlightTrackId || tracks.length === 0) return;
     const timer = setTimeout(() => {
-      const node = trackRowRefs.current[highlightTrackId as string];
-      const scrollNode = scrollViewRef.current ? findNodeHandle(scrollViewRef.current) : null;
-      if (node && scrollNode) {
-        // @ts-ignore - measureLayout exists on the underlying native view
-        node.measureLayout(
-          scrollNode,
-          (x: number, y: number) => {
-            scrollViewRef.current?.scrollTo({ y: Math.max(y - 100, 0), animated: true });
-          },
-          () => {}
-        );
+      const y = trackRowOffsets.current[highlightTrackId as string];
+      if (typeof y === 'number') {
+        scrollViewRef.current?.scrollTo({ y: Math.max(y - 100, 0), animated: true });
       }
-    }, 400);
+    }, 300);
     return () => clearTimeout(timer);
   }, [highlightTrackId, tracks]);
 
@@ -163,7 +156,10 @@ export default function AlbumPage() {
   return (
     <ScrollView style={styles.container} ref={scrollViewRef}>
       {album && (
-        <View style={styles.header}>
+        <View
+          style={styles.header}
+          onLayout={(e) => { headerHeight.current = e.nativeEvent.layout.height; }}
+        >
           <Image source={{ uri: album.images?.[0]?.url }} style={styles.cover} />
           <Text style={styles.albumName}>{album.name}</Text>
           <Text style={styles.meta}>{album.artists?.[0]?.name}</Text>
@@ -181,8 +177,10 @@ export default function AlbumPage() {
           const isHighlighted = highlightTrackId && item.id === highlightTrackId;
           return (
             <View
-              ref={(r) => { trackRowRefs.current[item.id] = r; }}
               style={[styles.row, isHighlighted && styles.rowHighlighted]}
+              onLayout={(e) => {
+                trackRowOffsets.current[item.id] = headerHeight.current + e.nativeEvent.layout.y;
+              }}
             >
               <TouchableOpacity style={styles.rowMain} onPress={() => openTrack(item)}>
                 <Text style={styles.num}>{index + 1}</Text>
