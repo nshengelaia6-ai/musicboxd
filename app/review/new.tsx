@@ -85,6 +85,20 @@ export default function ReviewPage() {
         };
         reviews.unshift(entry);
       }
+    // listened ავტომატურად მოინიშნოს
+const listenedData = await AsyncStorage.getItem('listened');
+const listenedList = listenedData ? JSON.parse(listenedData) : [];
+if (!listenedList.find((i: any) => i.id === albumId)) {
+  listenedList.unshift({
+    id: albumId,
+    name: albumName,
+    cover: albumCover,
+    type: 'album',
+    rating,
+    date: new Date().toISOString(),
+  });
+  await AsyncStorage.setItem('listened', JSON.stringify(listenedList));
+}
 
       await AsyncStorage.setItem('reviews', JSON.stringify(reviews));
 
