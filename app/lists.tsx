@@ -40,7 +40,7 @@ export default function Lists() {
  }
 
  return (
-   <View style={styles.container}>
+  
      <Stack.Screen options={{ headerShown: false }} />
 
      <View style={styles.header}>
