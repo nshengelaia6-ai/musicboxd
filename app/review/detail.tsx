@@ -1,38 +1,34 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-const [currentReview, setCurrentReview] = useState(review as string);
-const [currentRating, setCurrentRating] = useState(Number(rating));
-
-useFocusEffect(
-  useCallback(() => {
-    async function reload() {
-      const data = await AsyncStorage.getItem('reviews');
-      const reviews = data ? JSON.parse(data) : [];
-      const found = reviews.find((r: any) => r.albumId === albumId);
-      if (found) {
-        setCurrentReview(found.review);
-        setCurrentRating(found.rating);
-      }
-    }
-    reload();
-  }, [albumId])
-);
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ReviewDetail() {
- const { id, albumId, albumName, albumArtist, albumCover, rating, review, date } = useLocalSearchParams();
-
+  const { id, albumId, albumName, albumArtist, albumCover, rating, review, date } = useLocalSearchParams();
   const router = useRouter();
-  const r = Number(rating);
   const [likes, setLikes] = useState(0);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [currentReview, setCurrentReview] = useState(review as string);
+  const [currentRating, setCurrentRating] = useState(Number(rating));
 
   useEffect(() => {
     loadLikes();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      async function reload() {
+        const data = await AsyncStorage.getItem('reviews');
+        const reviews = data ? JSON.parse(data) : [];
+        const found = reviews.find((r: any) => r.albumId === albumId);
+        if (found) {
+          setCurrentReview(found.review);
+          setCurrentRating(found.rating);
+        }
+      }
+      reload();
+    }, [albumId])
+  );
 
   async function loadLikes() {
     const data = await AsyncStorage.getItem(`likes_${id}`);
@@ -77,7 +73,7 @@ export default function ReviewDetail() {
           <View style={styles.left}>
             <Text style={styles.albumName}>{albumName}</Text>
             <Text style={styles.artist}>{albumArtist}</Text>
-            <Text style={styles.rating}>{'★'.repeat(Math.floor(r))}{r % 1 ? '½' : ''}</Text>
+            <Text style={styles.rating}>{'★'.repeat(Math.floor(currentRating))}{currentRating % 1 ? '½' : ''}</Text>
             <Text style={styles.date}>{new Date(date as string).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
           </View>
           {albumCover
@@ -85,7 +81,7 @@ export default function ReviewDetail() {
             : <View style={[styles.cover, { backgroundColor: '#2a2a2a' }]} />}
         </View>
 
-        <Text style={styles.reviewText}>{review}</Text>
+        <Text style={styles.reviewText}>{currentReview}</Text>
 
         <TouchableOpacity style={styles.likeRow} onPress={handleLike}>
           <Text style={styles.likeIcon}>♡</Text>
@@ -101,7 +97,6 @@ export default function ReviewDetail() {
             router.push({
               pathname: '/review/new',
               params: { albumId: albumId, albumName, albumArtist, albumCover },
-
             });
           }}>
             <Text style={styles.menuText}>Edit</Text>
