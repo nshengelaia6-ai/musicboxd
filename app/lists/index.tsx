@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function Lists() {
   const router = useRouter();
@@ -10,6 +10,12 @@ export default function Lists() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(true);
+
+  const [selectedAlbums, setSelectedAlbums] = useState<any[]>([]);
+  const [showAlbumSearch, setShowAlbumSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     loadLists();
@@ -20,6 +26,51 @@ export default function Lists() {
     if (data) setLists(JSON.parse(data));
   }
 
+  async function searchAlbums(query: string) {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    const token = await AsyncStorage.getItem('spotify_token');
+    if (!token) return;
+    setSearching(true);
+    try {
+      const res = await fetch(
+        `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=album&limit=15`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await res.json();
+      setSearchResults(data.albums?.items || []);
+    } catch (e) {
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function toggleAlbumSelection(album: any) {
+    setSelectedAlbums((prev) => {
+      const exists = prev.find((a) => a.id === album.id);
+      if (exists) {
+        return prev.filter((a) => a.id !== album.id);
+      }
+      return [
+        ...prev,
+        {
+          id: album.id,
+          name: album.name,
+          artist: album.artists?.[0]?.name,
+          cover: album.images?.[0]?.url,
+        },
+      ];
+    });
+  }
+
+  function removeSelectedAlbum(albumId: string) {
+    setSelectedAlbums((prev) => prev.filter((a) => a.id !== albumId));
+  }
+
   async function createList() {
     if (!name.trim()) return;
     const newList = {
@@ -27,7 +78,7 @@ export default function Lists() {
       name: name.trim(),
       description: description.trim(),
       isPublic,
-      albums: [],
+      albums: selectedAlbums,
       createdAt: new Date().toISOString(),
     };
     const updated = [newList, ...lists];
@@ -36,6 +87,7 @@ export default function Lists() {
     setName('');
     setDescription('');
     setIsPublic(true);
+    setSelectedAlbums([]);
     setShowCreate(false);
   }
 
@@ -80,13 +132,14 @@ export default function Lists() {
         />
       )}
 
+      {/* New List sheet */}
       <Modal visible={showCreate} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setShowCreate(false)} />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-          <View style={styles.sheet}>
+          <ScrollView style={styles.sheet} keyboardShouldPersistTaps="handled">
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>New List</Text>
 
@@ -126,12 +179,98 @@ export default function Lists() {
               </TouchableOpacity>
             </View>
 
+            <View style={styles.albumsHeaderRow}>
+              <Text style={styles.label}>Albums ({selectedAlbums.length})</Text>
+              <TouchableOpacity onPress={() => setShowAlbumSearch(true)}>
+                <Text style={styles.addAlbumsLink}>+ Add Albums</Text>
+              </TouchableOpacity>
+            </View>
+
+            {selectedAlbums.length > 0 && (
+              <View style={styles.selectedAlbumsWrap}>
+                {selectedAlbums.map((a) => (
+                  <View key={a.id} style={styles.albumChip}>
+                    {a.cover ? (
+                      <Image source={{ uri: a.cover }} style={styles.albumChipImg} />
+                    ) : (
+                      <View style={[styles.albumChipImg, { backgroundColor: '#333' }]} />
+                    )}
+                    <Text style={styles.albumChipText} numberOfLines={1}>{a.name}</Text>
+                    <TouchableOpacity onPress={() => removeSelectedAlbum(a.id)}>
+                      <Text style={styles.albumChipRemove}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
             <TouchableOpacity
               style={[styles.createBtn, !name.trim() && { opacity: 0.4 }]}
               onPress={createList}
               disabled={!name.trim()}
             >
               <Text style={styles.createBtnText}>Create List</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Album search sheet */}
+      <Modal visible={showAlbumSearch} transparent animationType="slide">
+        <Pressable style={styles.overlay} onPress={() => setShowAlbumSearch(false)} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <View style={[styles.sheet, { maxHeight: '85%' }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Add Albums</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Search albums..."
+              placeholderTextColor="#555"
+              value={searchQuery}
+              onChangeText={searchAlbums}
+              autoFocus
+            />
+
+            {searching && <ActivityIndicator color="#1DB954" style={{ marginTop: 16 }} />}
+
+            <FlatList
+              data={searchResults}
+              keyExtractor={(item) => item.id}
+              style={{ marginTop: 12 }}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => {
+                const isSelected = selectedAlbums.some((a) => a.id === item.id);
+                return (
+                  <TouchableOpacity
+                    style={styles.resultRow}
+                    onPress={() => toggleAlbumSelection(item)}
+                  >
+                    {item.images?.[0]?.url ? (
+                      <Image source={{ uri: item.images[0].url }} style={styles.resultImg} />
+                    ) : (
+                      <View style={[styles.resultImg, { backgroundColor: '#333' }]} />
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.resultName} numberOfLines={1}>{item.name}</Text>
+                      <Text style={styles.resultArtist} numberOfLines={1}>{item.artists?.[0]?.name}</Text>
+                    </View>
+                    <Text style={isSelected ? styles.resultCheckActive : styles.resultCheck}>
+                      {isSelected ? '✓' : '+'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+
+            <TouchableOpacity
+              style={styles.doneAlbumsBtn}
+              onPress={() => setShowAlbumSearch(false)}
+            >
+              <Text style={styles.createBtnText}>Done</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -168,4 +307,14 @@ const styles = StyleSheet.create({
   toggleTextActive: { color: '#000' },
   createBtn: { backgroundColor: '#1DB954', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 24 },
   createBtnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
-});
+
+  albumsHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
+  addAlbumsLink: { color: '#1DB954', fontSize: 14, fontWeight: '600' },
+  selectedAlbumsWrap: { marginTop: 8 },
+  albumChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#2a2a2a', borderRadius: 10, padding: 8, marginBottom: 8 },
+  albumChipImg: { width: 36, height: 36, borderRadius: 6, marginRight: 10 },
+  albumChipText: { color: '#fff', fontSize: 14, flex: 1 },
+  albumChipRemove: { color: '#888', fontSize: 16, paddingHorizontal: 8 },
+
+  resultRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  resultImg: { width: 44, height: 44, borderRadius: 6, marginRight: 12 },
