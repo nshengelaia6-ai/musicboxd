@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
   info: { flex: 1 },
   albumName: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   artist: { color: '#888', fontSize: 13, marginTop: 2 },
-  rating: { color: '#1DB954', fontSize: 14, marginTop: 4 },
+  rating: { color: '#ffb6c1', fontSize: 14, marginTop: 4 },
   review: { color: '#ccc', fontSize: 13, marginTop: 6, lineHeight: 18 },
   date: { color: '#555', fontSize: 11, marginTop: 6 },
 });
