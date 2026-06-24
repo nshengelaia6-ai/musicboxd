@@ -169,6 +169,7 @@ export default function Profile() {
            { label: 'Likes', route: '/likes' },
            { label: 'Following', route: '/following' },
            { label: 'Followers', route: '/followers' },
+           { label: 'Artists', route: '/artists' },
          ].map(item => (
            <Pressable
              key={item.label}
