@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Image, PanResponder, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function ReviewPage() {
- const { albumName, albumArtist, albumCover, albumId, id } = useLocalSearchParams();
+ const { albumName, albumArtist, albumCover, albumId } = useLocalSearchParams();
+
   const router = useRouter();
   const [review, setReview] = useState('');
   const [rating, setRating] = useState(0);
@@ -63,7 +64,8 @@ export default function ReviewPage() {
     const existing = await AsyncStorage.getItem('reviews');
     const reviews = existing ? JSON.parse(existing) : [];
 
-   const existingIndex = reviews.findIndex((r: any) => r.albumId === albumId || r.id === id);
+const existingIndex = reviews.findIndex((r: any) => r.albumId === albumId);
+
 
 
     if (existingIndex !== -1) {
