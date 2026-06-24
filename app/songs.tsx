@@ -30,8 +30,9 @@ export default function SongsScreen() {
   const [listened, setListened] = useState<any[]>([]);
   const [tab, setTab] = useState<'albums' | 'tracks'>('albums');
 
-  useEffect(() => {
-  AsyncStorage.getItem('listened').then(data => {
+ useEffect(() => {
+  async function load() {
+    const data = await AsyncStorage.getItem('listened');
     if (data) {
       const all = JSON.parse(data);
       const seen = new Set();
@@ -42,11 +43,12 @@ export default function SongsScreen() {
         return true;
       });
       setListened(unique);
-await AsyncStorage.setItem('listened', JSON.stringify(unique));
-
+      await AsyncStorage.setItem('listened', JSON.stringify(unique));
     }
-  });
+  }
+  load();
 }, []);
+
 
 
   function openItem(item: any) {
