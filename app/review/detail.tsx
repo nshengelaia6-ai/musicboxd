@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ReviewDetail() {
-  const { id, albumName, albumArtist, albumCover, rating, review, date } = useLocalSearchParams();
+ const { id, albumId, albumName, albumArtist, albumCover, rating, review, date } = useLocalSearchParams();
+
   const router = useRouter();
   const r = Number(rating);
   const [likes, setLikes] = useState(0);
