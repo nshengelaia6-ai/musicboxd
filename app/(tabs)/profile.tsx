@@ -139,8 +139,9 @@ export default function Profile() {
          <>
            <Text style={styles.sectionTitle}>RECENT ACTIVITY</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
-  {reviews.slice(0, 10).map(item => (
-    <View key={item.id} style={styles.activityCard}>
+  {reviews.slice(0, 10).map((item, index) => (
+  <View key={item.id ?? index}
+style={styles.activityCard}>
       {item.albumCover
         ? <Image source={{ uri: item.albumCover }} style={styles.activityCover} />
         : <View style={[styles.activityCover, { backgroundColor: '#2a2a2a' }]} />}
