@@ -13,7 +13,7 @@ export default function Reviews() {
 
   async function loadReviews() {
     const data = await AsyncStorage.getItem('reviews');
-   if (data) setReviews(JSON.parse(data).filter((r: any) => r.review));
+  if (data) setReviews(JSON.parse(data).filter((r: any) => r.review && r.review.trim() !== ''));
 
   }
 
