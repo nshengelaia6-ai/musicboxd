@@ -4,10 +4,12 @@ import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import StarRating from './StarRating';
+import { useAppTheme } from '@/context/ThemeContext';
 
 export default function AlbumPage() {
   const { id, highlightTrackId } = useLocalSearchParams();
   const router = useRouter();
+  const { backgroundColor, accentColor } = useAppTheme();
   const [album, setAlbum] = useState<any>(null);
   const [tracks, setTracks] = useState<any[]>([]);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -154,7 +156,7 @@ export default function AlbumPage() {
   }
 
   return (
-    <ScrollView style={styles.container} ref={scrollViewRef}>
+    <ScrollView style={[styles.container, { backgroundColor }]} ref={scrollViewRef}>
       {album && (
         <View
           style={styles.header}
@@ -177,7 +179,7 @@ export default function AlbumPage() {
           const isHighlighted = highlightTrackId && item.id === highlightTrackId;
           return (
             <View
-              style={[styles.row, isHighlighted && styles.rowHighlighted]}
+              style={[styles.row, isHighlighted && { backgroundColor: accentColor + '26' }]}
               onLayout={(e) => {
                 trackRowOffsets.current[item.id] = headerHeight.current + e.nativeEvent.layout.y;
               }}
@@ -185,7 +187,7 @@ export default function AlbumPage() {
               <TouchableOpacity style={styles.rowMain} onPress={() => openTrack(item)}>
                 <Text style={styles.num}>{index + 1}</Text>
                 <View style={styles.info}>
-                  <Text style={[styles.trackName, isHighlighted && styles.trackNameHighlighted]}>{item.name}</Text>
+                  <Text style={[styles.trackName, isHighlighted && { color: accentColor, fontWeight: 'bold' }]}>{item.name}</Text>
                   <Text style={styles.artist}>{item.artists?.[0]?.name}</Text>
                 </View>
               </TouchableOpacity>
@@ -226,7 +228,7 @@ export default function AlbumPage() {
               }
               await AsyncStorage.setItem('listened', JSON.stringify(list));
             }}>
-              <View style={[styles.actionIcon, listened && styles.actionActive]}>
+              <View style={[styles.actionIcon, listened && { backgroundColor: accentColor }]}>
                 <Text style={styles.actionEmoji}>👁</Text>
               </View>
               <Text style={styles.actionText}>Listened</Text>
@@ -247,7 +249,7 @@ export default function AlbumPage() {
               }
               await AsyncStorage.setItem('liked', JSON.stringify(list));
             }}>
-              <View style={[styles.actionIcon, liked && styles.actionActive]}>
+              <View style={[styles.actionIcon, liked && { backgroundColor: accentColor }]}>
                 <Text style={styles.actionEmoji}>{liked ? '♥' : '♡'}</Text>
               </View>
               <Text style={styles.actionText}>Like</Text>
@@ -268,7 +270,7 @@ export default function AlbumPage() {
               }
               await AsyncStorage.setItem('wantToListen', JSON.stringify(list));
             }}>
-              <View style={[styles.actionIcon, wantToListen && styles.actionActive]}>
+              <View style={[styles.actionIcon, wantToListen && { backgroundColor: accentColor }]}>
                 <Text style={styles.actionEmoji}>🕐</Text>
               </View>
               <Text style={styles.actionText}>Want to Listen</Text>
@@ -338,7 +340,7 @@ export default function AlbumPage() {
               }
               await AsyncStorage.setItem('listened', JSON.stringify(list));
             }}>
-              <View style={[styles.actionIcon, trackListened && styles.actionActive]}>
+              <View style={[styles.actionIcon, trackListened && { backgroundColor: accentColor }]}>
                 <Text style={styles.actionEmoji}>👁</Text>
               </View>
               <Text style={styles.actionText}>Listened</Text>
@@ -359,7 +361,7 @@ export default function AlbumPage() {
               }
               await AsyncStorage.setItem('liked', JSON.stringify(list));
             }}>
-              <View style={[styles.actionIcon, trackLiked && styles.actionActive]}>
+              <View style={[styles.actionIcon, trackLiked && { backgroundColor: accentColor }]}>
                 <Text style={styles.actionEmoji}>{trackLiked ? '♥' : '♡'}</Text>
               </View>
               <Text style={styles.actionText}>Like</Text>
@@ -380,7 +382,7 @@ export default function AlbumPage() {
               }
               await AsyncStorage.setItem('wantToListen', JSON.stringify(list));
             }}>
-              <View style={[styles.actionIcon, trackWantToListen && styles.actionActive]}>
+              <View style={[styles.actionIcon, trackWantToListen && { backgroundColor: accentColor }]}>
                 <Text style={styles.actionEmoji}>🕐</Text>
               </View>
               <Text style={styles.actionText}>Want to Listen</Text>
@@ -425,7 +427,7 @@ export default function AlbumPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a0a' },
+  container: { flex: 1 },
   header: { alignItems: 'center', padding: 24, paddingTop: 60 },
   cover: { width: 200, height: 200, borderRadius: 8, marginBottom: 16 },
   albumName: { color: 'white', fontSize: 22, fontWeight: 'bold', textAlign: 'center' },
@@ -433,12 +435,10 @@ const styles = StyleSheet.create({
   dotsBtn: { position: 'absolute', top: 60, right: 20, padding: 8 },
   dots: { color: 'white', fontSize: 24 },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
-  rowHighlighted: { backgroundColor: 'rgba(255,182,193,0.15)' },
   rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   num: { color: '#555', fontSize: 14, width: 28 },
   info: { flex: 1 },
   trackName: { color: 'white', fontSize: 15 },
-  trackNameHighlighted: { color: '#ffb6c1', fontWeight: 'bold' },
   artist: { color: '#888', fontSize: 13, marginTop: 2 },
   trackDotsBtn: { padding: 8, paddingLeft: 12 },
   trackDots: { color: '#888', fontSize: 20 },
@@ -451,7 +451,6 @@ const styles = StyleSheet.create({
   sheetActions: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 24 },
   actionBtn: { alignItems: 'center' },
   actionIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  actionActive: { backgroundColor: '#ffb6c1' },
   actionEmoji: { fontSize: 24 },
   actionText: { color: '#aaa', fontSize: 12 },
   rateSection: { alignItems: 'center', marginBottom: 24 },
