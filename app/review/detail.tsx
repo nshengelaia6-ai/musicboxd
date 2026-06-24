@@ -4,6 +4,23 @@ import { useEffect, useState } from 'react';
 import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
+const [currentReview, setCurrentReview] = useState(review as string);
+const [currentRating, setCurrentRating] = useState(Number(rating));
+
+useFocusEffect(
+  useCallback(() => {
+    async function reload() {
+      const data = await AsyncStorage.getItem('reviews');
+      const reviews = data ? JSON.parse(data) : [];
+      const found = reviews.find((r: any) => r.albumId === albumId);
+      if (found) {
+        setCurrentReview(found.review);
+        setCurrentRating(found.rating);
+      }
+    }
+    reload();
+  }, [albumId])
+);
 
 export default function ReviewDetail() {
  const { id, albumId, albumName, albumArtist, albumCover, rating, review, date } = useLocalSearchParams();
