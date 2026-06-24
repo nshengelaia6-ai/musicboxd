@@ -72,7 +72,25 @@ export default function SongsScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backText}>‹</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>Songs</Text>
+       <Text style={styles.headerTitle}>Songs</Text>
+<TouchableOpacity onPress={async () => {
+  const data = await AsyncStorage.getItem('listened');
+  if (data) {
+    const all = JSON.parse(data);
+    const seen = new Set();
+    const unique = all.filter((item: any) => {
+      const key = `${item.id}-${item.type}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    await AsyncStorage.setItem('listened', JSON.stringify(unique));
+    setListened(unique);
+  }
+}}>
+  <Text style={{ color: '#888', fontSize: 12 }}>Fix</Text>
+</TouchableOpacity>
+
       </View>
 
       <View style={styles.tabs}>
