@@ -11,8 +11,9 @@ export default function Lists() {
   const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(true);
 
-  const [selectedAlbums, setSelectedAlbums] = useState<any[]>([]);
-  const [showAlbumSearch, setShowAlbumSearch] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<any[]>([]);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchType, setSearchType] = useState<'album' | 'track'>('album');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
@@ -26,7 +27,7 @@ export default function Lists() {
     if (data) setLists(JSON.parse(data));
   }
 
-  async function searchAlbums(query: string) {
+  async function runSearch(query: string, type: 'album' | 'track') {
     setSearchQuery(query);
     if (!query.trim()) {
       setSearchResults([]);
@@ -37,11 +38,12 @@ export default function Lists() {
     setSearching(true);
     try {
       const res = await fetch(
-        `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=album&limit=15`,
+        `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=${type}&limit=15`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const data = await res.json();
-      setSearchResults(data.albums?.items || []);
+      const items = type === 'album' ? data.albums?.items : data.tracks?.items;
+      setSearchResults(items || []);
     } catch (e) {
       setSearchResults([]);
     } finally {
@@ -49,26 +51,41 @@ export default function Lists() {
     }
   }
 
-  function toggleAlbumSelection(album: any) {
-    setSelectedAlbums((prev) => {
-      const exists = prev.find((a) => a.id === album.id);
+  function switchSearchType(type: 'album' | 'track') {
+    setSearchType(type);
+    setSearchResults([]);
+    if (searchQuery.trim()) runSearch(searchQuery, type);
+  }
+
+  function getItemImage(item: any) {
+    return item.images?.[0]?.url || item.album?.images?.[0]?.url;
+  }
+
+  function getItemArtist(item: any) {
+    return item.artists?.[0]?.name;
+  }
+
+  function toggleItemSelection(item: any) {
+    setSelectedItems((prev) => {
+      const exists = prev.find((a) => a.id === item.id);
       if (exists) {
-        return prev.filter((a) => a.id !== album.id);
+        return prev.filter((a) => a.id !== item.id);
       }
       return [
         ...prev,
         {
-          id: album.id,
-          name: album.name,
-          artist: album.artists?.[0]?.name,
-          cover: album.images?.[0]?.url,
+          id: item.id,
+          type: searchType,
+          name: item.name,
+          artist: getItemArtist(item),
+          cover: getItemImage(item),
         },
       ];
     });
   }
 
-  function removeSelectedAlbum(albumId: string) {
-    setSelectedAlbums((prev) => prev.filter((a) => a.id !== albumId));
+  function removeSelectedItem(itemId: string) {
+    setSelectedItems((prev) => prev.filter((a) => a.id !== itemId));
   }
 
   async function createList() {
@@ -78,7 +95,7 @@ export default function Lists() {
       name: name.trim(),
       description: description.trim(),
       isPublic,
-      albums: selectedAlbums,
+      albums: selectedItems,
       createdAt: new Date().toISOString(),
     };
     const updated = [newList, ...lists];
@@ -87,7 +104,7 @@ export default function Lists() {
     setName('');
     setDescription('');
     setIsPublic(true);
-    setSelectedAlbums([]);
+    setSelectedItems([]);
     setShowCreate(false);
   }
 
@@ -123,7 +140,7 @@ export default function Lists() {
                   <Text style={styles.listDesc} numberOfLines={1}>{item.description}</Text>
                 ) : null}
                 <Text style={styles.listMeta}>
-                  {item.albums?.length || 0} albums • {item.isPublic ? '🌐 Public' : '🔒 Private'}
+                  {item.albums?.length || 0} items • {item.isPublic ? '🌐 Public' : '🔒 Private'}
                 </Text>
               </View>
               <Text style={styles.arrow}>›</Text>
@@ -163,6 +180,34 @@ export default function Lists() {
               multiline
             />
 
+            <View style={styles.albumsHeaderRow}>
+              <Text style={styles.label}>Items ({selectedItems.length})</Text>
+              <TouchableOpacity onPress={() => setShowSearch(true)}>
+                <Text style={styles.addAlbumsLink}>+ Add</Text>
+              </TouchableOpacity>
+            </View>
+
+            {selectedItems.length > 0 && (
+              <View style={styles.selectedAlbumsWrap}>
+                {selectedItems.map((a) => (
+                  <View key={a.id} style={styles.albumChip}>
+                    {a.cover ? (
+                      <Image source={{ uri: a.cover }} style={styles.albumChipImg} />
+                    ) : (
+                      <View style={[styles.albumChipImg, { backgroundColor: '#333' }]} />
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.albumChipText} numberOfLines={1}>{a.name}</Text>
+                      <Text style={styles.albumChipType}>{a.type === 'track' ? '🎵 Track' : '💿 Album'}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => removeSelectedItem(a.id)}>
+                      <Text style={styles.albumChipRemove}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
             <Text style={styles.label}>Privacy</Text>
             <View style={styles.toggleRow}>
               <TouchableOpacity
@@ -179,31 +224,6 @@ export default function Lists() {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.albumsHeaderRow}>
-              <Text style={styles.label}>Albums ({selectedAlbums.length})</Text>
-              <TouchableOpacity onPress={() => setShowAlbumSearch(true)}>
-                <Text style={styles.addAlbumsLink}>+ Add Albums</Text>
-              </TouchableOpacity>
-            </View>
-
-            {selectedAlbums.length > 0 && (
-              <View style={styles.selectedAlbumsWrap}>
-                {selectedAlbums.map((a) => (
-                  <View key={a.id} style={styles.albumChip}>
-                    {a.cover ? (
-                      <Image source={{ uri: a.cover }} style={styles.albumChipImg} />
-                    ) : (
-                      <View style={[styles.albumChipImg, { backgroundColor: '#333' }]} />
-                    )}
-                    <Text style={styles.albumChipText} numberOfLines={1}>{a.name}</Text>
-                    <TouchableOpacity onPress={() => removeSelectedAlbum(a.id)}>
-                      <Text style={styles.albumChipRemove}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
-
             <TouchableOpacity
               style={[styles.createBtn, !name.trim() && { opacity: 0.4 }]}
               onPress={createList}
@@ -215,23 +235,38 @@ export default function Lists() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Album search sheet */}
-      <Modal visible={showAlbumSearch} transparent animationType="slide">
-        <Pressable style={styles.overlay} onPress={() => setShowAlbumSearch(false)} />
+      {/* Search sheet (Albums or Tracks) */}
+      <Modal visible={showSearch} transparent animationType="slide">
+        <Pressable style={styles.overlay} onPress={() => setShowSearch(false)} />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
           <View style={[styles.sheet, { maxHeight: '85%' }]}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Add Albums</Text>
+            <Text style={styles.sheetTitle}>Add to List</Text>
+
+            <View style={styles.toggleRow}>
+              <TouchableOpacity
+                style={[styles.toggleBtn, searchType === 'album' && styles.toggleActive]}
+                onPress={() => switchSearchType('album')}
+              >
+                <Text style={[styles.toggleText, searchType === 'album' && styles.toggleTextActive]}>💿 Albums</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleBtn, searchType === 'track' && styles.toggleActive]}
+                onPress={() => switchSearchType('track')}
+              >
+                <Text style={[styles.toggleText, searchType === 'track' && styles.toggleTextActive]}>🎵 Tracks</Text>
+              </TouchableOpacity>
+            </View>
 
             <TextInput
-              style={styles.input}
-              placeholder="Search albums..."
+              style={[styles.input, { marginTop: 16 }]}
+              placeholder={searchType === 'album' ? 'Search albums...' : 'Search tracks...'}
               placeholderTextColor="#555"
               value={searchQuery}
-              onChangeText={searchAlbums}
+              onChangeText={(q) => runSearch(q, searchType)}
               autoFocus
             />
 
@@ -243,20 +278,21 @@ export default function Lists() {
               style={{ marginTop: 12 }}
               keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => {
-                const isSelected = selectedAlbums.some((a) => a.id === item.id);
+                const isSelected = selectedItems.some((a) => a.id === item.id);
+                const image = getItemImage(item);
                 return (
                   <TouchableOpacity
                     style={styles.resultRow}
-                    onPress={() => toggleAlbumSelection(item)}
+                    onPress={() => toggleItemSelection(item)}
                   >
-                    {item.images?.[0]?.url ? (
-                      <Image source={{ uri: item.images[0].url }} style={styles.resultImg} />
+                    {image ? (
+                      <Image source={{ uri: image }} style={styles.resultImg} />
                     ) : (
                       <View style={[styles.resultImg, { backgroundColor: '#333' }]} />
                     )}
                     <View style={{ flex: 1 }}>
                       <Text style={styles.resultName} numberOfLines={1}>{item.name}</Text>
-                      <Text style={styles.resultArtist} numberOfLines={1}>{item.artists?.[0]?.name}</Text>
+                      <Text style={styles.resultArtist} numberOfLines={1}>{getItemArtist(item)}</Text>
                     </View>
                     <Text style={isSelected ? styles.resultCheckActive : styles.resultCheck}>
                       {isSelected ? '✓' : '+'}
@@ -268,7 +304,7 @@ export default function Lists() {
 
             <TouchableOpacity
               style={styles.doneAlbumsBtn}
-              onPress={() => setShowAlbumSearch(false)}
+              onPress={() => setShowSearch(false)}
             >
               <Text style={styles.createBtnText}>Done</Text>
             </TouchableOpacity>
@@ -313,7 +349,8 @@ const styles = StyleSheet.create({
   selectedAlbumsWrap: { marginTop: 8 },
   albumChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#2a2a2a', borderRadius: 10, padding: 8, marginBottom: 8 },
   albumChipImg: { width: 36, height: 36, borderRadius: 6, marginRight: 10 },
-  albumChipText: { color: '#fff', fontSize: 14, flex: 1 },
+  albumChipText: { color: '#fff', fontSize: 14 },
+  albumChipType: { color: '#777', fontSize: 11, marginTop: 2 },
   albumChipRemove: { color: '#888', fontSize: 16, paddingHorizontal: 8 },
 
   resultRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
