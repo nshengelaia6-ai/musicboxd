@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -30,67 +30,43 @@ export default function SongsScreen() {
   const [listened, setListened] = useState<any[]>([]);
   const [tab, setTab] = useState<'albums' | 'tracks'>('albums');
 
- useEffect(() => {
-  async function load() {
-    const data = await AsyncStorage.getItem('listened');
-    if (data) {
-      const all = JSON.parse(data);
-      const seen = new Set();
-      const unique = all.filter((item: any) => {
-        const key = `${item.id}-${item.type}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      setListened(unique);
-      await AsyncStorage.setItem('listened', JSON.stringify(unique));
+  useEffect(() => {
+    async function load() {
+      const data = await AsyncStorage.getItem('listened');
+      if (data) {
+        const all = JSON.parse(data);
+        const seen = new Set();
+        const unique = all.filter((item: any) => {
+          const key = `${item.id}-${item.type}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setListened(unique);
+        await AsyncStorage.setItem('listened', JSON.stringify(unique));
+      }
     }
-  }
-  load();
-}, []);
-
-
+    load();
+  }, []);
 
   function openItem(item: any) {
     if (item.type === 'album') {
-      router.push(`/album/${item.id}`);
+      router.push(`/album/${item.id}` as any);
     } else {
-      if (!item.albumId) {
-        // ძველი ჩანაწერია, albumId არ ინახებოდა — ვერ ვიცით რომელ ალბომზეა
-        return;
-      }
-      router.push({
-        pathname: '/album/[id]',
-        params: { id: item.albumId, highlightTrackId: item.id },
-      });
+      if (!item.albumId) return;
+      router.push(`/album/${item.albumId}` as any);
     }
   }
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backText}>‹</Text>
         </Pressable>
-       <Text style={styles.headerTitle}>Songs</Text>
-<TouchableOpacity onPress={async () => {
-  const data = await AsyncStorage.getItem('listened');
-  if (data) {
-    const all = JSON.parse(data);
-    const seen = new Set();
-    const unique = all.filter((item: any) => {
-      const key = `${item.id}-${item.type}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-    await AsyncStorage.setItem('listened', JSON.stringify(unique));
-    setListened(unique);
-  }
-}}>
-  <Text style={{ color: '#888', fontSize: 12 }}>Fix</Text>
-</TouchableOpacity>
-
+        <Text style={styles.headerTitle}>Songs</Text>
       </View>
 
       <View style={styles.tabs}>
@@ -110,14 +86,17 @@ export default function SongsScreen() {
             {listened
               .filter(item => tab === 'albums' ? item.type === 'album' : item.type === 'track')
               .map(item => (
-              <TouchableOpacity key={`${item.id}-${item.type}`}
- style={styles.gridItem} onPress={() => openItem(item)}>
+                <TouchableOpacity
+                  key={`${item.id}-${item.type}`}
+                  style={styles.gridItem}
+                  onPress={() => openItem(item)}
+                >
                   {item.cover
                     ? <Image source={{ uri: item.cover }} style={styles.gridCover} />
                     : <View style={[styles.gridCover, { backgroundColor: '#2a2a2a' }]} />}
                   {item.rating ? <Stars count={item.rating} /> : null}
                   <Text style={styles.gridTitle} numberOfLines={1}>{item.name}</Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
               ))}
           </View>
         )}
@@ -138,8 +117,8 @@ const styles = StyleSheet.create({
   tabText: { color: '#888', fontSize: 15 },
   tabTextActive: { color: '#fff', fontWeight: 'bold' },
   empty: { color: '#555', paddingHorizontal: 20, paddingVertical: 20 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingVertical: 12, gap: 8 },
-  gridItem: { width: '23%', alignItems: 'center' },
-  gridCover: { width: '100%', aspectRatio: 1, borderRadius: 4 },
-  gridTitle: { color: '#ccc', fontSize: 10, marginTop: 3, textAlign: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingVertical: 12, gap: 12 },
+  gridItem: { width: '30%', alignItems: 'center' },
+  gridCover: { width: '100%', aspectRatio: 1, borderRadius: 6 },
+  gridTitle: { color: '#ccc', fontSize: 11, marginTop: 4, textAlign: 'center' },
 });
