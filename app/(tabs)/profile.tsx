@@ -206,7 +206,7 @@ async function syncUserAndCounts() {
 
        <View style={styles.menu}>
   {[
-    { label: 'Find People', route: '/find-people' },
+    
     { label: 'Songs', route: '/songs' },
     { label: 'Diary', route: '/diary' },
     { label: 'Reviews', route: '/reviews' },
