@@ -117,17 +117,27 @@ async function syncUserAndCounts() {
   }
 
   async function saveProfile() {
-    setUsername(editUsername);
-    setBio(editBio);
-    if (editAvatar) setAvatar(editAvatar);
-    await AsyncStorage.setItem('profile', JSON.stringify({
-      username: editUsername,
-      bio: editBio,
-      avatar: editAvatar,
-      favoriteAlbums,
-    }));
-    setShowSettings(false);
+  setUsername(editUsername);
+  setBio(editBio);
+  if (editAvatar) setAvatar(editAvatar);
+  await AsyncStorage.setItem('profile', JSON.stringify({
+    username: editUsername,
+    bio: editBio,
+    avatar: editAvatar,
+    favoriteAlbums,
+  }));
+  setShowSettings(false);
+
+  const myId = await getCurrentUserId();
+  if (myId) {
+    fetch(`${API_BASE}/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: myId, username: editUsername, avatar: editAvatar, bio: editBio }),
+    }).catch(e => console.log('failed to update user on backend', e));
   }
+}
+
 
   return (
     <View style={{ flex: 1 }}>
