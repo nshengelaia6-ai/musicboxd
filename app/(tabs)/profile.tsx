@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Image, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAppTheme } from '@/context/ThemeContext';
+import { API_BASE } from '@/utils/api';
+import { getCurrentUserId } from '@/utils/currentUser';
 
 
 function Stars({ count }: { count: number }) {
