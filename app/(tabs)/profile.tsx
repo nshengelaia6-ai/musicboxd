@@ -61,6 +61,34 @@ export default function Profile() {
      syncUserAndCounts();
 
   }, []);
+async function syncUserAndCounts() {
+  const myId = await getCurrentUserId();
+  if (!myId) return;
+
+  const profileData = await AsyncStorage.getItem('profile');
+  const p = profileData ? JSON.parse(profileData) : {};
+
+  try {
+    await fetch(`${API_BASE}/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: myId,
+        username: p.username || 'nia',
+        avatar: p.avatar || null,
+        bio: p.bio || '',
+      }),
+    });
+
+    const res = await fetch(`${API_BASE}/follows/${myId}/counts`);
+    const counts = await res.json();
+    setFollowingCount(counts.following || 0);
+    setFollowersCount(counts.followers || 0);
+  } catch (e) {
+    console.log('sync user/counts failed', e);
+  }
+}
+
 
   useEffect(() => {
     if (!showSettings && pendingSlotIndex !== null) {
