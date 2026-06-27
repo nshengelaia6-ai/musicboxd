@@ -160,14 +160,15 @@ async function syncUserAndCounts() {
               <Text style={styles.statNum}>{reviews.length}</Text>
               <Text style={styles.statLabel}>Reviews</Text>
             </View>
-            <View style={styles.stat}>
-  <Text style={styles.statNum}>0</Text>
+         <View style={styles.stat}>
+  <Text style={styles.statNum}>{followingCount}</Text>
   <Text style={styles.statLabel}>Following</Text>
 </View>
 <View style={styles.stat}>
-  <Text style={styles.statNum}>0</Text>
+  <Text style={styles.statNum}>{followersCount}</Text>
   <Text style={styles.statLabel}>Followers</Text>
 </View>
+
 
           </View>
         </View>
