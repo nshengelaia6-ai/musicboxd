@@ -58,6 +58,8 @@ export default function Profile() {
         if (p.favoriteAlbums) setFavoriteAlbums(p.favoriteAlbums);
       }
     });
+     syncUserAndCounts();
+
   }, []);
 
   useEffect(() => {
