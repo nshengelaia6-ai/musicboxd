@@ -117,13 +117,14 @@ export default function Profile() {
               <Text style={styles.statLabel}>Reviews</Text>
             </View>
             <View style={styles.stat}>
-              <Text style={styles.statNum}>38</Text>
-              <Text style={styles.statLabel}>Following</Text>
-            </View>
-            <View style={styles.stat}>
-              <Text style={styles.statNum}>52</Text>
-              <Text style={styles.statLabel}>Followers</Text>
-            </View>
+  <Text style={styles.statNum}>0</Text>
+  <Text style={styles.statLabel}>Following</Text>
+</View>
+<View style={styles.stat}>
+  <Text style={styles.statNum}>0</Text>
+  <Text style={styles.statLabel}>Followers</Text>
+</View>
+
           </View>
         </View>
 
