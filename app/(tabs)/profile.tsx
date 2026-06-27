@@ -42,6 +42,8 @@ export default function Profile() {
   const [avatar, setAvatar] = useState<string | null>(null);
   const [favoriteAlbums, setFavoriteAlbums] = useState<(any | null)[]>([null, null, null, null]);
   const [pendingSlotIndex, setPendingSlotIndex] = useState<number | null>(null);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [followersCount, setFollowersCount] = useState(0);
 
   useEffect(() => {
     loadReviews();
