@@ -206,15 +206,19 @@ async function syncUserAndCounts() {
 
         <View style={styles.menu}>
           {[
-            { label: 'Songs', route: '/songs' },
-            { label: 'Diary', route: '/diary' },
-            { label: 'Reviews', route: '/reviews' },
-            { label: 'Lists', route: '/lists' },
-            { label: 'Want to Listen', route: '/wanttolisten' },
-            { label: 'Likes', route: '/likes' },
-            { label: 'Following', route: '/following' },
-            { label: 'Followers', route: '/followers' },
-            { label: 'Artists', route: '/artists' },
+          {[
+  { label: 'Find People', route: '/find-people' },
+  { label: 'Songs', route: '/songs' },
+  { label: 'Diary', route: '/diary' },
+  { label: 'Reviews', route: '/reviews' },
+  { label: 'Lists', route: '/lists' },
+  { label: 'Want to Listen', route: '/wanttolisten' },
+  { label: 'Likes', route: '/likes' },
+  { label: 'Following', route: '/following' },
+  { label: 'Followers', route: '/followers' },
+  { label: 'Artists', route: '/artists' },
+].map(item => (
+
           ].map(item => (
             <Pressable
               key={item.label}
