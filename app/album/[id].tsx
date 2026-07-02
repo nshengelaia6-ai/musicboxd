@@ -57,12 +57,11 @@ export default function AlbumPage() {
     setAlbum(data);
     setTracks(data.tracks?.items || []);
 
-     const listenedData = await AsyncStorage.getItem('listened');
-     const listenedList = listenedData ? JSON.parse(listenedData) : [];
-     const foundListened = listenedList.find((i: any) => i.id === data.id);
-     setListened(!!foundListened);
-     if (foundListened?.rating) setRating(foundListened.rating);
-
+    const listenedData = await AsyncStorage.getItem('listened');
+    const listenedList = listenedData ? JSON.parse(listenedData) : [];
+    const foundListened = listenedList.find((i: any) => i.id === data.id);
+    setListened(!!foundListened);
+    if (foundListened?.rating) setRating(foundListened.rating);
 
     const wantData = await AsyncStorage.getItem('wantToListen');
     const wantList = wantData ? JSON.parse(wantData) : [];
@@ -75,7 +74,7 @@ export default function AlbumPage() {
     const reviewsData = await AsyncStorage.getItem('reviews');
     const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
     const foundReview = reviewsList.find((i: any) => i.albumId === data.id);
-    setRating(foundReview ? foundReview.rating : 0);
+    if (foundReview?.rating) setRating(foundReview.rating);
   }
 
   async function openTrackMenu(track: any) {
@@ -84,7 +83,9 @@ export default function AlbumPage() {
 
     const listenedData = await AsyncStorage.getItem('listened');
     const listenedList = listenedData ? JSON.parse(listenedData) : [];
-    setTrackListened(!!listenedList.find((i: any) => i.id === track.id));
+    const foundListened = listenedList.find((i: any) => i.id === track.id);
+    setTrackListened(!!foundListened);
+    setTrackRating(foundListened?.rating || 0);
 
     const wantData = await AsyncStorage.getItem('wantToListen');
     const wantList = wantData ? JSON.parse(wantData) : [];
@@ -93,12 +94,6 @@ export default function AlbumPage() {
     const likedData = await AsyncStorage.getItem('liked');
     const likedList = likedData ? JSON.parse(likedData) : [];
     setTrackLiked(!!likedList.find((i: any) => i.id === track.id));
-
-   const reviewsData = await AsyncStorage.getItem('reviews');
-const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
-const foundReview = reviewsList.find((i: any) => i.albumId === data.id);
-if (foundReview?.rating) setRating(foundReview.rating);
-
   }
 
   async function openTrack(track: any) {
@@ -107,13 +102,13 @@ if (foundReview?.rating) setRating(foundReview.rating);
 
   function updateRating(newRating: number) {
     setRating(newRating);
+    setListened(true);
     AsyncStorage.getItem('listened').then(existing => {
       const list = existing ? JSON.parse(existing) : [];
       const idx = list.findIndex((i: any) => i.id === album?.id);
       if (idx !== -1) {
         list[idx].rating = newRating;
       } else {
-        setListened(true);
         list.unshift({ id: album?.id, name: album?.name, cover: album?.images?.[0]?.url, type: 'album', rating: newRating, date: new Date().toISOString() });
       }
       AsyncStorage.setItem('listened', JSON.stringify(list));
@@ -122,6 +117,7 @@ if (foundReview?.rating) setRating(foundReview.rating);
 
   function updateTrackRating(newRating: number) {
     setTrackRating(newRating);
+    setTrackListened(true);
     AsyncStorage.getItem('listened').then(existing => {
       const list = existing ? JSON.parse(existing) : [];
       const idx = list.findIndex((i: any) => i.id === selectedTrack?.id);
@@ -129,7 +125,6 @@ if (foundReview?.rating) setRating(foundReview.rating);
         list[idx].rating = newRating;
         list[idx].albumId = album?.id;
       } else {
-        setTrackListened(true);
         list.unshift({ id: selectedTrack?.id, name: selectedTrack?.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id, rating: newRating, date: new Date().toISOString() });
       }
       AsyncStorage.setItem('listened', JSON.stringify(list));
@@ -176,7 +171,6 @@ if (foundReview?.rating) setRating(foundReview.rating);
         }}
       />
 
-      {/* Album Menu Modal */}
       <Modal visible={menuVisible} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)} />
         <View style={styles.sheet}>
@@ -203,6 +197,7 @@ if (foundReview?.rating) setRating(foundReview.rating);
               } else {
                 const idx = list.findIndex((i: any) => i.id === album.id);
                 if (idx !== -1) list.splice(idx, 1);
+                setRating(0);
               }
               await AsyncStorage.setItem('listened', JSON.stringify(list));
             }}>
@@ -286,7 +281,6 @@ if (foundReview?.rating) setRating(foundReview.rating);
         </View>
       </Modal>
 
-      {/* Track Menu Modal */}
       <Modal visible={trackMenuVisible} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setTrackMenuVisible(false)} />
         <View style={styles.sheet}>
@@ -392,7 +386,6 @@ if (foundReview?.rating) setRating(foundReview.rating);
         </View>
       </Modal>
 
-      {/* Add to Lists Modal */}
       <Modal visible={showLists} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setShowLists(false)} />
         <View style={styles.sheet}>
