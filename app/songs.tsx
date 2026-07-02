@@ -70,12 +70,13 @@ export default function SongsScreen() {
       </View>
 
       <View style={styles.tabs}>
-        <TouchableOpacity style={[styles.tab, tab === 'albums' && styles.tabActive]} onPress={() => setTab('albums')}>
-          <Text style={[styles.tabText, tab === 'albums' && styles.tabTextActive]}>Albums</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, tab === 'tracks' && styles.tabActive]} onPress={() => setTab('tracks')}>
-          <Text style={[styles.tabText, tab === 'tracks' && styles.tabTextActive]}>Tracks</Text>
-        </TouchableOpacity>
+         <TouchableOpacity style={[styles.tab, tab === 'tracks' && styles.tabActive]} onPress={() => setTab('tracks')}>
+  <Text style={[styles.tabText, tab === 'tracks' && styles.tabTextActive]}>Tracks</Text>
+</TouchableOpacity>
+<TouchableOpacity style={[styles.tab, tab === 'albums' && styles.tabActive]} onPress={() => setTab('albums')}>
+  <Text style={[styles.tabText, tab === 'albums' && styles.tabTextActive]}>Albums</Text>
+</TouchableOpacity>
+
       </View>
 
       <ScrollView>
