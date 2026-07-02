@@ -116,22 +116,22 @@ export default function AlbumPage() {
     });
   }
 
-  function updateTrackRating(newRating: number) {
-    setTrackRating(newRating);
+ function updateTrackRating(newRating: number) {
+  setTrackRating(newRating);
 
-    AsyncStorage.getItem('listened').then(existing => {
-      const list = existing ? JSON.parse(existing) : [];
-      const idx = list.findIndex((i: any) => i.id === selectedTrack?.id);
-      if (idx !== -1) {
-        list[idx].rating = newRating;
-        list[idx].albumId = album?.id;
-      } else {
-        setTrackListened(true);
-        list.unshift({ id: selectedTrack?.id, name: selectedTrack?.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id, rating: newRating, date: new Date().toISOString() });
-      }
-      AsyncStorage.setItem('listened', JSON.stringify(list));
-    });
-  }
+  AsyncStorage.getItem('listened').then(existing => {
+    const list = existing ? JSON.parse(existing) : [];
+    const idx = list.findIndex((i: any) => i.id === selectedTrack?.id);
+    if (idx !== -1) {
+      list[idx].rating = newRating;
+      list[idx].albumId = album?.id;
+    } else {
+      setTrackListened(true);
+      list.unshift({ id: selectedTrack?.id, name: selectedTrack?.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id, rating: newRating, date: new Date().toISOString() });
+    }
+    AsyncStorage.setItem('listened', JSON.stringify(list));
+  });
+}
 
   return (
     <ScrollView style={[styles.container, { backgroundColor }]} ref={scrollViewRef}>
