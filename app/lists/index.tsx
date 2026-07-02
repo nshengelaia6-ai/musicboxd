@@ -68,9 +68,7 @@ export default function Lists() {
   function toggleItemSelection(item: any) {
     setSelectedItems((prev) => {
       const exists = prev.find((a) => a.id === item.id);
-      if (exists) {
-        return prev.filter((a) => a.id !== item.id);
-      }
+      if (exists) return prev.filter((a) => a.id !== item.id);
       return [
         ...prev,
         {
@@ -88,6 +86,14 @@ export default function Lists() {
     setSelectedItems((prev) => prev.filter((a) => a.id !== itemId));
   }
 
+  function handleCancel() {
+    setName('');
+    setDescription('');
+    setIsPublic(true);
+    setSelectedItems([]);
+    setShowCreate(false);
+  }
+
   async function createList() {
     if (!name.trim()) return;
     const newList = {
@@ -101,11 +107,7 @@ export default function Lists() {
     const updated = [newList, ...lists];
     setLists(updated);
     await AsyncStorage.setItem('lists', JSON.stringify(updated));
-    setName('');
-    setDescription('');
-    setIsPublic(true);
-    setSelectedItems([]);
-    setShowCreate(false);
+    handleCancel();
   }
 
   return (
@@ -151,14 +153,24 @@ export default function Lists() {
 
       {/* New List sheet */}
       <Modal visible={showCreate} transparent animationType="slide">
-        <Pressable style={styles.overlay} onPress={() => setShowCreate(false)} />
+        <Pressable style={styles.overlay} onPress={handleCancel} />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
           <ScrollView style={styles.sheet} keyboardShouldPersistTaps="handled">
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>New List</Text>
+
+            {/* Cancel / Title / Save header */}
+            <View style={styles.sheetTopBar}>
+              <TouchableOpacity onPress={handleCancel}>
+                <Text style={styles.cancelBtn}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.sheetTitle}>New List</Text>
+              <TouchableOpacity onPress={createList} disabled={!name.trim()}>
+                <Text style={[styles.saveBtn, !name.trim() && { opacity: 0.4 }]}>Save</Text>
+              </TouchableOpacity>
+            </View>
 
             <Text style={styles.label}>Name</Text>
             <TextInput
@@ -224,18 +236,12 @@ export default function Lists() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={[styles.createBtn, !name.trim() && { opacity: 0.4 }]}
-              onPress={createList}
-              disabled={!name.trim()}
-            >
-              <Text style={styles.createBtnText}>Create List</Text>
-            </TouchableOpacity>
+            <View style={{ height: 40 }} />
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Search sheet (Albums or Tracks) */}
+      {/* Search sheet */}
       <Modal visible={showSearch} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setShowSearch(false)} />
         <KeyboardAvoidingView
@@ -244,7 +250,14 @@ export default function Lists() {
         >
           <View style={[styles.sheet, { maxHeight: '85%' }]}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Add to List</Text>
+
+            <View style={styles.sheetTopBar}>
+              <View style={{ width: 60 }} />
+              <Text style={styles.sheetTitle}>Add to List</Text>
+              <TouchableOpacity onPress={() => setShowSearch(false)}>
+                <Text style={styles.saveBtn}>Done</Text>
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.toggleRow}>
               <TouchableOpacity
@@ -281,10 +294,7 @@ export default function Lists() {
                 const isSelected = selectedItems.some((a) => a.id === item.id);
                 const image = getItemImage(item);
                 return (
-                  <TouchableOpacity
-                    style={styles.resultRow}
-                    onPress={() => toggleItemSelection(item)}
-                  >
+                  <TouchableOpacity style={styles.resultRow} onPress={() => toggleItemSelection(item)}>
                     {image ? (
                       <Image source={{ uri: image }} style={styles.resultImg} />
                     ) : (
@@ -297,67 +307,4 @@ export default function Lists() {
                     <Text style={isSelected ? styles.resultCheckActive : styles.resultCheck}>
                       {isSelected ? '✓' : '+'}
                     </Text>
-                  </TouchableOpacity>
-                );
-              }}
-            />
-
-            <TouchableOpacity
-              style={styles.doneAlbumsBtn}
-              onPress={() => setShowSearch(false)}
-            >
-              <Text style={styles.createBtnText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-    </SafeAreaView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#141414' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#222' },
-  back: { color: '#fff', fontSize: 32, lineHeight: 36 },
-  title: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-  plus: { color: '#1DB954', fontSize: 32, lineHeight: 36 },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  emptySubtext: { color: '#666', fontSize: 14, marginTop: 8 },
-  listCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e1e1e', borderRadius: 12, padding: 16, marginBottom: 12 },
-  listInfo: { flex: 1 },
-  listName: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  listDesc: { color: '#888', fontSize: 13, marginTop: 4 },
-  listMeta: { color: '#555', fontSize: 12, marginTop: 6 },
-  arrow: { color: '#555', fontSize: 20 },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
-  sheet: { backgroundColor: '#1c1c1c', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 44 },
-  sheetHandle: { width: 40, height: 4, backgroundColor: '#444', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  sheetTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-  label: { color: '#888', fontSize: 13, marginBottom: 6, marginTop: 12 },
-  input: { backgroundColor: '#2a2a2a', color: '#fff', borderRadius: 10, padding: 12, fontSize: 15 },
-  toggleRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
-  toggleBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: '#2a2a2a', alignItems: 'center' },
-  toggleActive: { backgroundColor: '#1DB954' },
-  toggleText: { color: '#888', fontSize: 14, fontWeight: '600' },
-  toggleTextActive: { color: '#000' },
-  createBtn: { backgroundColor: '#1DB954', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 24 },
-  createBtnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
-
-  albumsHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
-  addAlbumsLink: { color: '#1DB954', fontSize: 14, fontWeight: '600' },
-  selectedAlbumsWrap: { marginTop: 8 },
-  albumChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#2a2a2a', borderRadius: 10, padding: 8, marginBottom: 8 },
-  albumChipImg: { width: 36, height: 36, borderRadius: 6, marginRight: 10 },
-  albumChipText: { color: '#fff', fontSize: 14 },
-  albumChipType: { color: '#777', fontSize: 11, marginTop: 2 },
-  albumChipRemove: { color: '#888', fontSize: 16, paddingHorizontal: 8 },
-
-  resultRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
-  resultImg: { width: 44, height: 44, borderRadius: 6, marginRight: 12 },
-  resultName: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  resultArtist: { color: '#888', fontSize: 13, marginTop: 2 },
-  resultCheck: { color: '#555', fontSize: 22, paddingHorizontal: 8 },
-  resultCheckActive: { color: '#1DB954', fontSize: 20, fontWeight: 'bold', paddingHorizontal: 8 },
-  doneAlbumsBtn: { backgroundColor: '#1DB954', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 16 },
-});
+                  
