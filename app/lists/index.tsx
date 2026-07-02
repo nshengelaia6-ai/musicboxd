@@ -113,13 +113,7 @@ export default function Lists() {
       ActionSheetIOS.showActionSheetWithOptions(
         {
           title: 'List visible to',
-          options: [
-            'Anyone (public list)',
-            'Anyone with share link',
-            'Friends with share link',
-            'You (private list)',
-            'Cancel',
-          ],
+          options: ['Anyone (public list)', 'Anyone with share link', 'Friends with share link', 'You (private list)', 'Cancel'],
           cancelButtonIndex: 4,
         },
         (idx) => {
@@ -208,14 +202,15 @@ export default function Lists() {
             <View style={styles.albumsHeaderRow}>
               <Text style={styles.label}>Items ({selectedItems.length})</Text>
               <TouchableOpacity
-                <Pressable
-  onPress={() => setShowSearch(true)}
-  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-  style={{ padding: 6 }}
->
-  <Text style={styles.addAlbumsLink}>+ Add</Text>
-</Pressable>
-
+                onPress={() => {
+                  setShowCreate(false);
+                  setTimeout(() => setShowSearch(true), 300);
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{ padding: 6 }}
+              >
+                <Text style={styles.addAlbumsLink}>+ Add</Text>
+              </TouchableOpacity>
             </View>
 
             {selectedItems.length > 0 && (
@@ -249,14 +244,20 @@ export default function Lists() {
 
       {/* Search sheet */}
       <Modal visible={showSearch} transparent animationType="slide">
-        <Pressable style={styles.overlay} onPress={() => setShowSearch(false)} />
+        <Pressable style={styles.overlay} onPress={() => {
+          setShowSearch(false);
+          setTimeout(() => setShowCreate(true), 300);
+        }} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
           <View style={[styles.sheet, { maxHeight: '85%' }]}>
             <View style={styles.sheetHandle} />
             <View style={styles.sheetTopBar}>
               <View style={{ width: 60 }} />
               <Text style={styles.sheetTitle}>Add to List</Text>
-              <TouchableOpacity onPress={() => setShowSearch(false)}>
+              <TouchableOpacity onPress={() => {
+                setShowSearch(false);
+                setTimeout(() => setShowCreate(true), 300);
+              }}>
                 <Text style={styles.saveBtn}>Done</Text>
               </TouchableOpacity>
             </View>
