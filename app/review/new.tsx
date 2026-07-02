@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function ReviewPage() {
-  const { albumName, albumArtist, albumCover, albumId } = useLocalSearchParams();
+  const { albumName, albumArtist, albumCover, albumId, currentRating } = useLocalSearchParams();
   const router = useRouter();
   const [review, setReview] = useState('');
   const [rating, setRating] = useState(0);
@@ -12,7 +12,6 @@ export default function ReviewPage() {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   const starWidth = 36;
-  const starGap = 6;
 
   useEffect(() => {
     async function loadExisting() {
@@ -23,15 +22,13 @@ export default function ReviewPage() {
       if (found) {
         setRating(found.rating || 0);
         setReview(found.review || '');
+      } else if (currentRating && parseFloat(currentRating as string) > 0) {
+        setRating(parseFloat(currentRating as string));
       }
       setLoaded(true);
     }
     loadExisting();
   }, [albumId]);
-
-  function updateRating(newRating: number) {
-    setRating(newRating);
-  }
 
   function renderStars() {
     return (
@@ -49,11 +46,11 @@ export default function ReviewPage() {
               )}
               <Pressable
                 style={[StyleSheet.absoluteFillObject, { left: 0, width: starWidth / 2 }]}
-                onPress={() => updateRating(s - 0.5)}
+                onPress={() => setRating(s - 0.5)}
               />
               <Pressable
                 style={[StyleSheet.absoluteFillObject, { left: starWidth / 2, width: starWidth / 2 }]}
-                onPress={() => updateRating(s)}
+                onPress={() => setRating(s)}
               />
             </View>
           );
@@ -68,7 +65,6 @@ export default function ReviewPage() {
     const userId = await AsyncStorage.getItem('user_id');
 
     try {
-      // reviews-ში შენახვა
       const existing = await AsyncStorage.getItem('reviews');
       const reviews = existing ? JSON.parse(existing) : [];
       const existingIndex = reviews.findIndex((r: any) => r.albumId === albumId);
@@ -95,16 +91,13 @@ export default function ReviewPage() {
       }
       await AsyncStorage.setItem('reviews', JSON.stringify(reviews));
 
-      // listened-ში შენახვა/განახლება
       const listenedData = await AsyncStorage.getItem('listened');
       const listenedList = listenedData ? JSON.parse(listenedData) : [];
       const listenedIndex = listenedList.findIndex((i: any) => i.id === albumId);
 
       if (listenedIndex !== -1) {
-        // უკვე არსებობს — rating განაახლე
         listenedList[listenedIndex].rating = rating;
       } else {
-        // ახალი ჩანაწერი
         listenedList.unshift({
           id: albumId,
           name: albumName,
