@@ -9,7 +9,7 @@ import { ThemeContextProvider } from '@/context/ThemeContext';
 export const unstable_settings = {
   anchor: '(tabs)',
 };
-<Stack.Screen name="lists/index" options={{ headerShown: false }} />
+
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
