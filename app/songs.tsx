@@ -50,13 +50,13 @@ export default function SongsScreen() {
   }, []);
 
   function openItem(item: any) {
-    if (item.type === 'album') {
-      router.push(`/album/${item.id}` as any);
-    } else {
-      if (!item.albumId) return;
-      router.push(`/album/${item.albumId}` as any);
-    }
+  if (item.type === 'album') {
+    router.push(`/album/${item.id}` as any);
+  } else {
+    if (!item.albumId) return;
+    router.push(`/album/${item.albumId}?highlightTrackId=${item.id}` as any);
   }
+}
 
   return (
     <View style={styles.container}>
