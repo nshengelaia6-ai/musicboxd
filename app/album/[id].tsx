@@ -306,11 +306,11 @@ export default function AlbumPage() {
             <TouchableOpacity style={styles.actionBtn} onPress={async () => {
               const newVal = !trackListened;
               setTrackListened(newVal);
-} else {
-  const idx = list.findIndex((i: any) => i.id === selectedTrack.id);
-  if (idx !== -1) list.splice(idx, 1);
-  setTrackRating(0);
-}
+     } else {
+       const idx = list.findIndex((i: any) => i.id === selectedTrack.id);
+       if (idx !== -1) list.splice(idx, 1);
+       setTrackRating(0);
+     }
 
               const existing = await AsyncStorage.getItem('listened');
               const list = existing ? JSON.parse(existing) : [];
