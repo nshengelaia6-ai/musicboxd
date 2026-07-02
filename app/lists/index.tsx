@@ -163,7 +163,6 @@ export default function Lists() {
         />
       )}
 
-      {/* New List sheet */}
       <Modal visible={showCreate} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={handleCancel} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
@@ -242,7 +241,6 @@ export default function Lists() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Search sheet */}
       <Modal visible={showSearch} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => {
           setShowSearch(false);
