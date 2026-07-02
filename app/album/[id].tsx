@@ -57,9 +57,12 @@ export default function AlbumPage() {
     setAlbum(data);
     setTracks(data.tracks?.items || []);
 
-    const listenedData = await AsyncStorage.getItem('listened');
-    const listenedList = listenedData ? JSON.parse(listenedData) : [];
-    setListened(!!listenedList.find((i: any) => i.id === data.id));
+     const listenedData = await AsyncStorage.getItem('listened');
+     const listenedList = listenedData ? JSON.parse(listenedData) : [];
+     const foundListened = listenedList.find((i: any) => i.id === data.id);
+     setListened(!!foundListened);
+     if (foundListened?.rating) setRating(foundListened.rating);
+
 
     const wantData = await AsyncStorage.getItem('wantToListen');
     const wantList = wantData ? JSON.parse(wantData) : [];
