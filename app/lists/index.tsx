@@ -208,12 +208,14 @@ export default function Lists() {
             <View style={styles.albumsHeaderRow}>
               <Text style={styles.label}>Items ({selectedItems.length})</Text>
               <TouchableOpacity
-                onPress={() => setShowSearch(true)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                style={{ padding: 6 }}
-              >
-                <Text style={styles.addAlbumsLink}>+ Add</Text>
-              </TouchableOpacity>
+                <Pressable
+  onPress={() => setShowSearch(true)}
+  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+  style={{ padding: 6 }}
+>
+  <Text style={styles.addAlbumsLink}>+ Add</Text>
+</Pressable>
+
             </View>
 
             {selectedItems.length > 0 && (
