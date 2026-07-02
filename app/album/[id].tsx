@@ -315,11 +315,9 @@ export default function AlbumPage() {
     if (!list.find((i: any) => i.id === selectedTrack.id)) {
       list.unshift({ id: selectedTrack.id, name: selectedTrack.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id, rating: trackRating, date: new Date().toISOString() });
     }
-  } else {
-    const idx = list.findIndex((i: any) => i.id === selectedTrack.id);
-    if (idx !== -1) list.splice(idx, 1);
-    setTrackRating(0);
-  }
+setTrackListened(newVal);
+              const existing = await AsyncStorage.getItem('listened');
+
   await AsyncStorage.setItem('listened', JSON.stringify(list));
 }}
 
