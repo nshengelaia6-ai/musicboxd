@@ -94,6 +94,11 @@ export default function AlbumPage() {
     const likedData = await AsyncStorage.getItem('liked');
     const likedList = likedData ? JSON.parse(likedData) : [];
     setTrackLiked(!!likedList.find((i: any) => i.id === track.id));
+
+    const reviewsData = await AsyncStorage.getItem('reviews');
+    const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
+    const foundReview = reviewsList.find((i: any) => i.albumId === track.id);
+    if (foundReview?.rating) setTrackRating(foundReview.rating);
   }
 
   async function openTrack(track: any) {
@@ -257,7 +262,16 @@ export default function AlbumPage() {
 
           <TouchableOpacity style={styles.menuItem} onPress={() => {
             setMenuVisible(false);
-            router.push({ pathname: '/review/new', params: { albumId: album.id, albumName: album.name, albumArtist: album.artists?.[0]?.name, albumCover: album.images?.[0]?.url } });
+            router.push({
+              pathname: '/review/new',
+              params: {
+                albumId: album.id,
+                albumName: album.name,
+                albumArtist: album.artists?.[0]?.name,
+                albumCover: album.images?.[0]?.url,
+                currentRating: String(rating),
+              }
+            });
           }}>
             <Text style={styles.menuText}>Review or log</Text>
           </TouchableOpacity>
@@ -367,7 +381,16 @@ export default function AlbumPage() {
 
           <TouchableOpacity style={styles.menuItem} onPress={() => {
             setTrackMenuVisible(false);
-            router.push({ pathname: '/review/new', params: { albumId: selectedTrack?.id, albumName: selectedTrack?.name, albumArtist: selectedTrack?.artists?.[0]?.name, albumCover: album?.images?.[0]?.url } });
+            router.push({
+              pathname: '/review/new',
+              params: {
+                albumId: selectedTrack?.id,
+                albumName: selectedTrack?.name,
+                albumArtist: selectedTrack?.artists?.[0]?.name,
+                albumCover: album?.images?.[0]?.url,
+                currentRating: String(trackRating),
+              }
+            });
           }}>
             <Text style={styles.menuText}>Review or log</Text>
           </TouchableOpacity>
