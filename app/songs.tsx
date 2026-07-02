@@ -28,7 +28,8 @@ function Stars({ count }: { count: number }) {
 export default function SongsScreen() {
   const router = useRouter();
   const [listened, setListened] = useState<any[]>([]);
-  const [tab, setTab] = useState<'albums' | 'tracks'>('albums');
+ const [tab, setTab] = useState<'albums' | 'tracks'>('tracks');
+
 
   useEffect(() => {
     async function load() {
