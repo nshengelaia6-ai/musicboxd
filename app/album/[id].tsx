@@ -17,13 +17,14 @@ export default function AlbumPage() {
   const [liked, setLiked] = useState(false);
   const [wantToListen, setWantToListen] = useState(false);
   const [rating, setRating] = useState(0);
-
   const [trackMenuVisible, setTrackMenuVisible] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [trackListened, setTrackListened] = useState(false);
   const [trackLiked, setTrackLiked] = useState(false);
   const [trackWantToListen, setTrackWantToListen] = useState(false);
   const [trackRating, setTrackRating] = useState(0);
+  const [showLists, setShowLists] = useState(false);
+  const [userLists, setUserLists] = useState<any[]>([]);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const trackRowOffsets = useRef<{ [key: string]: number }>({});
@@ -102,7 +103,6 @@ export default function AlbumPage() {
 
   function updateRating(newRating: number) {
     setRating(newRating);
-
     AsyncStorage.getItem('listened').then(existing => {
       const list = existing ? JSON.parse(existing) : [];
       const idx = list.findIndex((i: any) => i.id === album?.id);
@@ -116,30 +116,26 @@ export default function AlbumPage() {
     });
   }
 
- function updateTrackRating(newRating: number) {
-  setTrackRating(newRating);
-
-  AsyncStorage.getItem('listened').then(existing => {
-    const list = existing ? JSON.parse(existing) : [];
-    const idx = list.findIndex((i: any) => i.id === selectedTrack?.id);
-    if (idx !== -1) {
-      list[idx].rating = newRating;
-      list[idx].albumId = album?.id;
-    } else {
-      setTrackListened(true);
-      list.unshift({ id: selectedTrack?.id, name: selectedTrack?.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id, rating: newRating, date: new Date().toISOString() });
-    }
-    AsyncStorage.setItem('listened', JSON.stringify(list));
-  });
-}
+  function updateTrackRating(newRating: number) {
+    setTrackRating(newRating);
+    AsyncStorage.getItem('listened').then(existing => {
+      const list = existing ? JSON.parse(existing) : [];
+      const idx = list.findIndex((i: any) => i.id === selectedTrack?.id);
+      if (idx !== -1) {
+        list[idx].rating = newRating;
+        list[idx].albumId = album?.id;
+      } else {
+        setTrackListened(true);
+        list.unshift({ id: selectedTrack?.id, name: selectedTrack?.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id, rating: newRating, date: new Date().toISOString() });
+      }
+      AsyncStorage.setItem('listened', JSON.stringify(list));
+    });
+  }
 
   return (
     <ScrollView style={[styles.container, { backgroundColor }]} ref={scrollViewRef}>
       {album && (
-        <View
-          style={styles.header}
-          onLayout={(e) => { headerHeight.current = e.nativeEvent.layout.height; }}
-        >
+        <View style={styles.header} onLayout={(e) => { headerHeight.current = e.nativeEvent.layout.height; }}>
           <Image source={{ uri: album.images?.[0]?.url }} style={styles.cover} />
           <Text style={styles.albumName}>{album.name}</Text>
           <Text style={styles.meta}>{album.artists?.[0]?.name}</Text>
@@ -149,6 +145,7 @@ export default function AlbumPage() {
           </TouchableOpacity>
         </View>
       )}
+
       <FlatList
         data={tracks}
         keyExtractor={(item, index) => item.id ? `${item.id}-${index}` : index.toString()}
@@ -158,9 +155,7 @@ export default function AlbumPage() {
           return (
             <View
               style={[styles.row, isHighlighted && { backgroundColor: accentColor + '26' }]}
-              onLayout={(e) => {
-                trackRowOffsets.current[item.id] = headerHeight.current + e.nativeEvent.layout.y;
-              }}
+              onLayout={(e) => { trackRowOffsets.current[item.id] = headerHeight.current + e.nativeEvent.layout.y; }}
             >
               <TouchableOpacity style={styles.rowMain} onPress={() => openTrack(item)}>
                 <Text style={styles.num}>{index + 1}</Text>
@@ -177,6 +172,7 @@ export default function AlbumPage() {
         }}
       />
 
+      {/* Album Menu Modal */}
       <Modal visible={menuVisible} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)} />
         <View style={styles.sheet}>
@@ -262,20 +258,17 @@ export default function AlbumPage() {
 
           <TouchableOpacity style={styles.menuItem} onPress={() => {
             setMenuVisible(false);
-            router.push({
-              pathname: '/review/new',
-              params: {
-                albumId: album.id,
-                albumName: album.name,
-                albumArtist: album.artists?.[0]?.name,
-                albumCover: album.images?.[0]?.url,
-              }
-            });
+            router.push({ pathname: '/review/new', params: { albumId: album.id, albumName: album.name, albumArtist: album.artists?.[0]?.name, albumCover: album.images?.[0]?.url } });
           }}>
             <Text style={styles.menuText}>Review or log</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={async () => {
+            const data = await AsyncStorage.getItem('lists');
+            setUserLists(data ? JSON.parse(data) : []);
+            setMenuVisible(false);
+            setShowLists(true);
+          }}>
             <Text style={styles.menuText}>Add to lists</Text>
           </TouchableOpacity>
 
@@ -289,6 +282,7 @@ export default function AlbumPage() {
         </View>
       </Modal>
 
+      {/* Track Menu Modal */}
       <Modal visible={trackMenuVisible} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setTrackMenuVisible(false)} />
         <View style={styles.sheet}>
@@ -306,22 +300,6 @@ export default function AlbumPage() {
             <TouchableOpacity style={styles.actionBtn} onPress={async () => {
               const newVal = !trackListened;
               setTrackListened(newVal);
-    onPress={async () => {
-  const newVal = !trackListened;
-  setTrackListened(newVal);
-  const existing = await AsyncStorage.getItem('listened');
-  const list = existing ? JSON.parse(existing) : [];
-  if (newVal) {
-    if (!list.find((i: any) => i.id === selectedTrack.id)) {
-      list.unshift({ id: selectedTrack.id, name: selectedTrack.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id, rating: trackRating, date: new Date().toISOString() });
-    }
-setTrackListened(newVal);
-              const existing = await AsyncStorage.getItem('listened');
-
-  await AsyncStorage.setItem('listened', JSON.stringify(list));
-}}
-
-
               const existing = await AsyncStorage.getItem('listened');
               const list = existing ? JSON.parse(existing) : [];
               if (newVal) {
@@ -331,6 +309,7 @@ setTrackListened(newVal);
               } else {
                 const idx = list.findIndex((i: any) => i.id === selectedTrack.id);
                 if (idx !== -1) list.splice(idx, 1);
+                setTrackRating(0);
               }
               await AsyncStorage.setItem('listened', JSON.stringify(list));
             }}>
@@ -390,15 +369,7 @@ setTrackListened(newVal);
 
           <TouchableOpacity style={styles.menuItem} onPress={() => {
             setTrackMenuVisible(false);
-            router.push({
-              pathname: '/review/new',
-              params: {
-                albumId: selectedTrack?.id,
-                albumName: selectedTrack?.name,
-                albumArtist: selectedTrack?.artists?.[0]?.name,
-                albumCover: album?.images?.[0]?.url,
-              }
-            });
+            router.push({ pathname: '/review/new', params: { albumId: selectedTrack?.id, albumName: selectedTrack?.name, albumArtist: selectedTrack?.artists?.[0]?.name, albumCover: album?.images?.[0]?.url } });
           }}>
             <Text style={styles.menuText}>Review or log</Text>
           </TouchableOpacity>
@@ -414,6 +385,36 @@ setTrackListened(newVal);
           <TouchableOpacity style={styles.doneBtn} onPress={() => setTrackMenuVisible(false)}>
             <Text style={styles.doneBtnText}>Done</Text>
           </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* Add to Lists Modal */}
+      <Modal visible={showLists} transparent animationType="slide">
+        <Pressable style={styles.overlay} onPress={() => setShowLists(false)} />
+        <View style={styles.sheet}>
+          <View style={styles.sheetHandle} />
+          <Text style={[styles.sheetTitle, { textAlign: 'center', marginBottom: 16 }]}>Add to List</Text>
+          {userLists.length === 0 ? (
+            <Text style={{ color: '#888', textAlign: 'center', paddingVertical: 20 }}>No lists yet</Text>
+          ) : (
+            userLists.map(list => (
+              <TouchableOpacity key={list.id} style={styles.menuItem} onPress={async () => {
+                const data = await AsyncStorage.getItem('lists');
+                const lists = data ? JSON.parse(data) : [];
+                const idx = lists.findIndex((l: any) => l.id === list.id);
+                if (idx !== -1) {
+                  const albumEntry = { id: album.id, name: album.name, cover: album.images?.[0]?.url };
+                  if (!lists[idx].albums.find((a: any) => a.id === album.id)) {
+                    lists[idx].albums.unshift(albumEntry);
+                  }
+                  await AsyncStorage.setItem('lists', JSON.stringify(lists));
+                }
+                setShowLists(false);
+              }}>
+                <Text style={styles.menuText}>{list.name}</Text>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
       </Modal>
     </ScrollView>
@@ -438,6 +439,7 @@ const styles = StyleSheet.create({
   trackDots: { color: '#888', fontSize: 20 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: { backgroundColor: '#1c1c1e', padding: 24, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  sheetHandle: { width: 40, height: 4, backgroundColor: '#444', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   sheetCover: { width: 48, height: 48, borderRadius: 6, marginRight: 12 },
   sheetTitle: { color: 'white', fontSize: 16, fontWeight: 'bold' },
