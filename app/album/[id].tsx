@@ -94,10 +94,11 @@ export default function AlbumPage() {
     const likedList = likedData ? JSON.parse(likedData) : [];
     setTrackLiked(!!likedList.find((i: any) => i.id === track.id));
 
-    const reviewsData = await AsyncStorage.getItem('reviews');
-    const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
-    const foundReview = reviewsList.find((i: any) => i.albumId === track.id);
-    setTrackRating(foundReview ? foundReview.rating : 0);
+   const reviewsData = await AsyncStorage.getItem('reviews');
+const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
+const foundReview = reviewsList.find((i: any) => i.albumId === data.id);
+if (foundReview?.rating) setRating(foundReview.rating);
+
   }
 
   async function openTrack(track: any) {
