@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActionSheetIOS, ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function Lists() {
   const router = useRouter();
@@ -9,7 +9,7 @@ export default function Lists() {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [isPublic, setIsPublic] = useState(true);
+  const [privacy, setPrivacy] = useState<'public' | 'link' | 'friends' | 'private'>('public');
 
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
   const [showSearch, setShowSearch] = useState(false);
@@ -80,7 +80,7 @@ export default function Lists() {
   function handleCancel() {
     setName('');
     setDescription('');
-    setIsPublic(true);
+    setPrivacy('public');
     setSelectedItems([]);
     setShowCreate(false);
   }
@@ -91,7 +91,7 @@ export default function Lists() {
       id: Date.now().toString(),
       name: name.trim(),
       description: description.trim(),
-      isPublic,
+      privacy,
       albums: selectedItems,
       createdAt: new Date().toISOString(),
     };
@@ -99,6 +99,37 @@ export default function Lists() {
     setLists(updated);
     await AsyncStorage.setItem('lists', JSON.stringify(updated));
     handleCancel();
+  }
+
+  function privacyLabel() {
+    if (privacy === 'public') return '🌐  Anyone (public list)';
+    if (privacy === 'link') return '🔗  Anyone with share link';
+    if (privacy === 'friends') return '👥  Friends with share link';
+    return '🔒  You (private list)';
+  }
+
+  function showPrivacySheet() {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: 'List visible to',
+          options: [
+            'Anyone (public list)',
+            'Anyone with share link',
+            'Friends with share link',
+            'You (private list)',
+            'Cancel',
+          ],
+          cancelButtonIndex: 4,
+        },
+        (idx) => {
+          if (idx === 0) setPrivacy('public');
+          if (idx === 1) setPrivacy('link');
+          if (idx === 2) setPrivacy('friends');
+          if (idx === 3) setPrivacy('private');
+        }
+      );
+    }
   }
 
   return (
@@ -130,7 +161,7 @@ export default function Lists() {
               <View style={styles.listInfo}>
                 <Text style={styles.listName}>{item.name}</Text>
                 {item.description ? <Text style={styles.listDesc} numberOfLines={1}>{item.description}</Text> : null}
-                <Text style={styles.listMeta}>{item.albums?.length || 0} items • {item.isPublic ? '🌐 Public' : '🔒 Private'}</Text>
+                <Text style={styles.listMeta}>{item.albums?.length || 0} items</Text>
               </View>
               <Text style={styles.arrow}>›</Text>
             </TouchableOpacity>
@@ -141,7 +172,7 @@ export default function Lists() {
       {/* New List sheet */}
       <Modal visible={showCreate} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={handleCancel} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
           <ScrollView style={styles.sheet} keyboardShouldPersistTaps="handled">
             <View style={styles.sheetHandle} />
             <View style={styles.sheetTopBar}>
@@ -155,14 +186,32 @@ export default function Lists() {
             </View>
 
             <Text style={styles.label}>Name</Text>
-            <TextInput style={styles.input} placeholder="List name..." placeholderTextColor="#555" value={name} onChangeText={setName} autoFocus />
+            <TextInput
+              style={styles.input}
+              placeholder="List name..."
+              placeholderTextColor="#555"
+              value={name}
+              onChangeText={setName}
+              autoFocus
+            />
 
             <Text style={styles.label}>Description (optional)</Text>
-            <TextInput style={[styles.input, { height: 80 }]} placeholder="What's this list about?" placeholderTextColor="#555" value={description} onChangeText={setDescription} multiline />
+            <TextInput
+              style={[styles.input, { height: 80 }]}
+              placeholder="What's this list about?"
+              placeholderTextColor="#555"
+              value={description}
+              onChangeText={setDescription}
+              multiline
+            />
 
             <View style={styles.albumsHeaderRow}>
               <Text style={styles.label}>Items ({selectedItems.length})</Text>
-              <TouchableOpacity onPress={() => setShowSearch(true)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={{ padding: 6 }}>
+              <TouchableOpacity
+                onPress={() => setShowSearch(true)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{ padding: 6 }}
+              >
                 <Text style={styles.addAlbumsLink}>+ Add</Text>
               </TouchableOpacity>
             </View>
@@ -184,15 +233,13 @@ export default function Lists() {
               </View>
             )}
 
-            <Text style={styles.label}>Privacy</Text>
-            <View style={styles.toggleRow}>
-              <TouchableOpacity style={[styles.toggleBtn, isPublic && styles.toggleActive]} onPress={() => setIsPublic(true)}>
-                <Text style={[styles.toggleText, isPublic && styles.toggleTextActive]}>🌐 Public</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.toggleBtn, !isPublic && styles.toggleActive]} onPress={() => setIsPublic(false)}>
-                <Text style={[styles.toggleText, !isPublic && styles.toggleTextActive]}>🔒 Private</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.label}>Visible to</Text>
+            <TouchableOpacity style={styles.privacyRow} onPress={showPrivacySheet}>
+              <Text style={styles.privacyLabel}>{privacyLabel()}</Text>
+              <Text style={styles.privacyChevron}>›</Text>
+            </TouchableOpacity>
+            <Text style={styles.privacyHint}>Only public lists appear on your profile for others.</Text>
+
             <View style={{ height: 40 }} />
           </ScrollView>
         </KeyboardAvoidingView>
@@ -201,7 +248,7 @@ export default function Lists() {
       {/* Search sheet */}
       <Modal visible={showSearch} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setShowSearch(false)} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
           <View style={[styles.sheet, { maxHeight: '85%' }]}>
             <View style={styles.sheetHandle} />
             <View style={styles.sheetTopBar}>
@@ -296,6 +343,10 @@ const styles = StyleSheet.create({
   albumChipText: { color: '#fff', fontSize: 14 },
   albumChipType: { color: '#777', fontSize: 11, marginTop: 2 },
   albumChipRemove: { color: '#888', fontSize: 16, paddingHorizontal: 8 },
+  privacyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#2a2a2a', borderRadius: 10, padding: 14, marginTop: 4 },
+  privacyLabel: { color: '#fff', fontSize: 15 },
+  privacyChevron: { color: '#555', fontSize: 20 },
+  privacyHint: { color: '#555', fontSize: 12, marginTop: 8 },
   resultRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
   resultImg: { width: 44, height: 44, borderRadius: 6, marginRight: 12 },
   resultName: { color: '#fff', fontSize: 15, fontWeight: '600' },
