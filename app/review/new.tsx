@@ -55,7 +55,8 @@ export default function ReviewPage() {
   }
 
   async function handleSave() {
-  if (rating === 0 || !review.trim()) return;
+ if (rating === 0) return;
+
 
 
   const userId = await AsyncStorage.getItem('user_id');
