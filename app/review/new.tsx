@@ -1,32 +1,27 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { Image, PanResponder, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Image, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function ReviewPage() {
- const { albumName, albumArtist, albumCover, albumId } = useLocalSearchParams();
-
+  const { albumName, albumArtist, albumCover, albumId } = useLocalSearchParams();
   const router = useRouter();
   const [review, setReview] = useState('');
   const [rating, setRating] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-  const starsLayout = useRef<any>(null);
   const starWidth = 36;
   const starGap = 6;
 
   useEffect(() => {
     async function loadExisting() {
-      if (!albumId) {
-        setLoaded(true);
-        return;
-      }
+      if (!albumId) { setLoaded(true); return; }
       const existing = await AsyncStorage.getItem('reviews');
       const reviews = existing ? JSON.parse(existing) : [];
       const found = reviews.find((r: any) => r.albumId === albumId);
       if (found) {
-        setRating(found.rating);
+        setRating(found.rating || 0);
         setReview(found.review || '');
       }
       setLoaded(true);
@@ -34,111 +29,97 @@ export default function ReviewPage() {
     loadExisting();
   }, [albumId]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e) => updateRating(e.nativeEvent.pageX),
-      onPanResponderMove: (e) => updateRating(e.nativeEvent.pageX),
-    })
-  ).current;
-
-  function updateRating(pageX: number) {
-    if (!starsLayout.current) return;
-    const { x } = starsLayout.current;
-    const relX = pageX - x;
-    const totalWidth = 5 * starWidth + 4 * starGap;
-    const clamped = Math.max(0, Math.min(relX, totalWidth));
-    const raw = (clamped / totalWidth) * 5;
-    const rounded = Math.round(raw * 2) / 2;
-    setRating(Math.max(0.5, rounded));
+  function updateRating(newRating: number) {
+    setRating(newRating);
   }
-
-  async function handleSave() {
- if (rating === 0) return;
-
-
-
-  const userId = await AsyncStorage.getItem('user_id');
-
-  try {
-    const existing = await AsyncStorage.getItem('reviews');
-    const reviews = existing ? JSON.parse(existing) : [];
-
-const existingIndex = reviews.findIndex((r: any) => r.albumId === albumId);
-
-
-
-    if (existingIndex !== -1) {
-      reviews[existingIndex] = {
-        ...reviews[existingIndex],
-        rating,
-        review,
-        date: new Date().toISOString(),
-      };
-    } else {
-      reviews.unshift({
-        id: Date.now().toString(),
-        userId,
-        albumId: albumId as string,
-        albumName: albumName as string,
-        albumArtist: albumArtist as string,
-        albumCover: albumCover as string,
-        rating,
-        review,
-        date: new Date().toISOString(),
-      });
-    }
-
-    await AsyncStorage.setItem('reviews', JSON.stringify(reviews));
-
-    const listenedData = await AsyncStorage.getItem('listened');
-    const listenedList = listenedData ? JSON.parse(listenedData) : [];
-    if (!listenedList.find((i: any) => i.id === albumId)) {
-      listenedList.unshift({
-        id: albumId,
-        name: albumName,
-        cover: albumCover,
-        type: 'album',
-        rating,
-        date: new Date().toISOString(),
-      });
-      await AsyncStorage.setItem('listened', JSON.stringify(listenedList));
-    }
-
-    router.back();
-  } catch (e) {
-    console.error('შენახვა ვერ მოხერხდა', e);
-  }
-}
-
 
   function renderStars() {
     return (
-      <View
-        onLayout={(e) => { starsLayout.current = e.nativeEvent.layout; }}
-        {...panResponder.panHandlers}
-        style={styles.starsRow}
-      >
+      <View style={styles.starsRow}>
         {[1, 2, 3, 4, 5].map((s) => {
           const filled = rating >= s;
           const half = !filled && rating >= s - 0.5;
           return (
-            <View key={s} style={{ width: starWidth, height: starWidth, alignItems: 'center', justifyContent: 'center' }}>
+            <View key={s} style={{ width: starWidth, height: starWidth }}>
               <Text style={styles.starEmpty}>★</Text>
               {(filled || half) && (
-                <View style={[
-                  StyleSheet.absoluteFillObject,
-                  { overflow: 'hidden', width: filled ? starWidth : starWidth / 2 }
-                ]}>
+                <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', width: filled ? starWidth : starWidth / 2 }]}>
                   <Text style={styles.starFilled}>★</Text>
                 </View>
               )}
+              <Pressable
+                style={[StyleSheet.absoluteFillObject, { left: 0, width: starWidth / 2 }]}
+                onPress={() => updateRating(s - 0.5)}
+              />
+              <Pressable
+                style={[StyleSheet.absoluteFillObject, { left: starWidth / 2, width: starWidth / 2 }]}
+                onPress={() => updateRating(s)}
+              />
             </View>
           );
         })}
       </View>
     );
+  }
+
+  async function handleSave() {
+    if (rating === 0) return;
+
+    const userId = await AsyncStorage.getItem('user_id');
+
+    try {
+      // reviews-ში შენახვა
+      const existing = await AsyncStorage.getItem('reviews');
+      const reviews = existing ? JSON.parse(existing) : [];
+      const existingIndex = reviews.findIndex((r: any) => r.albumId === albumId);
+
+      if (existingIndex !== -1) {
+        reviews[existingIndex] = {
+          ...reviews[existingIndex],
+          rating,
+          review,
+          date: new Date().toISOString(),
+        };
+      } else {
+        reviews.unshift({
+          id: Date.now().toString(),
+          userId,
+          albumId: albumId as string,
+          albumName: albumName as string,
+          albumArtist: albumArtist as string,
+          albumCover: albumCover as string,
+          rating,
+          review,
+          date: new Date().toISOString(),
+        });
+      }
+      await AsyncStorage.setItem('reviews', JSON.stringify(reviews));
+
+      // listened-ში შენახვა/განახლება
+      const listenedData = await AsyncStorage.getItem('listened');
+      const listenedList = listenedData ? JSON.parse(listenedData) : [];
+      const listenedIndex = listenedList.findIndex((i: any) => i.id === albumId);
+
+      if (listenedIndex !== -1) {
+        // უკვე არსებობს — rating განაახლე
+        listenedList[listenedIndex].rating = rating;
+      } else {
+        // ახალი ჩანაწერი
+        listenedList.unshift({
+          id: albumId,
+          name: albumName,
+          cover: albumCover,
+          type: 'album',
+          rating,
+          date: new Date().toISOString(),
+        });
+      }
+      await AsyncStorage.setItem('listened', JSON.stringify(listenedList));
+
+      router.back();
+    } catch (e) {
+      console.error('შენახვა ვერ მოხერხდა', e);
+    }
   }
 
   return (
@@ -201,7 +182,7 @@ const styles = StyleSheet.create({
   label: { color: '#ccc', fontSize: 16 },
   date: { color: '#fff', fontSize: 15 },
   starsRow: { flexDirection: 'row', gap: 6 },
-  starEmpty: { fontSize: 32, color: '#555', position: 'absolute' },
+  starEmpty: { fontSize: 32, color: '#555' },
   starFilled: { fontSize: 32, color: '#ffb6c1' },
   reviewInput: { color: '#fff', fontSize: 15, padding: 16, minHeight: 200, textAlignVertical: 'top' },
 });
