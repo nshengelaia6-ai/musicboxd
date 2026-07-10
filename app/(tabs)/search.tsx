@@ -3,6 +3,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Image, Modal, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+const RECENT_LIMIT = 20;
+
 export default function Search() {
   const router = useRouter();
   const { mode, index } = useLocalSearchParams();
@@ -29,9 +31,20 @@ export default function Search() {
     let recent = data ? JSON.parse(data) : [];
     recent = recent.filter((r: any) => r.id !== item.id);
     recent.unshift(item);
-    recent = recent.slice(0, 10);
+    recent = recent.slice(0, RECENT_LIMIT);
     await AsyncStorage.setItem('recent_searches', JSON.stringify(recent));
     setRecentSearches(recent);
+  }
+
+  async function removeRecent(id: string) {
+    const updated = recentSearches.filter((r: any) => r.id !== id);
+    setRecentSearches(updated);
+    await AsyncStorage.setItem('recent_searches', JSON.stringify(updated));
+  }
+
+  async function clearAllRecent() {
+    setRecentSearches([]);
+    await AsyncStorage.removeItem('recent_searches');
   }
 
   async function pickAlbum(album: any) {
@@ -107,6 +120,34 @@ export default function Search() {
             <Text style={styles.dots}>···</Text>
           </Pressable>
         )}
+      </TouchableOpacity>
+    );
+  }
+
+  function renderRecentItem({ item }: any) {
+    return (
+      <TouchableOpacity
+        style={styles.row}
+        onPress={() => {
+          if (item._type === 'artist') {
+            saveRecent({ ...item, _type: 'artist' });
+            router.push(`/artist/${item.id}`);
+          }
+        }}
+      >
+        <Image
+          source={{ uri: item._type === 'artist' ? item.images?.[0]?.url : item.album?.images?.[0]?.url }}
+          style={item._type === 'artist' ? { ...styles.albumArt, borderRadius: 25 } : styles.albumArt}
+        />
+        <View style={styles.info}>
+          <Text style={styles.title} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.artist} numberOfLines={1}>
+            {item._type === 'artist' ? 'Artist' : item.artists?.[0]?.name}
+          </Text>
+        </View>
+        <Pressable onPress={() => removeRecent(item.id)} hitSlop={10}>
+          <Text style={styles.dots}>✕</Text>
+        </Pressable>
       </TouchableOpacity>
     );
   }
@@ -190,12 +231,19 @@ export default function Search() {
       ) : (
         <>
           {query.length < 2 && recentSearches.length > 0 && !isPickMode && (
-            <View>
-              <Text style={styles.sectionTitle}>Recent</Text>
+            <View style={{ flex: 1 }}>
+              <View style={styles.recentHeaderRow}>
+                <Text style={styles.sectionTitle}>Recent</Text>
+              </View>
               <FlatList
                 data={recentSearches}
                 keyExtractor={(item) => item.id}
-                renderItem={renderItem}
+                renderItem={renderRecentItem}
+                ListFooterComponent={
+                  <TouchableOpacity onPress={clearAllRecent} style={styles.clearAllBtn}>
+                    <Text style={styles.clearAllText}>Clear recent searches</Text>
+                  </TouchableOpacity>
+                }
               />
             </View>
           )}
@@ -258,6 +306,7 @@ const styles = StyleSheet.create({
   tabActive: { borderBottomWidth: 2, borderBottomColor: '#1DB954' },
   tabText: { color: '#888', fontSize: 15 },
   tabTextActive: { color: '#fff', fontWeight: 'bold' },
+  recentHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { color: '#888', fontSize: 14, fontWeight: '600', marginBottom: 12 },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, gap: 12 },
   albumArt: { width: 50, height: 50, borderRadius: 4 },
@@ -265,8 +314,10 @@ const styles = StyleSheet.create({
   info: { flex: 1 },
   title: { color: '#fff', fontSize: 15, fontWeight: '600' },
   artist: { color: '#888', fontSize: 13 },
-  dots: { color: '#fff', fontSize: 22, paddingHorizontal: 8 },
+  dots: { color: '#888', fontSize: 16, paddingHorizontal: 8 },
   emptyText: { color: '#555', textAlign: 'center', marginTop: 40, fontSize: 15 },
+  clearAllBtn: { paddingVertical: 16, alignItems: 'center' },
+  clearAllText: { color: '#1DB954', fontSize: 14, fontWeight: '600' },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
   sheet: { backgroundColor: '#1a1a1a', padding: 20, borderTopLeftRadius: 16, borderTopRightRadius: 16 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
