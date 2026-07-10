@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import StarRating from './StarRating';
 import { useAppTheme } from '@/context/ThemeContext';
 
@@ -25,6 +25,13 @@ export default function AlbumPage() {
   const [trackRating, setTrackRating] = useState(0);
   const [showLists, setShowLists] = useState(false);
   const [userLists, setUserLists] = useState<any[]>([]);
+
+  // Share to Friends states
+  const [showShareFriends, setShowShareFriends] = useState(false);
+  const [shareMessage, setShareMessage] = useState('');
+  const [showFriendsList, setShowFriendsList] = useState(false);
+  const [friends, setFriends] = useState<any[]>([]);
+  const [shareItem, setShareItem] = useState<any>(null); // album or track being shared
 
   const scrollViewRef = useRef<ScrollView>(null);
   const trackRowOffsets = useRef<{ [key: string]: number }>({});
@@ -136,6 +143,45 @@ export default function AlbumPage() {
     });
   }
 
+  function openShareFriends(item: any) {
+    setShareItem(item);
+    setShareMessage('');
+    setMenuVisible(false);
+    setTrackMenuVisible(false);
+    setShowShareFriends(true);
+  }
+
+  async function goToFriendsList() {
+    const data = await AsyncStorage.getItem('friends');
+    setFriends(data ? JSON.parse(data) : []);
+    setShowShareFriends(false);
+    setShowFriendsList(true);
+  }
+
+  async function sendToFriend(friend: any) {
+    const myUsername = await AsyncStorage.getItem('username') || 'me';
+    const sharedEntry = {
+      id: Date.now().toString(),
+      from: myUsername,
+      to: friend.id,
+      toName: friend.name,
+      message: shareMessage,
+      cover: shareItem?.images?.[0]?.url || album?.images?.[0]?.url,
+      name: shareItem?.name,
+      artist: shareItem?.artists?.[0]?.name || album?.artists?.[0]?.name,
+      date: new Date().toISOString(),
+    };
+
+    const existing = await AsyncStorage.getItem('shared_songs');
+    const list = existing ? JSON.parse(existing) : [];
+    list.unshift(sharedEntry);
+    await AsyncStorage.setItem('shared_songs', JSON.stringify(list));
+
+    setShowFriendsList(false);
+    setShareMessage('');
+    setShareItem(null);
+  }
+
   return (
     <ScrollView style={[styles.container, { backgroundColor }]} ref={scrollViewRef}>
       {album && (
@@ -176,6 +222,7 @@ export default function AlbumPage() {
         }}
       />
 
+      {/* Album Menu Modal */}
       <Modal visible={menuVisible} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)} />
         <View style={styles.sheet}>
@@ -285,6 +332,10 @@ export default function AlbumPage() {
             <Text style={styles.menuText}>Add to lists</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.menuItem} onPress={() => openShareFriends(album)}>
+            <Text style={styles.menuText}>Share to Friends</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.menuItem}>
             <Text style={styles.menuText}>Share</Text>
           </TouchableOpacity>
@@ -295,6 +346,7 @@ export default function AlbumPage() {
         </View>
       </Modal>
 
+      {/* Track Menu Modal */}
       <Modal visible={trackMenuVisible} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setTrackMenuVisible(false)} />
         <View style={styles.sheet}>
@@ -399,6 +451,10 @@ export default function AlbumPage() {
             <Text style={styles.menuText}>Add to lists</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.menuItem} onPress={() => openShareFriends(selectedTrack)}>
+            <Text style={styles.menuText}>Share to Friends</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.menuItem}>
             <Text style={styles.menuText}>Share</Text>
           </TouchableOpacity>
@@ -409,6 +465,7 @@ export default function AlbumPage() {
         </View>
       </Modal>
 
+      {/* Add to Lists Modal */}
       <Modal visible={showLists} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setShowLists(false)} />
         <View style={styles.sheet}>
@@ -437,6 +494,71 @@ export default function AlbumPage() {
           )}
         </View>
       </Modal>
+
+      {/* Share to Friends — Message Input Modal */}
+      <Modal visible={showShareFriends} transparent animationType="slide">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
+        >
+          <Pressable style={styles.overlay} onPress={() => setShowShareFriends(false)} />
+          <View style={[styles.sheet, { paddingBottom: 40 }]}>
+            <View style={styles.sheetHandle} />
+
+            {shareItem && (
+              <View style={styles.sheetHeader}>
+                <Image
+                  source={{ uri: shareItem?.images?.[0]?.url || album?.images?.[0]?.url }}
+                  style={styles.sheetCover}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sheetTitle} numberOfLines={1}>{shareItem?.name}</Text>
+                  <Text style={styles.sheetArtist}>{shareItem?.artists?.[0]?.name || album?.artists?.[0]?.name}</Text>
+                </View>
+              </View>
+            )}
+
+            <TextInput
+              style={styles.messageInput}
+              placeholder="Write something..."
+              placeholderTextColor="#555"
+              multiline
+              value={shareMessage}
+              onChangeText={setShareMessage}
+            />
+
+            <TouchableOpacity style={styles.sendBtn} onPress={goToFriendsList}>
+              <Text style={styles.sendBtnText}>Next →</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Friends List Modal */}
+      <Modal visible={showFriendsList} transparent animationType="slide">
+        <Pressable style={styles.overlay} onPress={() => setShowFriendsList(false)} />
+        <View style={styles.sheet}>
+          <View style={styles.sheetHandle} />
+          <Text style={[styles.sheetTitle, { textAlign: 'center', marginBottom: 16 }]}>Send to</Text>
+
+          {friends.length === 0 ? (
+            <Text style={{ color: '#888', textAlign: 'center', paddingVertical: 20 }}>No friends yet</Text>
+          ) : (
+            friends.map((friend: any) => (
+              <TouchableOpacity
+                key={friend.id}
+                style={styles.friendRow}
+                onPress={() => sendToFriend(friend)}
+              >
+                <View style={styles.friendAvatar} />
+                <Text style={styles.friendName}>{friend.name}</Text>
+                <Text style={styles.sendArrow}>Send</Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 }
@@ -457,7 +579,7 @@ const styles = StyleSheet.create({
   artist: { color: '#888', fontSize: 13, marginTop: 2 },
   trackDotsBtn: { padding: 8, paddingLeft: 12 },
   trackDots: { color: '#888', fontSize: 20 },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: { backgroundColor: '#1c1c1e', padding: 24, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   sheetHandle: { width: 40, height: 4, backgroundColor: '#444', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
@@ -475,4 +597,25 @@ const styles = StyleSheet.create({
   menuText: { color: 'white', fontSize: 16 },
   doneBtn: { backgroundColor: '#2a2a2a', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
   doneBtnText: { color: 'white', fontSize: 16, fontWeight: '600' },
+  messageInput: {
+    backgroundColor: '#2a2a2a',
+    color: 'white',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    minHeight: 120,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  sendBtn: {
+    backgroundColor: '#1DB954',
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+  },
+  sendBtnText: { color: 'black', fontSize: 16, fontWeight: 'bold' },
+  friendRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#2a2a2a' },
+  friendAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#333', marginRight: 12 },
+  friendName: { flex: 1, color: 'white', fontSize: 16 },
+  sendArrow: { color: '#1DB954', fontSize: 14, fontWeight: '600' },
 });
