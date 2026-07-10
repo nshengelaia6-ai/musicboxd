@@ -245,4 +245,5 @@ export default function AlbumPage() {
                 } else {
                   const idx = list.findIndex((i: any) => i.id === album.id);
                   if (idx !== -1) list.splice(idx, 1);
-                  set
+                  await AsyncStorage.setItem('wantToListen', JSON.stringify(list));
+
