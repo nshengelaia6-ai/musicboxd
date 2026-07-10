@@ -232,7 +232,7 @@ export default function AlbumPage() {
                 </View>
               </View>
             )}
-            <View style={styles.sheetActions}>
+                     <View style={styles.sheetActions}>
               <TouchableOpacity style={styles.actionBtn} onPress={async () => {
                 const newVal = !listened;
                 setListened(newVal);
@@ -245,6 +245,7 @@ export default function AlbumPage() {
                 } else {
                   const idx = list.findIndex((i: any) => i.id === album.id);
                   if (idx !== -1) list.splice(idx, 1);
-                            await AsyncStorage.setItem('listened', JSON.stringify(list));
-            }
-          }}>
+                  setRating(0);
+                }
+                await AsyncStorage.setItem('listened', JSON.stringify(list));
+              }}>
