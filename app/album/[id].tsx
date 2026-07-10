@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
   artist: { color: '#888', fontSize: 13, marginTop: 2 },
   trackDotsBtn: { padding: 8, paddingLeft: 12 },
   trackDots: { color: '#888', fontSize: 20 },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: { backgroundColor: '#1c1c1e', padding: 24, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   sheetHandle: { width: 40, height: 4, backgroundColor: '#444', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
