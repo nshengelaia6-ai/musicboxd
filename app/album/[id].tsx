@@ -223,9 +223,11 @@ export default function AlbumPage() {
       />
 
       {/* Album Menu Modal */}
-      <Modal visible={menuVisible} transparent animationType="slide">
-        <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)} />
-        <View style={styles.sheet}>
+     <Modal visible={menuVisible} transparent animationType="slide">
+  <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+    <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuVisible(false)} />
+    <View style={styles.sheet}>
+
           {album && (
             <View style={styles.sheetHeader}>
               <Image source={{ uri: album.images?.[0]?.url }} style={styles.sheetCover} />
