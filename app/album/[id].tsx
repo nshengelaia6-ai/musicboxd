@@ -35,6 +35,14 @@ export default function AlbumPage() {
   const scrollViewRef = useRef<ScrollView>(null);
   const trackRowOffsets = useRef<{ [key: string]: number }>({});
   const headerHeight = useRef(0);
+async function handleNativeShare(item: any, type: 'album' | 'track') {
+  const url = type === 'album'
+    ? `https://open.spotify.com/album/${item?.id}`
+    : `https://open.spotify.com/track/${item?.id}`;
+  await Clipboard.setStringAsync(url);
+  // toast ან alert
+  alert('Link copied!');
+}
 
   useFocusEffect(useCallback(() => { loadAlbum(); }, [id]));
 
