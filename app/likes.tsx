@@ -18,6 +18,45 @@ export default function Likes() {
     setTracks(list.filter((i: any) => i.type === 'track'));
   }
 
+  async function openTrack(item: any) {
+    // Newer liked tracks already carry albumId — use it directly.
+    if (item.albumId) {
+      router.push({
+        pathname: `/album/${item.albumId}` as any,
+        params: { highlightTrackId: item.id },
+      });
+      return;
+    }
+
+    // Older liked tracks (saved before albumId was tracked) — look it up from Spotify.
+    const token = await AsyncStorage.getItem('spotify_token');
+    if (!token) return;
+    try {
+      const res = await fetch(`https://api.spotify.com/v1/tracks/${item.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      const albumId = data.album?.id;
+      if (!albumId) return;
+
+      // Backfill albumId onto the stored liked item so this lookup isn't needed again.
+      const stored = await AsyncStorage.getItem('liked');
+      const list = stored ? JSON.parse(stored) : [];
+      const idx = list.findIndex((i: any) => i.id === item.id);
+      if (idx !== -1) {
+        list[idx].albumId = albumId;
+        await AsyncStorage.setItem('liked', JSON.stringify(list));
+      }
+
+      router.push({
+        pathname: `/album/${albumId}` as any,
+        params: { highlightTrackId: item.id },
+      });
+    } catch (e) {
+      console.log('failed to resolve album for track', e);
+    }
+  }
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -45,11 +84,8 @@ export default function Likes() {
             onPress={() => {
               if (activeTab === 'Albums') {
                 router.push(`/album/${item.id}` as any);
-              } else if (item.albumId) {
-                router.push({
-                  pathname: `/album/${item.albumId}` as any,
-                  params: { highlightTrackId: item.id },
-                });
+              } else {
+                openTrack(item);
               }
             }}
           >
