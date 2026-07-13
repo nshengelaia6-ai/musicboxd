@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import * as AuthSession from 'expo-auth-session';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSpotifyAuth } from '../../utils/spotify';
@@ -11,6 +12,7 @@ const supabase = createClient(
 );
 
 export default function Home() {
+ const router = useRouter();
  const { request, response, promptAsync } = useSpotifyAuth();
  const [token, setToken] = useState<string | null>(null);
  const [newReleases, setNewReleases] = useState<any[]>([]);
@@ -150,11 +152,11 @@ export default function Home() {
        keyExtractor={(i) => i.id}
        showsHorizontalScrollIndicator={false}
        renderItem={({ item }) => (
-         <View style={styles.card}>
+         <TouchableOpacity style={styles.card} onPress={() => router.push(`/album/${item.id}` as any)}>
            <Image source={{ uri: item.images[0]?.url }} style={styles.cover} />
            <Text style={styles.trackName} numberOfLines={1}>{item.name}</Text>
            <Text style={styles.artistName} numberOfLines={1}>{item.artists[0]?.name}</Text>
-         </View>
+         </TouchableOpacity>
        )}
      />
 
