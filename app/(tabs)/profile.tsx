@@ -21,7 +21,6 @@ export default function Profile() {
   const router = useRouter();
   const { backgroundColor, accentColor } = useAppTheme();
   const [reviews, setReviews] = useState<any[]>([]);
-  const [listenedCount, setListenedCount] = useState(0);
   const [showShare, setShowShare] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [username, setUsername] = useState('nia');
@@ -34,6 +33,12 @@ export default function Profile() {
   const [pendingSlotIndex, setPendingSlotIndex] = useState<number | null>(null);
   const [followingCount, setFollowingCount] = useState(0);
   const [followersCount, setFollowersCount] = useState(0);
+
+  // Only entries that actually have written review text count as a "review".
+  // Items that only have a star rating (no written text) are excluded.
+  const writtenReviewsCount = reviews.filter(
+    (r: any) => r.review && String(r.review).trim().length > 0
+  ).length;
 
   useEffect(() => {
     loadData();
@@ -53,11 +58,6 @@ export default function Profile() {
     // reviews
     const reviewsData = await AsyncStorage.getItem('reviews');
     setReviews(reviewsData ? JSON.parse(reviewsData) : []);
-
-    // listened count
-    const listenedData = await AsyncStorage.getItem('listened');
-    const listenedList = listenedData ? JSON.parse(listenedData) : [];
-    setListenedCount(listenedList.length);
 
     // profile
     const profileData = await AsyncStorage.getItem('profile');
@@ -158,12 +158,8 @@ export default function Profile() {
           <Text style={styles.bio}>{bio}</Text>
           <View style={styles.stats}>
             <View style={styles.stat}>
-              <Text style={styles.statNum}>{reviews.length}</Text>
+              <Text style={styles.statNum}>{writtenReviewsCount}</Text>
               <Text style={styles.statLabel}>Reviews</Text>
-            </View>
-            <View style={styles.stat}>
-              <Text style={styles.statNum}>{listenedCount}</Text>
-              <Text style={styles.statLabel}>Listened</Text>
             </View>
             <View style={styles.stat}>
               <Text style={styles.statNum}>{followingCount}</Text>
@@ -338,7 +334,7 @@ const styles = StyleSheet.create({
   avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#333', marginBottom: 12 },
   username: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
   bio: { color: '#888', fontSize: 14, marginTop: 4 },
-  stats: { flexDirection: 'row', marginTop: 16, gap: 24 },
+  stats: { flexDirection: 'row', marginTop: 16, gap: 40 },
   stat: { alignItems: 'center' },
   statNum: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   statLabel: { color: '#888', fontSize: 12 },
