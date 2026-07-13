@@ -7,7 +7,6 @@ import { useAppTheme } from '@/context/ThemeContext';
 import { API_BASE } from '@/utils/api';
 import { getCurrentUserId } from '@/utils/currentUser';
 
-
 function Stars({ count }: { count: number }) {
   const full = Math.floor(count);
   const half = count % 1 >= 0.5;
@@ -18,20 +17,11 @@ function Stars({ count }: { count: number }) {
   );
 }
 
-function groupByMonth(entries: any[]) {
-  const grouped: { [key: string]: any[] } = {};
-  entries.forEach(e => {
-    const month = new Date(e.date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
-    if (!grouped[month]) grouped[month] = [];
-    grouped[month].push(e);
-  });
-  return grouped;
-}
-
 export default function Profile() {
   const router = useRouter();
   const { backgroundColor, accentColor } = useAppTheme();
   const [reviews, setReviews] = useState<any[]>([]);
+  const [listenedCount, setListenedCount] = useState(0);
   const [showShare, setShowShare] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [username, setUsername] = useState('nia');
@@ -46,49 +36,8 @@ export default function Profile() {
   const [followersCount, setFollowersCount] = useState(0);
 
   useEffect(() => {
-    loadReviews();
-    AsyncStorage.getItem('profile').then(data => {
-      if (data) {
-        const p = JSON.parse(data);
-        setUsername(p.username || 'nia');
-        setBio(p.bio || 'music is life 🎵');
-        setEditUsername(p.username || 'nia');
-        setEditBio(p.bio || 'music is life 🎵');
-        if (p.avatar) { setEditAvatar(p.avatar); setAvatar(p.avatar); }
-        if (p.favoriteAlbums) setFavoriteAlbums(p.favoriteAlbums);
-      }
-    });
-     syncUserAndCounts();
-
+    loadData();
   }, []);
-async function syncUserAndCounts() {
-  const myId = await getCurrentUserId();
-  if (!myId) return;
-
-  const profileData = await AsyncStorage.getItem('profile');
-  const p = profileData ? JSON.parse(profileData) : {};
-
-  try {
-    await fetch(`${API_BASE}/users`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: myId,
-        username: p.username || 'nia',
-        avatar: p.avatar || null,
-        bio: p.bio || '',
-      }),
-    });
-
-    const res = await fetch(`${API_BASE}/follows/${myId}/counts`);
-    const counts = await res.json();
-    setFollowingCount(counts.following || 0);
-    setFollowersCount(counts.followers || 0);
-  } catch (e) {
-    console.log('sync user/counts failed', e);
-  }
-}
-
 
   useEffect(() => {
     if (!showSettings && pendingSlotIndex !== null) {
@@ -100,6 +49,61 @@ async function syncUserAndCounts() {
     }
   }, [showSettings]);
 
+  async function loadData() {
+    // reviews
+    const reviewsData = await AsyncStorage.getItem('reviews');
+    setReviews(reviewsData ? JSON.parse(reviewsData) : []);
+
+    // listened count
+    const listenedData = await AsyncStorage.getItem('listened');
+    const listenedList = listenedData ? JSON.parse(listenedData) : [];
+    setListenedCount(listenedList.length);
+
+    // profile
+    const profileData = await AsyncStorage.getItem('profile');
+    if (profileData) {
+      const p = JSON.parse(profileData);
+      setUsername(p.username || 'nia');
+      setBio(p.bio || 'music is life 🎵');
+      setEditUsername(p.username || 'nia');
+      setEditBio(p.bio || 'music is life 🎵');
+      if (p.avatar) { setEditAvatar(p.avatar); setAvatar(p.avatar); }
+      if (p.favoriteAlbums) setFavoriteAlbums(p.favoriteAlbums);
+    }
+
+    // following / followers — local first
+    const followingData = await AsyncStorage.getItem('following');
+    const followersData = await AsyncStorage.getItem('followers');
+    const followingList = followingData ? JSON.parse(followingData) : [];
+    const followersList = followersData ? JSON.parse(followersData) : [];
+    setFollowingCount(followingList.length);
+    setFollowersCount(followersList.length);
+
+    // try API
+    try {
+      const myId = await getCurrentUserId();
+      if (!myId) return;
+
+      const p2 = profileData ? JSON.parse(profileData) : {};
+      await fetch(`${API_BASE}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: myId,
+          username: p2.username || 'nia',
+          avatar: p2.avatar || null,
+          bio: p2.bio || '',
+        }),
+      });
+
+      const res = await fetch(`${API_BASE}/follows/${myId}/counts`);
+      const counts = await res.json();
+      setFollowingCount(counts.following ?? followingList.length);
+      setFollowersCount(counts.followers ?? followersList.length);
+    } catch (e) {
+      console.log('API sync failed, using local counts');
+    }
+  }
 
   async function pickImage() {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -111,49 +115,35 @@ async function syncUserAndCounts() {
     if (!result.canceled) setEditAvatar(result.assets[0].uri);
   }
 
-  async function loadReviews() {
-  const reviewsData = await AsyncStorage.getItem('reviews');
-  const listenedData = await AsyncStorage.getItem('listened');
-  const reviews = reviewsData ? JSON.parse(reviewsData) : [];
-  const listened = listenedData ? JSON.parse(listenedData) : [];
-  // გავაერთიანოთ — listened-ში type='album' ან 'track' რომ აქვს
-  const allActivity = [...reviews];
-  listened.forEach((item: any) => {
-    if (!allActivity.find((r: any) => r.albumId === item.id || r.albumId === item.albumId)) {
-      allActivity.push(item);
-    }
-  });
-  setReviews(allActivity);
-}
-
-
   async function saveProfile() {
-  setUsername(editUsername);
-  setBio(editBio);
-  if (editAvatar) setAvatar(editAvatar);
-  await AsyncStorage.setItem('profile', JSON.stringify({
-    username: editUsername,
-    bio: editBio,
-    avatar: editAvatar,
-    favoriteAlbums,
-  }));
-  setShowSettings(false);
+    setUsername(editUsername);
+    setBio(editBio);
+    if (editAvatar) setAvatar(editAvatar);
+    await AsyncStorage.setItem('profile', JSON.stringify({
+      username: editUsername,
+      bio: editBio,
+      avatar: editAvatar,
+      favoriteAlbums,
+    }));
+    setShowSettings(false);
 
-  const myId = await getCurrentUserId();
-  if (myId) {
-    fetch(`${API_BASE}/users`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: myId, username: editUsername, avatar: editAvatar, bio: editBio }),
-    }).catch(e => console.log('failed to update user on backend', e));
+    try {
+      const myId = await getCurrentUserId();
+      if (myId) {
+        await fetch(`${API_BASE}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: myId, username: editUsername, avatar: editAvatar, bio: editBio }),
+        });
+      }
+    } catch (e) {
+      console.log('failed to update user on backend', e);
+    }
   }
-}
-
 
   return (
     <View style={{ flex: 1 }}>
       <ScrollView style={[styles.container, { backgroundColor }]}>
-
         <View style={styles.header}>
           <TouchableOpacity style={styles.headerBtnLeft} onPress={() => { setEditUsername(username); setEditBio(bio); setShowSettings(true); }}>
             <Text style={styles.headerBtnText}>🎛️</Text>
@@ -171,20 +161,21 @@ async function syncUserAndCounts() {
               <Text style={styles.statNum}>{reviews.length}</Text>
               <Text style={styles.statLabel}>Reviews</Text>
             </View>
-         <View style={styles.stat}>
-  <Text style={styles.statNum}>{followingCount}</Text>
-  <Text style={styles.statLabel}>Following</Text>
-</View>
-<View style={styles.stat}>
-  <Text style={styles.statNum}>{followersCount}</Text>
-  <Text style={styles.statLabel}>Followers</Text>
-</View>
-
-
+            <View style={styles.stat}>
+              <Text style={styles.statNum}>{listenedCount}</Text>
+              <Text style={styles.statLabel}>Listened</Text>
+            </View>
+            <View style={styles.stat}>
+              <Text style={styles.statNum}>{followingCount}</Text>
+              <Text style={styles.statLabel}>Following</Text>
+            </View>
+            <View style={styles.stat}>
+              <Text style={styles.statNum}>{followersCount}</Text>
+              <Text style={styles.statLabel}>Followers</Text>
+            </View>
           </View>
         </View>
 
-        {/* Favorite Albums */}
         <Text style={styles.sectionTitle}>FAVORITE ALBUMS</Text>
         <View style={styles.slotsRow}>
           {favoriteAlbums.map((album, i) => (
@@ -194,7 +185,6 @@ async function syncUserAndCounts() {
           ))}
         </View>
 
-        {/* Recent Activity */}
         {reviews.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>RECENT ACTIVITY</Text>
@@ -215,31 +205,28 @@ async function syncUserAndCounts() {
           </>
         )}
 
-       <View style={styles.menu}>
-  {[
-    
-    { label: 'Songs', route: '/songs' },
-    { label: 'Diary', route: '/diary' },
-    { label: 'Reviews', route: '/reviews' },
-    { label: 'Lists', route: '/lists' },
-    { label: 'Want to Listen', route: '/wanttolisten' },
-    { label: 'Likes', route: '/likes' },
-    { label: 'Following', route: '/following' },
-    { label: 'Followers', route: '/followers' },
-    { label: 'Artists', route: '/artists' },
-  ].map(item => (
-    <Pressable
-      key={item.label}
-      style={styles.menuRow}
-      onPress={() => router.push(item.route as any)}
-    >
-      <Text style={styles.menuText}>{item.label}</Text>
-      <Text style={styles.arrow}>›</Text>
-    </Pressable>
-  ))}
-</View>
-
-
+        <View style={styles.menu}>
+          {[
+            { label: 'Songs', route: '/songs' },
+            { label: 'Diary', route: '/diary' },
+            { label: 'Reviews', route: '/reviews' },
+            { label: 'Lists', route: '/lists' },
+            { label: 'Want to Listen', route: '/wanttolisten' },
+            { label: 'Likes', route: '/likes' },
+            { label: 'Following', route: '/following' },
+            { label: 'Followers', route: '/followers' },
+            { label: 'Artists', route: '/artists' },
+          ].map(item => (
+            <Pressable
+              key={item.label}
+              style={styles.menuRow}
+              onPress={() => router.push(item.route as any)}
+            >
+              <Text style={styles.menuText}>{item.label}</Text>
+              <Text style={styles.arrow}>›</Text>
+            </Pressable>
+          ))}
+        </View>
       </ScrollView>
 
       <Modal visible={showShare} transparent animationType="slide">
@@ -257,11 +244,7 @@ async function syncUserAndCounts() {
         </Pressable>
       </Modal>
 
-      <Modal
-        visible={showSettings}
-        transparent
-        animationType="slide"
-      >
+      <Modal visible={showSettings} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <Pressable style={{ flex: 1 }} onPress={() => setShowSettings(false)} />
           <View style={[styles.bottomSheet, { paddingBottom: 40 }]}>
@@ -295,7 +278,6 @@ async function syncUserAndCounts() {
               blurOnSubmit={true}
               onSubmitEditing={() => Keyboard.dismiss()}
             />
-
             <Text style={styles.settingsLabel}>Favorite Albums</Text>
             <View style={styles.settingsSlotsRow}>
               {favoriteAlbums.map((album, i) => (
@@ -315,17 +297,7 @@ async function syncUserAndCounts() {
                   </TouchableOpacity>
                   {album && (
                     <TouchableOpacity
-                      style={{
-                        position: 'absolute',
-                        top: 4,
-                        right: 4,
-                        backgroundColor: 'rgba(0,0,0,0.55)',
-                        borderRadius: 8,
-                        width: 16,
-                        height: 16,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
+                      style={{ position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 8, width: 16, height: 16, alignItems: 'center', justifyContent: 'center' }}
                       onPress={() => {
                         const updated = [...favoriteAlbums];
                         updated[i] = null;
@@ -338,14 +310,9 @@ async function syncUserAndCounts() {
                 </View>
               ))}
             </View>
-
-            <TouchableOpacity
-              style={styles.sheetOption}
-              onPress={() => { setShowSettings(false); router.push('/customize'); }}
-            >
+            <TouchableOpacity style={styles.sheetOption} onPress={() => { setShowSettings(false); router.push('/customize'); }}>
               <Text style={styles.sheetOptionText}>🎨  Customize</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.sheetOption}>
               <Text style={styles.sheetOptionText}>🔒  Privacy Settings</Text>
             </TouchableOpacity>
@@ -358,7 +325,6 @@ async function syncUserAndCounts() {
           </View>
         </View>
       </Modal>
-
     </View>
   );
 }
@@ -372,7 +338,7 @@ const styles = StyleSheet.create({
   avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#333', marginBottom: 12 },
   username: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
   bio: { color: '#888', fontSize: 14, marginTop: 4 },
-  stats: { flexDirection: 'row', marginTop: 16, gap: 32 },
+  stats: { flexDirection: 'row', marginTop: 16, gap: 24 },
   stat: { alignItems: 'center' },
   statNum: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   statLabel: { color: '#888', fontSize: 12 },
