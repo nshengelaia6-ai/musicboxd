@@ -5,7 +5,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View 
 
 export default function Likes() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'Albums' | 'Tracks'>('Albums');
+  const [activeTab, setActiveTab] = useState<'Tracks' | 'Albums'>('Tracks');
   const [albums, setAlbums] = useState<any[]>([]);
   const [tracks, setTracks] = useState<any[]>([]);
 
@@ -29,7 +29,7 @@ export default function Likes() {
       </View>
 
       <View style={styles.tabs}>
-        {['Albums', 'Tracks'].map(tab => (
+        {['Tracks', 'Albums'].map(tab => (
           <Pressable key={tab} onPress={() => setActiveTab(tab as any)} style={styles.tab}>
             <Text style={[styles.tabText, activeTab === tab && styles.tabActive]}>{tab}</Text>
             {activeTab === tab && <View style={styles.tabLine} />}
@@ -42,7 +42,16 @@ export default function Likes() {
           <TouchableOpacity
             key={item.id}
             style={styles.item}
-            onPress={() => activeTab === 'Albums' ? router.push(`/album/${item.id}` as any) : null}
+            onPress={() => {
+              if (activeTab === 'Albums') {
+                router.push(`/album/${item.id}` as any);
+              } else if (item.albumId) {
+                router.push({
+                  pathname: `/album/${item.albumId}` as any,
+                  params: { highlightTrackId: item.id },
+                });
+              }
+            }}
           >
             <Image source={{ uri: item.cover }} style={styles.cover} />
             <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
