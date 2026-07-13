@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import StarRating from './StarRating';
 import { useAppTheme } from '@/context/ThemeContext';
 
@@ -144,6 +144,8 @@ export default function AlbumPage() {
       cover: shareItem?.images?.[0]?.url || album?.images?.[0]?.url,
       name: shareItem?.name,
       artist: shareItem?.artists?.[0]?.name || album?.artists?.[0]?.name,
+      spotifyId: shareItem?.id,
+      type: shareItem?.type || 'album',
       date: new Date().toISOString(),
     };
     const existing = await AsyncStorage.getItem('shared_songs');
@@ -153,6 +155,18 @@ export default function AlbumPage() {
     setShowFriendsList(false);
     setShareMessage('');
     setShareItem(null);
+  }
+
+  async function handleNativeShare(item: any, type: 'album' | 'track') {
+    const url = type === 'album'
+      ? `https://open.spotify.com/album/${item?.id}`
+      : `https://open.spotify.com/track/${item?.id}`;
+    try {
+      await Share.share({
+        message: `${item?.name} by ${item?.artists?.[0]?.name || album?.artists?.[0]?.name}`,
+        url,
+      });
+    } catch (e) {}
   }
 
   return (
@@ -176,8 +190,10 @@ export default function AlbumPage() {
         renderItem={({ item, index }) => {
           const isHighlighted = highlightTrackId && item.id === highlightTrackId;
           return (
-            <View style={[styles.row, isHighlighted && { backgroundColor: accentColor + '26' }]}
-              onLayout={(e) => { trackRowOffsets.current[item.id] = headerHeight.current + e.nativeEvent.layout.y; }}>
+            <View
+              style={[styles.row, isHighlighted && { backgroundColor: accentColor + '26' }]}
+              onLayout={(e) => { trackRowOffsets.current[item.id] = headerHeight.current + e.nativeEvent.layout.y; }}
+            >
               <TouchableOpacity style={styles.rowMain} onPress={() => openTrack(item)}>
                 <Text style={styles.num}>{index + 1}</Text>
                 <View style={styles.info}>
@@ -193,6 +209,7 @@ export default function AlbumPage() {
         }}
       />
 
+      {/* Album menu */}
       <Modal visible={menuVisible} transparent animationType="slide">
         <View style={styles.modalContainer}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuVisible(false)} />
@@ -254,6 +271,9 @@ export default function AlbumPage() {
             <TouchableOpacity style={styles.menuItem} onPress={() => openShareFriends(album)}>
               <Text style={styles.menuText}>Share to Friends</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(false); handleNativeShare(album, 'album'); }}>
+              <Text style={styles.menuText}>Share</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.doneBtn} onPress={() => setMenuVisible(false)}>
               <Text style={styles.doneBtnText}>Done</Text>
             </TouchableOpacity>
@@ -261,6 +281,7 @@ export default function AlbumPage() {
         </View>
       </Modal>
 
+      {/* Track menu */}
       <Modal visible={trackMenuVisible} transparent animationType="slide">
         <View style={styles.modalContainer}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setTrackMenuVisible(false)} />
@@ -316,11 +337,14 @@ export default function AlbumPage() {
             <TouchableOpacity style={styles.menuItem} onPress={() => { setTrackMenuVisible(false); router.push({ pathname: '/review/new', params: { albumId: selectedTrack?.id, albumName: selectedTrack?.name, albumArtist: selectedTrack?.artists?.[0]?.name, albumCover: album?.images?.[0]?.url, currentRating: String(trackRating) } }); }}>
               <Text style={styles.menuText}>Review or log</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity style={styles.menuItem} onPress={async () => { const data = await AsyncStorage.getItem('lists'); setUserLists(data ? JSON.parse(data) : []); setTrackMenuVisible(false); setShowLists(true); }}>
               <Text style={styles.menuText}>Add to lists</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => openShareFriends(selectedTrack)}>
               <Text style={styles.menuText}>Share to Friends</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setTrackMenuVisible(false); handleNativeShare(selectedTrack, 'track'); }}>
+              <Text style={styles.menuText}>Share</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.doneBtn} onPress={() => setTrackMenuVisible(false)}>
               <Text style={styles.doneBtnText}>Done</Text>
@@ -329,6 +353,7 @@ export default function AlbumPage() {
         </View>
       </Modal>
 
+      {/* Add to lists */}
       <Modal visible={showLists} transparent animationType="slide">
         <View style={styles.modalContainer}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowLists(false)} />
@@ -358,6 +383,7 @@ export default function AlbumPage() {
         </View>
       </Modal>
 
+      {/* Share to Friends - message */}
       <Modal visible={showShareFriends} transparent animationType="slide">
         <KeyboardAvoidingView style={styles.modalContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowShareFriends(false)} />
@@ -372,7 +398,14 @@ export default function AlbumPage() {
                 </View>
               </View>
             )}
-            <TextInput style={styles.messageInput} placeholder="Write something..." placeholderTextColor="#888" multiline value={shareMessage} onChangeText={setShareMessage} />
+            <TextInput
+              style={styles.messageInput}
+              placeholder="Write something..."
+              placeholderTextColor="#888"
+              multiline
+              value={shareMessage}
+              onChangeText={setShareMessage}
+            />
             <TouchableOpacity style={styles.nextBtn} onPress={goToFriendsList}>
               <Text style={styles.nextBtnText}>Next →</Text>
             </TouchableOpacity>
@@ -380,6 +413,7 @@ export default function AlbumPage() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Share to Friends - friends list */}
       <Modal visible={showFriendsList} transparent animationType="slide">
         <View style={styles.modalContainer}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowFriendsList(false)} />
@@ -400,7 +434,6 @@ export default function AlbumPage() {
           </View>
         </View>
       </Modal>
-
     </ScrollView>
   );
 }
