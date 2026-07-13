@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import StarRating from './StarRating';
 import { useAppTheme } from '@/context/ThemeContext';
+import * as Clipboard from 'expo-clipboard';
 
 export default function AlbumPage() {
   const { id, highlightTrackId } = useLocalSearchParams();
