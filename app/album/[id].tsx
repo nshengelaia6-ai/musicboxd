@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import * as Clipboard from 'expo-clipboard';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import StarRating from './StarRating';
 import { useAppTheme } from '@/context/ThemeContext';
-import * as Clipboard from 'expo-clipboard';
 
 export default function AlbumPage() {
   const { id, highlightTrackId } = useLocalSearchParams();
@@ -31,18 +31,12 @@ export default function AlbumPage() {
   const [showFriendsList, setShowFriendsList] = useState(false);
   const [friends, setFriends] = useState<any[]>([]);
   const [shareItem, setShareItem] = useState<any>(null);
+  const [showCopySheet, setShowCopySheet] = useState(false);
+  const [copyItem, setCopyItem] = useState<{ url: string; name: string; artist: string; cover: string; type: 'album' | 'track' } | null>(null);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const trackRowOffsets = useRef<{ [key: string]: number }>({});
   const headerHeight = useRef(0);
-async function handleNativeShare(item: any, type: 'album' | 'track') {
-  const url = type === 'album'
-    ? `https://open.spotify.com/album/${item?.id}`
-    : `https://open.spotify.com/track/${item?.id}`;
-  await Clipboard.setStringAsync(url);
-  // toast ან alert
-  alert('Link copied!');
-}
 
   useFocusEffect(useCallback(() => { loadAlbum(); }, [id]));
 
@@ -135,6 +129,29 @@ async function handleNativeShare(item: any, type: 'album' | 'track') {
     setShowShareFriends(true);
   }
 
+  function openCopySheet(item: any, type: 'album' | 'track') {
+    const url = type === 'album'
+      ? `https://open.spotify.com/album/${item?.id}`
+      : `https://open.spotify.com/track/${item?.id}`;
+    setCopyItem({
+      url,
+      name: item?.name,
+      artist: item?.artists?.[0]?.name || album?.artists?.[0]?.name,
+      cover: item?.images?.[0]?.url || album?.images?.[0]?.url,
+      type,
+    });
+    setMenuVisible(false);
+    setTrackMenuVisible(false);
+    setShowCopySheet(true);
+  }
+
+  async function copyLink() {
+    if (!copyItem) return;
+    await Clipboard.setStringAsync(copyItem.url);
+    setShowCopySheet(false);
+    Alert.alert('Copied!', 'Link copied to clipboard.');
+  }
+
   async function goToFriendsList() {
     const data = await AsyncStorage.getItem('friends');
     setFriends(data ? JSON.parse(data) : []);
@@ -164,18 +181,6 @@ async function handleNativeShare(item: any, type: 'album' | 'track') {
     setShowFriendsList(false);
     setShareMessage('');
     setShareItem(null);
-  }
-
-  async function handleNativeShare(item: any, type: 'album' | 'track') {
-    const url = type === 'album'
-      ? `https://open.spotify.com/album/${item?.id}`
-      : `https://open.spotify.com/track/${item?.id}`;
-    try {
-      await Share.share({
-        message: `${item?.name} by ${item?.artists?.[0]?.name || album?.artists?.[0]?.name}`,
-        url,
-      });
-    } catch (e) {}
   }
 
   return (
@@ -280,7 +285,7 @@ async function handleNativeShare(item: any, type: 'album' | 'track') {
             <TouchableOpacity style={styles.menuItem} onPress={() => openShareFriends(album)}>
               <Text style={styles.menuText}>Share to Friends</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(false); handleNativeShare(album, 'album'); }}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => openCopySheet(album, 'album')}>
               <Text style={styles.menuText}>Share</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.doneBtn} onPress={() => setMenuVisible(false)}>
@@ -352,7 +357,7 @@ async function handleNativeShare(item: any, type: 'album' | 'track') {
             <TouchableOpacity style={styles.menuItem} onPress={() => openShareFriends(selectedTrack)}>
               <Text style={styles.menuText}>Share to Friends</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => { setTrackMenuVisible(false); handleNativeShare(selectedTrack, 'track'); }}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => openCopySheet(selectedTrack, 'track')}>
               <Text style={styles.menuText}>Share</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.doneBtn} onPress={() => setTrackMenuVisible(false)}>
@@ -388,6 +393,31 @@ async function handleNativeShare(item: any, type: 'album' | 'track') {
                 </TouchableOpacity>
               ))
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Copy link sheet */}
+      <Modal visible={showCopySheet} transparent animationType="slide">
+        <View style={styles.modalContainer}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowCopySheet(false)} />
+          <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+            {copyItem && (
+              <View style={styles.sheetHeader}>
+                <Image source={{ uri: copyItem.cover }} style={styles.sheetCover} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sheetTitle} numberOfLines={1}>{copyItem.name}</Text>
+                  <Text style={styles.sheetArtist}>{copyItem.artist}</Text>
+                </View>
+              </View>
+            )}
+            <TouchableOpacity style={styles.copyLinkBtn} onPress={copyLink}>
+              <View style={styles.copyLinkIcon}>
+                <Text style={{ fontSize: 28 }}>🔗</Text>
+              </View>
+              <Text style={styles.copyLinkText}>Copy link</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -481,6 +511,9 @@ const styles = StyleSheet.create({
   menuText: { color: 'white', fontSize: 16 },
   doneBtn: { backgroundColor: '#2a2a2a', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
   doneBtnText: { color: 'white', fontSize: 16, fontWeight: '600' },
+  copyLinkBtn: { alignItems: 'center', paddingVertical: 24 },
+  copyLinkIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  copyLinkText: { color: 'white', fontSize: 16, fontWeight: '600' },
   messageInput: { backgroundColor: '#2a2a2a', color: 'white', borderRadius: 12, padding: 16, fontSize: 16, minHeight: 120, textAlignVertical: 'top', marginBottom: 16 },
   nextBtn: { backgroundColor: '#ffb6c1', borderRadius: 12, padding: 14, alignItems: 'center' },
   nextBtnText: { color: 'black', fontSize: 16, fontWeight: 'bold' },
