@@ -112,9 +112,20 @@ async function syncUserAndCounts() {
   }
 
   async function loadReviews() {
-    const data = await AsyncStorage.getItem('reviews');
-    if (data) setReviews(JSON.parse(data));
-  }
+  const reviewsData = await AsyncStorage.getItem('reviews');
+  const listenedData = await AsyncStorage.getItem('listened');
+  const reviews = reviewsData ? JSON.parse(reviewsData) : [];
+  const listened = listenedData ? JSON.parse(listenedData) : [];
+  // გავაერთიანოთ — listened-ში type='album' ან 'track' რომ აქვს
+  const allActivity = [...reviews];
+  listened.forEach((item: any) => {
+    if (!allActivity.find((r: any) => r.albumId === item.id || r.albumId === item.albumId)) {
+      allActivity.push(item);
+    }
+  });
+  setReviews(allActivity);
+}
+
 
   async function saveProfile() {
   setUsername(editUsername);
