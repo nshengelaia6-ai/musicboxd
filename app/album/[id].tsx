@@ -1,9 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import * as Clipboard from 'expo-clipboard';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import StarRating from './StarRating';
 import { useAppTheme } from '@/context/ThemeContext';
 
@@ -26,25 +25,24 @@ export default function AlbumPage() {
   const [trackRating, setTrackRating] = useState(0);
   const [showLists, setShowLists] = useState(false);
   const [userLists, setUserLists] = useState<any[]>([]);
-  const [showShareFriends, setShowShareFriends] = useState(false);
-  const [shareMessage, setShareMessage] = useState('');
-  const [showFriendsList, setShowFriendsList] = useState(false);
-  const [friends, setFriends] = useState<any[]>([]);
-  const [shareItem, setShareItem] = useState<any>(null);
-  const [showCopySheet, setShowCopySheet] = useState(false);
-  const [copyItem, setCopyItem] = useState<{ url: string; name: string; artist: string; cover: string; type: 'album' | 'track' } | null>(null);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const trackRowOffsets = useRef<{ [key: string]: number }>({});
   const headerHeight = useRef(0);
 
-  useFocusEffect(useCallback(() => { loadAlbum(); }, [id]));
+  useFocusEffect(
+    useCallback(() => {
+      loadAlbum();
+    }, [id])
+  );
 
   useEffect(() => {
     if (!highlightTrackId || tracks.length === 0) return;
     const timer = setTimeout(() => {
       const y = trackRowOffsets.current[highlightTrackId as string];
-      if (typeof y === 'number') scrollViewRef.current?.scrollTo({ y: Math.max(y - 100, 0), animated: true });
+      if (typeof y === 'number') {
+        scrollViewRef.current?.scrollTo({ y: Math.max(y - 100, 0), animated: true });
+      }
     }, 300);
     return () => clearTimeout(timer);
   }, [highlightTrackId, tracks]);
@@ -52,21 +50,27 @@ export default function AlbumPage() {
   async function loadAlbum() {
     const token = await AsyncStorage.getItem('spotify_token');
     if (!token) return;
-    const res = await fetch(`https://api.spotify.com/v1/albums/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(`https://api.spotify.com/v1/albums/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     const data = await res.json();
     setAlbum(data);
     setTracks(data.tracks?.items || []);
+
     const listenedData = await AsyncStorage.getItem('listened');
     const listenedList = listenedData ? JSON.parse(listenedData) : [];
     const foundListened = listenedList.find((i: any) => i.id === data.id);
     setListened(!!foundListened);
     if (foundListened?.rating) setRating(foundListened.rating);
+
     const wantData = await AsyncStorage.getItem('wantToListen');
     const wantList = wantData ? JSON.parse(wantData) : [];
     setWantToListen(!!wantList.find((i: any) => i.id === data.id));
+
     const likedData = await AsyncStorage.getItem('liked');
     const likedList = likedData ? JSON.parse(likedData) : [];
     setLiked(!!likedList.find((i: any) => i.id === data.id));
+
     const reviewsData = await AsyncStorage.getItem('reviews');
     const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
     const foundReview = reviewsList.find((i: any) => i.albumId === data.id);
@@ -76,17 +80,21 @@ export default function AlbumPage() {
   async function openTrackMenu(track: any) {
     setSelectedTrack(track);
     setTrackMenuVisible(true);
+
     const listenedData = await AsyncStorage.getItem('listened');
     const listenedList = listenedData ? JSON.parse(listenedData) : [];
     const foundListened = listenedList.find((i: any) => i.id === track.id);
     setTrackListened(!!foundListened);
     setTrackRating(foundListened?.rating || 0);
+
     const wantData = await AsyncStorage.getItem('wantToListen');
     const wantList = wantData ? JSON.parse(wantData) : [];
     setTrackWantToListen(!!wantList.find((i: any) => i.id === track.id));
+
     const likedData = await AsyncStorage.getItem('liked');
     const likedList = likedData ? JSON.parse(likedData) : [];
     setTrackLiked(!!likedList.find((i: any) => i.id === track.id));
+
     const reviewsData = await AsyncStorage.getItem('reviews');
     const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
     const foundReview = reviewsList.find((i: any) => i.albumId === track.id);
@@ -103,8 +111,11 @@ export default function AlbumPage() {
     AsyncStorage.getItem('listened').then(existing => {
       const list = existing ? JSON.parse(existing) : [];
       const idx = list.findIndex((i: any) => i.id === album?.id);
-      if (idx !== -1) { list[idx].rating = newRating; }
-      else { list.unshift({ id: album?.id, name: album?.name, cover: album?.images?.[0]?.url, type: 'album', rating: newRating, date: new Date().toISOString() }); }
+      if (idx !== -1) {
+        list[idx].rating = newRating;
+      } else {
+        list.unshift({ id: album?.id, name: album?.name, cover: album?.images?.[0]?.url, type: 'album', rating: newRating, date: new Date().toISOString() });
+      }
       AsyncStorage.setItem('listened', JSON.stringify(list));
     });
   }
@@ -115,72 +126,14 @@ export default function AlbumPage() {
     AsyncStorage.getItem('listened').then(existing => {
       const list = existing ? JSON.parse(existing) : [];
       const idx = list.findIndex((i: any) => i.id === selectedTrack?.id);
-      if (idx !== -1) { list[idx].rating = newRating; list[idx].albumId = album?.id; }
-      else { list.unshift({ id: selectedTrack?.id, name: selectedTrack?.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id, rating: newRating, date: new Date().toISOString() }); }
+      if (idx !== -1) {
+        list[idx].rating = newRating;
+        list[idx].albumId = album?.id;
+      } else {
+        list.unshift({ id: selectedTrack?.id, name: selectedTrack?.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id, rating: newRating, date: new Date().toISOString() });
+      }
       AsyncStorage.setItem('listened', JSON.stringify(list));
     });
-  }
-
-  function openShareFriends(item: any) {
-    setShareItem(item);
-    setShareMessage('');
-    setMenuVisible(false);
-    setTrackMenuVisible(false);
-    setShowShareFriends(true);
-  }
-
-  function openCopySheet(item: any, type: 'album' | 'track') {
-    const url = type === 'album'
-      ? `https://open.spotify.com/album/${item?.id}`
-      : `https://open.spotify.com/track/${item?.id}`;
-    setCopyItem({
-      url,
-      name: item?.name,
-      artist: item?.artists?.[0]?.name || album?.artists?.[0]?.name,
-      cover: item?.images?.[0]?.url || album?.images?.[0]?.url,
-      type,
-    });
-    setMenuVisible(false);
-    setTrackMenuVisible(false);
-    setShowCopySheet(true);
-  }
-
-  async function copyLink() {
-    if (!copyItem) return;
-    await Clipboard.setStringAsync(copyItem.url);
-    setShowCopySheet(false);
-    Alert.alert('Copied!', 'Link copied to clipboard.');
-  }
-
-  async function goToFriendsList() {
-    const data = await AsyncStorage.getItem('friends');
-    setFriends(data ? JSON.parse(data) : []);
-    setShowShareFriends(false);
-    setShowFriendsList(true);
-  }
-
-  async function sendToFriend(friend: any) {
-    const myUsername = await AsyncStorage.getItem('username') || 'me';
-    const sharedEntry = {
-      id: Date.now().toString(),
-      from: myUsername,
-      to: friend.id,
-      toName: friend.name,
-      message: shareMessage,
-      cover: shareItem?.images?.[0]?.url || album?.images?.[0]?.url,
-      name: shareItem?.name,
-      artist: shareItem?.artists?.[0]?.name || album?.artists?.[0]?.name,
-      spotifyId: shareItem?.id,
-      type: shareItem?.type || 'album',
-      date: new Date().toISOString(),
-    };
-    const existing = await AsyncStorage.getItem('shared_songs');
-    const list = existing ? JSON.parse(existing) : [];
-    list.unshift(sharedEntry);
-    await AsyncStorage.setItem('shared_songs', JSON.stringify(list));
-    setShowFriendsList(false);
-    setShareMessage('');
-    setShareItem(null);
   }
 
   return (
@@ -223,254 +176,265 @@ export default function AlbumPage() {
         }}
       />
 
-      {/* Album menu */}
       <Modal visible={menuVisible} transparent animationType="slide">
-        <View style={styles.modalContainer}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuVisible(false)} />
-          <View style={styles.sheet}>
-            {album && (
-              <View style={styles.sheetHeader}>
-                <Image source={{ uri: album.images?.[0]?.url }} style={styles.sheetCover} />
-                <View>
-                  <Text style={styles.sheetTitle} numberOfLines={1}>{album.name}</Text>
-                  <Text style={styles.sheetArtist}>{album.artists?.[0]?.name}</Text>
-                </View>
+        <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)} />
+        <View style={styles.sheet}>
+          {album && (
+            <View style={styles.sheetHeader}>
+              <Image source={{ uri: album.images?.[0]?.url }} style={styles.sheetCover} />
+              <View>
+                <Text style={styles.sheetTitle} numberOfLines={1}>{album.name}</Text>
+                <Text style={styles.sheetArtist}>{album.artists?.[0]?.name}</Text>
               </View>
-            )}
-            <View style={styles.sheetActions}>
-              <TouchableOpacity style={styles.actionBtn} onPress={async () => {
-                const newVal = !listened; setListened(newVal);
-                const existing = await AsyncStorage.getItem('listened');
-                const list = existing ? JSON.parse(existing) : [];
-                if (newVal) { if (!list.find((i: any) => i.id === album.id)) list.unshift({ id: album.id, name: album.name, cover: album.images?.[0]?.url, type: 'album', rating, date: new Date().toISOString() }); }
-                else { const idx = list.findIndex((i: any) => i.id === album.id); if (idx !== -1) list.splice(idx, 1); setRating(0); }
-                await AsyncStorage.setItem('listened', JSON.stringify(list));
-              }}>
-                <View style={[styles.actionIcon, listened && { backgroundColor: accentColor }]}><Text style={styles.actionEmoji}>👁</Text></View>
-                <Text style={styles.actionText}>Listened</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn} onPress={async () => {
-                const newVal = !liked; setLiked(newVal);
-                const existing = await AsyncStorage.getItem('liked');
-                const list = existing ? JSON.parse(existing) : [];
-                if (newVal) { if (!list.find((i: any) => i.id === album.id)) list.unshift({ id: album.id, name: album.name, cover: album.images?.[0]?.url, type: 'album' }); }
-                else { const idx = list.findIndex((i: any) => i.id === album.id); if (idx !== -1) list.splice(idx, 1); }
-                await AsyncStorage.setItem('liked', JSON.stringify(list));
-              }}>
-                <View style={[styles.actionIcon, liked && { backgroundColor: accentColor }]}><Text style={styles.actionEmoji}>{liked ? '♥' : '♡'}</Text></View>
-                <Text style={styles.actionText}>Like</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn} onPress={async () => {
-                const newVal = !wantToListen; setWantToListen(newVal);
-                const existing = await AsyncStorage.getItem('wantToListen');
-                const list = existing ? JSON.parse(existing) : [];
-                if (newVal) { if (!list.find((i: any) => i.id === album.id)) list.unshift({ id: album.id, name: album.name, cover: album.images?.[0]?.url, type: 'album' }); }
-                else { const idx = list.findIndex((i: any) => i.id === album.id); if (idx !== -1) list.splice(idx, 1); }
-                await AsyncStorage.setItem('wantToListen', JSON.stringify(list));
-              }}>
-                <View style={[styles.actionIcon, wantToListen && { backgroundColor: accentColor }]}><Text style={styles.actionEmoji}>🕐</Text></View>
-                <Text style={styles.actionText}>Want to Listen</Text>
-              </TouchableOpacity>
             </View>
-            <View style={styles.rateSection}>
-              <Text style={styles.rateLabel}>Rate</Text>
-              <StarRating rating={rating} onChange={updateRating} />
-            </View>
-            <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(false); router.push({ pathname: '/review/new', params: { albumId: album.id, albumName: album.name, albumArtist: album.artists?.[0]?.name, albumCover: album.images?.[0]?.url, currentRating: String(rating) } }); }}>
-              <Text style={styles.menuText}>Review or log</Text>
+          )}
+
+          <View style={styles.sheetActions}>
+            <TouchableOpacity style={styles.actionBtn} onPress={async () => {
+              const newVal = !listened;
+              setListened(newVal);
+              const existing = await AsyncStorage.getItem('listened');
+              const list = existing ? JSON.parse(existing) : [];
+              if (newVal) {
+                if (!list.find((i: any) => i.id === album.id)) {
+                  list.unshift({ id: album.id, name: album.name, cover: album.images?.[0]?.url, type: 'album', rating, date: new Date().toISOString() });
+                }
+              } else {
+                const idx = list.findIndex((i: any) => i.id === album.id);
+                if (idx !== -1) list.splice(idx, 1);
+                setRating(0);
+              }
+              await AsyncStorage.setItem('listened', JSON.stringify(list));
+            }}>
+              <View style={[styles.actionIcon, listened && { backgroundColor: accentColor }]}>
+                <Text style={styles.actionEmoji}>👁</Text>
+              </View>
+              <Text style={styles.actionText}>Listened</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={async () => { const data = await AsyncStorage.getItem('lists'); setUserLists(data ? JSON.parse(data) : []); setMenuVisible(false); setShowLists(true); }}>
-              <Text style={styles.menuText}>Add to lists</Text>
+
+            <TouchableOpacity style={styles.actionBtn} onPress={async () => {
+              const newVal = !liked;
+              setLiked(newVal);
+              const existing = await AsyncStorage.getItem('liked');
+              const list = existing ? JSON.parse(existing) : [];
+              if (newVal) {
+                if (!list.find((i: any) => i.id === album.id)) {
+                  list.unshift({ id: album.id, name: album.name, cover: album.images?.[0]?.url, type: 'album', date: new Date().toISOString() });
+                }
+              } else {
+                const idx = list.findIndex((i: any) => i.id === album.id);
+                if (idx !== -1) list.splice(idx, 1);
+              }
+              await AsyncStorage.setItem('liked', JSON.stringify(list));
+            }}>
+              <View style={[styles.actionIcon, liked && { backgroundColor: accentColor }]}>
+                <Text style={styles.actionEmoji}>{liked ? '♥' : '♡'}</Text>
+              </View>
+              <Text style={styles.actionText}>Like</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => openShareFriends(album)}>
-              <Text style={styles.menuText}>Share to Friends</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => openCopySheet(album, 'album')}>
-              <Text style={styles.menuText}>Share</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.doneBtn} onPress={() => setMenuVisible(false)}>
-              <Text style={styles.doneBtnText}>Done</Text>
+
+            <TouchableOpacity style={styles.actionBtn} onPress={async () => {
+              const newVal = !wantToListen;
+              setWantToListen(newVal);
+              const existing = await AsyncStorage.getItem('wantToListen');
+              const list = existing ? JSON.parse(existing) : [];
+              if (newVal) {
+                if (!list.find((i: any) => i.id === album.id)) {
+                  list.unshift({ id: album.id, name: album.name, cover: album.images?.[0]?.url, type: 'album' });
+                }
+              } else {
+                const idx = list.findIndex((i: any) => i.id === album.id);
+                if (idx !== -1) list.splice(idx, 1);
+              }
+              await AsyncStorage.setItem('wantToListen', JSON.stringify(list));
+            }}>
+              <View style={[styles.actionIcon, wantToListen && { backgroundColor: accentColor }]}>
+                <Text style={styles.actionEmoji}>🕐</Text>
+              </View>
+              <Text style={styles.actionText}>Want to Listen</Text>
             </TouchableOpacity>
           </View>
+
+          <View style={styles.rateSection}>
+            <Text style={styles.rateLabel}>Rate</Text>
+            <StarRating rating={rating} onChange={updateRating} />
+          </View>
+
+          <TouchableOpacity style={styles.menuItem} onPress={() => {
+            setMenuVisible(false);
+            router.push({
+              pathname: '/review/new',
+              params: {
+                albumId: album.id,
+                albumName: album.name,
+                albumArtist: album.artists?.[0]?.name,
+                albumCover: album.images?.[0]?.url,
+                currentRating: String(rating),
+              }
+            });
+          }}>
+            <Text style={styles.menuText}>Review or log</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem} onPress={async () => {
+            const data = await AsyncStorage.getItem('lists');
+            setUserLists(data ? JSON.parse(data) : []);
+            setMenuVisible(false);
+            setShowLists(true);
+          }}>
+            <Text style={styles.menuText}>Add to lists</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuText}>Share</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.doneBtn} onPress={() => setMenuVisible(false)}>
+            <Text style={styles.doneBtnText}>Done</Text>
+          </TouchableOpacity>
         </View>
       </Modal>
 
-      {/* Track menu */}
       <Modal visible={trackMenuVisible} transparent animationType="slide">
-        <View style={styles.modalContainer}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setTrackMenuVisible(false)} />
-          <View style={styles.sheet}>
-            {selectedTrack && (
-              <View style={styles.sheetHeader}>
-                <Image source={{ uri: album?.images?.[0]?.url }} style={styles.sheetCover} />
-                <View>
-                  <Text style={styles.sheetTitle} numberOfLines={1}>{selectedTrack.name}</Text>
-                  <Text style={styles.sheetArtist}>{selectedTrack.artists?.[0]?.name}</Text>
-                </View>
+        <Pressable style={styles.overlay} onPress={() => setTrackMenuVisible(false)} />
+        <View style={styles.sheet}>
+          {selectedTrack && (
+            <View style={styles.sheetHeader}>
+              <Image source={{ uri: album?.images?.[0]?.url }} style={styles.sheetCover} />
+              <View>
+                <Text style={styles.sheetTitle} numberOfLines={1}>{selectedTrack.name}</Text>
+                <Text style={styles.sheetArtist}>{selectedTrack.artists?.[0]?.name}</Text>
               </View>
-            )}
-            <View style={styles.sheetActions}>
-              <TouchableOpacity style={styles.actionBtn} onPress={async () => {
-                const newVal = !trackListened; setTrackListened(newVal);
-                const existing = await AsyncStorage.getItem('listened');
-                const list = existing ? JSON.parse(existing) : [];
-                if (newVal) { if (!list.find((i: any) => i.id === selectedTrack.id)) list.unshift({ id: selectedTrack.id, name: selectedTrack.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id, rating: trackRating, date: new Date().toISOString() }); }
-                else { const idx = list.findIndex((i: any) => i.id === selectedTrack.id); if (idx !== -1) list.splice(idx, 1); setTrackRating(0); }
-                await AsyncStorage.setItem('listened', JSON.stringify(list));
-              }}>
-                <View style={[styles.actionIcon, trackListened && { backgroundColor: accentColor }]}><Text style={styles.actionEmoji}>👁</Text></View>
-                <Text style={styles.actionText}>Listened</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn} onPress={async () => {
-                const newVal = !trackLiked; setTrackLiked(newVal);
-                const existing = await AsyncStorage.getItem('liked');
-                const list = existing ? JSON.parse(existing) : [];
-                if (newVal) { if (!list.find((i: any) => i.id === selectedTrack.id)) list.unshift({ id: selectedTrack.id, name: selectedTrack.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id }); }
-                else { const idx = list.findIndex((i: any) => i.id === selectedTrack.id); if (idx !== -1) list.splice(idx, 1); }
-                await AsyncStorage.setItem('liked', JSON.stringify(list));
-              }}>
-                <View style={[styles.actionIcon, trackLiked && { backgroundColor: accentColor }]}><Text style={styles.actionEmoji}>{trackLiked ? '♥' : '♡'}</Text></View>
-                <Text style={styles.actionText}>Like</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn} onPress={async () => {
-                const newVal = !trackWantToListen; setTrackWantToListen(newVal);
-                const existing = await AsyncStorage.getItem('wantToListen');
-                const list = existing ? JSON.parse(existing) : [];
-                if (newVal) { if (!list.find((i: any) => i.id === selectedTrack.id)) list.unshift({ id: selectedTrack.id, name: selectedTrack.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id }); }
-                else { const idx = list.findIndex((i: any) => i.id === selectedTrack.id); if (idx !== -1) list.splice(idx, 1); }
-                await AsyncStorage.setItem('wantToListen', JSON.stringify(list));
-              }}>
-                <View style={[styles.actionIcon, trackWantToListen && { backgroundColor: accentColor }]}><Text style={styles.actionEmoji}>🕐</Text></View>
-                <Text style={styles.actionText}>Want to Listen</Text>
-              </TouchableOpacity>
             </View>
-            <View style={styles.rateSection}>
-              <Text style={styles.rateLabel}>Rate</Text>
-              <StarRating rating={trackRating} onChange={updateTrackRating} />
-            </View>
-            <TouchableOpacity style={styles.menuItem} onPress={() => { setTrackMenuVisible(false); router.push({ pathname: '/review/new', params: { albumId: selectedTrack?.id, albumName: selectedTrack?.name, albumArtist: selectedTrack?.artists?.[0]?.name, albumCover: album?.images?.[0]?.url, currentRating: String(trackRating) } }); }}>
-              <Text style={styles.menuText}>Review or log</Text>
+          )}
+
+          <View style={styles.sheetActions}>
+            <TouchableOpacity style={styles.actionBtn} onPress={async () => {
+              const newVal = !trackListened;
+              setTrackListened(newVal);
+              const existing = await AsyncStorage.getItem('listened');
+              const list = existing ? JSON.parse(existing) : [];
+              if (newVal) {
+                if (!list.find((i: any) => i.id === selectedTrack.id)) {
+                  list.unshift({ id: selectedTrack.id, name: selectedTrack.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id, rating: trackRating, date: new Date().toISOString() });
+                }
+              } else {
+                const idx = list.findIndex((i: any) => i.id === selectedTrack.id);
+                if (idx !== -1) list.splice(idx, 1);
+                setTrackRating(0);
+              }
+              await AsyncStorage.setItem('listened', JSON.stringify(list));
+            }}>
+              <View style={[styles.actionIcon, trackListened && { backgroundColor: accentColor }]}>
+                <Text style={styles.actionEmoji}>👁</Text>
+              </View>
+              <Text style={styles.actionText}>Listened</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={async () => { const data = await AsyncStorage.getItem('lists'); setUserLists(data ? JSON.parse(data) : []); setTrackMenuVisible(false); setShowLists(true); }}>
-              <Text style={styles.menuText}>Add to lists</Text>
+
+            <TouchableOpacity style={styles.actionBtn} onPress={async () => {
+              const newVal = !trackLiked;
+              setTrackLiked(newVal);
+              const existing = await AsyncStorage.getItem('liked');
+              const list = existing ? JSON.parse(existing) : [];
+              if (newVal) {
+                if (!list.find((i: any) => i.id === selectedTrack.id)) {
+                  list.unshift({ id: selectedTrack.id, name: selectedTrack.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id, date: new Date().toISOString() });
+                }
+              } else {
+                const idx = list.findIndex((i: any) => i.id === selectedTrack.id);
+                if (idx !== -1) list.splice(idx, 1);
+              }
+              await AsyncStorage.setItem('liked', JSON.stringify(list));
+            }}>
+              <View style={[styles.actionIcon, trackLiked && { backgroundColor: accentColor }]}>
+                <Text style={styles.actionEmoji}>{trackLiked ? '♥' : '♡'}</Text>
+              </View>
+              <Text style={styles.actionText}>Like</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => openShareFriends(selectedTrack)}>
-              <Text style={styles.menuText}>Share to Friends</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => openCopySheet(selectedTrack, 'track')}>
-              <Text style={styles.menuText}>Share</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.doneBtn} onPress={() => setTrackMenuVisible(false)}>
-              <Text style={styles.doneBtnText}>Done</Text>
+
+            <TouchableOpacity style={styles.actionBtn} onPress={async () => {
+              const newVal = !trackWantToListen;
+              setTrackWantToListen(newVal);
+              const existing = await AsyncStorage.getItem('wantToListen');
+              const list = existing ? JSON.parse(existing) : [];
+              if (newVal) {
+                if (!list.find((i: any) => i.id === selectedTrack.id)) {
+                  list.unshift({ id: selectedTrack.id, name: selectedTrack.name, cover: album?.images?.[0]?.url, type: 'track', albumId: album?.id });
+                }
+              } else {
+                const idx = list.findIndex((i: any) => i.id === selectedTrack.id);
+                if (idx !== -1) list.splice(idx, 1);
+              }
+              await AsyncStorage.setItem('wantToListen', JSON.stringify(list));
+            }}>
+              <View style={[styles.actionIcon, trackWantToListen && { backgroundColor: accentColor }]}>
+                <Text style={styles.actionEmoji}>🕐</Text>
+              </View>
+              <Text style={styles.actionText}>Want to Listen</Text>
             </TouchableOpacity>
           </View>
+
+          <View style={styles.rateSection}>
+            <Text style={styles.rateLabel}>Rate</Text>
+            <StarRating rating={trackRating} onChange={updateTrackRating} />
+          </View>
+
+          <TouchableOpacity style={styles.menuItem} onPress={() => {
+            setTrackMenuVisible(false);
+            router.push({
+              pathname: '/review/new',
+              params: {
+                albumId: selectedTrack?.id,
+                albumName: selectedTrack?.name,
+                albumArtist: selectedTrack?.artists?.[0]?.name,
+                albumCover: album?.images?.[0]?.url,
+                currentRating: String(trackRating),
+              }
+            });
+          }}>
+            <Text style={styles.menuText}>Review or log</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuText}>Add to lists</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuText}>Share</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.doneBtn} onPress={() => setTrackMenuVisible(false)}>
+            <Text style={styles.doneBtnText}>Done</Text>
+          </TouchableOpacity>
         </View>
       </Modal>
 
-      {/* Add to lists */}
       <Modal visible={showLists} transparent animationType="slide">
-        <View style={styles.modalContainer}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowLists(false)} />
-          <View style={styles.sheet}>
-            <View style={styles.sheetHandle} />
-            <Text style={[styles.sheetTitle, { textAlign: 'center', marginBottom: 16 }]}>Add to List</Text>
-            {userLists.length === 0 ? (
-              <Text style={{ color: '#888', textAlign: 'center', paddingVertical: 20 }}>No lists yet</Text>
-            ) : (
-              userLists.map(list => (
-                <TouchableOpacity key={list.id} style={styles.menuItem} onPress={async () => {
-                  const data = await AsyncStorage.getItem('lists');
-                  const lists = data ? JSON.parse(data) : [];
-                  const idx = lists.findIndex((l: any) => l.id === list.id);
-                  if (idx !== -1) {
-                    const albumEntry = { id: album.id, name: album.name, cover: album.images?.[0]?.url };
-                    if (!lists[idx].albums.find((a: any) => a.id === album.id)) lists[idx].albums.unshift(albumEntry);
-                    await AsyncStorage.setItem('lists', JSON.stringify(lists));
+        <Pressable style={styles.overlay} onPress={() => setShowLists(false)} />
+        <View style={styles.sheet}>
+          <View style={styles.sheetHandle} />
+          <Text style={[styles.sheetTitle, { textAlign: 'center', marginBottom: 16 }]}>Add to List</Text>
+          {userLists.length === 0 ? (
+            <Text style={{ color: '#888', textAlign: 'center', paddingVertical: 20 }}>No lists yet</Text>
+          ) : (
+            userLists.map(list => (
+              <TouchableOpacity key={list.id} style={styles.menuItem} onPress={async () => {
+                const data = await AsyncStorage.getItem('lists');
+                const lists = data ? JSON.parse(data) : [];
+                const idx = lists.findIndex((l: any) => l.id === list.id);
+                if (idx !== -1) {
+                  const albumEntry = { id: album.id, name: album.name, cover: album.images?.[0]?.url };
+                  if (!lists[idx].albums.find((a: any) => a.id === album.id)) {
+                    lists[idx].albums.unshift(albumEntry);
                   }
-                  setShowLists(false);
-                }}>
-                  <Text style={styles.menuText}>{list.name}</Text>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Copy link sheet */}
-      <Modal visible={showCopySheet} transparent animationType="slide">
-        <View style={styles.modalContainer}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowCopySheet(false)} />
-          <View style={styles.sheet}>
-            <View style={styles.sheetHandle} />
-            {copyItem && (
-              <View style={styles.sheetHeader}>
-                <Image source={{ uri: copyItem.cover }} style={styles.sheetCover} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.sheetTitle} numberOfLines={1}>{copyItem.name}</Text>
-                  <Text style={styles.sheetArtist}>{copyItem.artist}</Text>
-                </View>
-              </View>
-            )}
-            <TouchableOpacity style={styles.copyLinkBtn} onPress={copyLink}>
-              <View style={styles.copyLinkIcon}>
-                <Text style={{ fontSize: 28 }}>🔗</Text>
-              </View>
-              <Text style={styles.copyLinkText}>Copy link</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Share to Friends - message */}
-      <Modal visible={showShareFriends} transparent animationType="slide">
-        <KeyboardAvoidingView style={styles.modalContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowShareFriends(false)} />
-          <View style={[styles.sheet, { paddingBottom: 40 }]}>
-            <View style={styles.sheetHandle} />
-            {shareItem && (
-              <View style={styles.sheetHeader}>
-                <Image source={{ uri: shareItem?.images?.[0]?.url || album?.images?.[0]?.url }} style={styles.sheetCover} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.sheetTitle} numberOfLines={1}>{shareItem?.name}</Text>
-                  <Text style={styles.sheetArtist}>{shareItem?.artists?.[0]?.name || album?.artists?.[0]?.name}</Text>
-                </View>
-              </View>
-            )}
-            <TextInput
-              style={styles.messageInput}
-              placeholder="Write something..."
-              placeholderTextColor="#888"
-              multiline
-              value={shareMessage}
-              onChangeText={setShareMessage}
-            />
-            <TouchableOpacity style={styles.nextBtn} onPress={goToFriendsList}>
-              <Text style={styles.nextBtnText}>Next →</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Share to Friends - friends list */}
-      <Modal visible={showFriendsList} transparent animationType="slide">
-        <View style={styles.modalContainer}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowFriendsList(false)} />
-          <View style={styles.sheet}>
-            <View style={styles.sheetHandle} />
-            <Text style={[styles.sheetTitle, { textAlign: 'center', marginBottom: 16 }]}>Send to</Text>
-            {friends.length === 0 ? (
-              <Text style={{ color: '#888', textAlign: 'center', paddingVertical: 20 }}>No friends yet</Text>
-            ) : (
-              friends.map((friend: any) => (
-                <TouchableOpacity key={friend.id} style={styles.friendRow} onPress={() => sendToFriend(friend)}>
-                  <View style={styles.friendAvatar} />
-                  <Text style={styles.friendName}>{friend.name}</Text>
-                  <Text style={styles.sendArrow}>Send</Text>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
+                  await AsyncStorage.setItem('lists', JSON.stringify(lists));
+                }
+                setShowLists(false);
+              }}>
+                <Text style={styles.menuText}>{list.name}</Text>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
       </Modal>
     </ScrollView>
@@ -493,7 +457,7 @@ const styles = StyleSheet.create({
   artist: { color: '#888', fontSize: 13, marginTop: 2 },
   trackDotsBtn: { padding: 8, paddingLeft: 12 },
   trackDots: { color: '#888', fontSize: 20 },
-  modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: { backgroundColor: '#1c1c1e', padding: 24, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   sheetHandle: { width: 40, height: 4, backgroundColor: '#444', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
@@ -511,14 +475,4 @@ const styles = StyleSheet.create({
   menuText: { color: 'white', fontSize: 16 },
   doneBtn: { backgroundColor: '#2a2a2a', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
   doneBtnText: { color: 'white', fontSize: 16, fontWeight: '600' },
-  copyLinkBtn: { alignItems: 'center', paddingVertical: 24 },
-  copyLinkIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  copyLinkText: { color: 'white', fontSize: 16, fontWeight: '600' },
-  messageInput: { backgroundColor: '#2a2a2a', color: 'white', borderRadius: 12, padding: 16, fontSize: 16, minHeight: 120, textAlignVertical: 'top', marginBottom: 16 },
-  nextBtn: { backgroundColor: '#ffb6c1', borderRadius: 12, padding: 14, alignItems: 'center' },
-  nextBtnText: { color: 'black', fontSize: 16, fontWeight: 'bold' },
-  friendRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#2a2a2a' },
-  friendAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#333', marginRight: 12 },
-  friendName: { flex: 1, color: 'white', fontSize: 16 },
-  sendArrow: { color: '#ffb6c1', fontSize: 14, fontWeight: '600' },
 });
