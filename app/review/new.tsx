@@ -1,181 +1,168 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export default function ReviewPage() {
-  const { albumName, albumArtist, albumCover, albumId, currentRating } = useLocalSearchParams();
+function Stars({ count }: { count: number }) {
+  const full = Math.floor(count);
+  const half = count % 1 >= 0.5;
+  return (
+    <Text style={styles.stars}>
+      {'★'.repeat(full)}{half ? '½' : ''}{'☆'.repeat(5 - full - (half ? 1 : 0))}
+    </Text>
+  );
+}
+
+export default function ReviewDetail() {
+  const { id } = useLocalSearchParams();
   const router = useRouter();
-  const [review, setReview] = useState('');
-  const [rating, setRating] = useState(0);
-  const [loaded, setLoaded] = useState(false);
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-
-  const starWidth = 36;
+  const [entry, setEntry] = useState<any>(null);
+  const [username, setUsername] = useState('nia');
+  const [avatar, setAvatar] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadExisting() {
-      if (!albumId) { setLoaded(true); return; }
-      const existing = await AsyncStorage.getItem('reviews');
-      const reviews = existing ? JSON.parse(existing) : [];
-      const found = reviews.find((r: any) => r.albumId === albumId);
-      if (found) {
-        setRating(found.rating || 0);
-        setReview(found.review || '');
-      } else if (currentRating && parseFloat(currentRating as string) > 0) {
-        setRating(parseFloat(currentRating as string));
-      }
-      setLoaded(true);
-    }
-    loadExisting();
-  }, [albumId]);
+    load();
+  }, [id]);
 
-  function renderStars() {
+  async function load() {
+    const data = await AsyncStorage.getItem('reviews');
+    const reviews = data ? JSON.parse(data) : [];
+    const found = reviews.find((r: any) => r.id === id);
+    setEntry(found || null);
+
+    const profileData = await AsyncStorage.getItem('profile');
+    if (profileData) {
+      const p = JSON.parse(profileData);
+      setUsername(p.username || 'nia');
+      setAvatar(p.avatar || null);
+    }
+  }
+
+  async function openAlbum() {
+    if (!entry) return;
+
+    // entry.albumId might actually be a track's id (reviews store it under
+    // "albumId" regardless of whether it was an album or a track review).
+    // Check listened/liked to see if this id belongs to a track, and if so,
+    // resolve its real parent album and highlight that track there.
+    const listenedData = await AsyncStorage.getItem('listened');
+    const listenedList = listenedData ? JSON.parse(listenedData) : [];
+    const likedData = await AsyncStorage.getItem('liked');
+    const likedList = likedData ? JSON.parse(likedData) : [];
+
+    const match =
+      listenedList.find((i: any) => i.id === entry.albumId) ||
+      likedList.find((i: any) => i.id === entry.albumId);
+
+    if (match && match.type === 'track' && match.albumId) {
+      router.push({
+        pathname: `/album/${match.albumId}` as any,
+        params: { highlightTrackId: entry.albumId },
+      });
+    } else {
+      router.push(`/album/${entry.albumId}` as any);
+    }
+  }
+
+  if (!entry) {
     return (
-      <View style={styles.starsRow}>
-        {[1, 2, 3, 4, 5].map((s) => {
-          const filled = rating >= s;
-          const half = !filled && rating >= s - 0.5;
-          return (
-            <View key={s} style={{ width: starWidth, height: starWidth }}>
-              <Text style={styles.starEmpty}>★</Text>
-              {(filled || half) && (
-                <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', width: filled ? starWidth : starWidth / 2 }]}>
-                  <Text style={styles.starFilled}>★</Text>
-                </View>
-              )}
-              <Pressable
-                style={[StyleSheet.absoluteFillObject, { left: 0, width: starWidth / 2 }]}
-                onPress={() => setRating(s - 0.5)}
-              />
-              <Pressable
-                style={[StyleSheet.absoluteFillObject, { left: starWidth / 2, width: starWidth / 2 }]}
-                onPress={() => setRating(s)}
-              />
-            </View>
-          );
-        })}
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backRow}>
+            <Text style={styles.backText}>‹ Diary</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Review</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <Text style={styles.empty}>რევიუ ვერ მოიძებნა</Text>
       </View>
     );
   }
 
-  async function handleSave() {
-    if (rating === 0) return;
-
-    const userId = await AsyncStorage.getItem('user_id');
-
-    try {
-      const existing = await AsyncStorage.getItem('reviews');
-      const reviews = existing ? JSON.parse(existing) : [];
-      const existingIndex = reviews.findIndex((r: any) => r.albumId === albumId);
-
-      if (existingIndex !== -1) {
-        reviews[existingIndex] = {
-          ...reviews[existingIndex],
-          rating,
-          review,
-          date: new Date().toISOString(),
-        };
-      } else {
-        reviews.unshift({
-          id: Date.now().toString(),
-          userId,
-          albumId: albumId as string,
-          albumName: albumName as string,
-          albumArtist: albumArtist as string,
-          albumCover: albumCover as string,
-          rating,
-          review,
-          date: new Date().toISOString(),
-        });
-      }
-      await AsyncStorage.setItem('reviews', JSON.stringify(reviews));
-
-      const listenedData = await AsyncStorage.getItem('listened');
-      const listenedList = listenedData ? JSON.parse(listenedData) : [];
-      const listenedIndex = listenedList.findIndex((i: any) => i.id === albumId);
-
-      if (listenedIndex !== -1) {
-        listenedList[listenedIndex].rating = rating;
-      } else {
-        listenedList.unshift({
-          id: albumId,
-          name: albumName,
-          cover: albumCover,
-          type: 'album',
-          rating,
-          date: new Date().toISOString(),
-        });
-      }
-      await AsyncStorage.setItem('listened', JSON.stringify(listenedList));
-
-      router.back();
-    } catch (e) {
-      console.error('შენახვა ვერ მოხერხდა', e);
-    }
-  }
+  const formattedDate = new Date(entry.date).toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  });
+  const year = new Date(entry.date).getFullYear();
 
   return (
     <View style={styles.container}>
-      <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.cancel}>Cancel</Text>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backRow}>
+          <Text style={styles.backText}>‹ Diary</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>
-          {loaded && rating > 0 ? 'Edit Review' : 'I Listened...'}
-        </Text>
-        <TouchableOpacity onPress={handleSave}>
-          <Text style={[styles.save, rating === 0 && { opacity: 0.4 }]}>Save</Text>
+        <Text style={styles.headerTitle}>Review</Text>
+        <TouchableOpacity>
+          <Text style={styles.dots}>•••</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.albumRow}>
-        {albumCover
-          ? <Image source={{ uri: albumCover as string }} style={styles.cover} />
-          : <View style={styles.cover} />}
-        <View>
-          <Text style={styles.albumName}>{albumName}</Text>
-          <Text style={styles.albumArtist}>{albumArtist}</Text>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.userRow}>
+          {avatar
+            ? <Image source={{ uri: avatar }} style={styles.avatar} />
+            : <View style={styles.avatar} />}
+          <Text style={styles.username}>{username}</Text>
         </View>
-      </View>
 
-      <View style={styles.row}>
-        <Text style={styles.label}>Date</Text>
-        <Text style={styles.date}>{today}</Text>
-      </View>
+        <View style={styles.mainRow}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={styles.title}>{entry.albumName}</Text>
+            <Text style={styles.year}>{year}</Text>
+            <Stars count={entry.rating} />
+            <Text style={styles.listenedText}>Listened {formattedDate}</Text>
+          </View>
+          <TouchableOpacity onPress={openAlbum}>
+            {entry.albumCover
+              ? <Image source={{ uri: entry.albumCover }} style={styles.cover} />
+              : <View style={[styles.cover, { backgroundColor: '#2a2a2a' }]} />}
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.row}>
-        <Text style={styles.label}>Rating</Text>
-        {renderStars()}
-      </View>
+        {entry.review ? (
+          <Text style={styles.reviewText}>{entry.review}</Text>
+        ) : null}
 
-      <TextInput
-        style={styles.reviewInput}
-        placeholder="Add review..."
-        placeholderTextColor="#888"
-        multiline
-        value={review}
-        onChangeText={setReview}
-      />
+        <TouchableOpacity style={styles.likeRow}>
+          <Text style={styles.heartIcon}>♡</Text>
+          <Text style={styles.likeText}>No likes yet</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      <View style={styles.bottomBar}>
+        <TouchableOpacity style={styles.pillBtn}>
+          <Text style={styles.pillText}>Reply</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.pillBtn} onPress={openAlbum}>
+          <Text style={styles.pillText}>Album  ›</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#3d5068' },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingTop: 60, borderBottomWidth: 1, borderBottomColor: '#4a6080' },
-  cancel: { color: '#aaa', fontSize: 16 },
-  title: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
-  save: { color: '#2ecc71', fontSize: 16, fontWeight: '600' },
-  albumRow: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#4a6080' },
-  cover: { width: 48, height: 48, borderRadius: 6, backgroundColor: '#555', marginRight: 12 },
-  albumName: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  albumArtist: { color: '#aaa', fontSize: 13, marginTop: 2 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#4a6080' },
-  label: { color: '#ccc', fontSize: 16 },
-  date: { color: '#fff', fontSize: 15 },
-  starsRow: { flexDirection: 'row', gap: 6 },
-  starEmpty: { fontSize: 32, color: '#555' },
-  starFilled: { fontSize: 32, color: '#ffb6c1' },
-  reviewInput: { color: '#fff', fontSize: 15, padding: 16, minHeight: 200, textAlignVertical: 'top' },
+  container: { flex: 1, backgroundColor: '#0a0a0a' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingBottom: 16, paddingHorizontal: 16 },
+  backRow: { flexDirection: 'row', alignItems: 'center' },
+  backText: { color: '#aaa', fontSize: 16 },
+  headerTitle: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
+  dots: { color: '#aaa', fontSize: 16 },
+  empty: { color: '#555', textAlign: 'center', marginTop: 40 },
+  content: { padding: 20, paddingBottom: 40 },
+  userRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 10 },
+  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#333' },
+  username: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  mainRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  title: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
+  year: { color: '#888', fontSize: 15, marginTop: 2 },
+  listenedText: { color: '#888', fontSize: 13, marginTop: 12 },
+  cover: { width: 100, height: 140, borderRadius: 6 },
+  reviewText: { color: '#eee', fontSize: 16, lineHeight: 24, marginBottom: 24 },
+  likeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#1e1e1e' },
+  heartIcon: { color: '#888', fontSize: 18 },
+  likeText: { color: '#888', fontSize: 14 },
+  stars: { color: '#ffb6c1', fontSize: 20, marginTop: 10 },
+  bottomBar: { flexDirection: 'row', gap: 12, padding: 16, borderTopWidth: 1, borderTopColor: '#1e1e1e' },
+  pillBtn: { backgroundColor: '#1c1c1c', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10 },
+  pillText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });
