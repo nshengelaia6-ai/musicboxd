@@ -1,164 +1,139 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-function Stars({ count }: { count: number }) {
-  const full = Math.floor(count);
-  const half = count % 1 >= 0.5;
-  return (
-    <Text style={styles.stars}>
-      {'★'.repeat(full)}{half ? '½' : ''}{'☆'.repeat(5 - full - (half ? 1 : 0))}
-    </Text>
-  );
-}
-
-export default function ReviewDetail() {
+export default function ArtistPage() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const [entry, setEntry] = useState<any>(null);
-  const [username, setUsername] = useState('nia');
-  const [avatar, setAvatar] = useState<string | null>(null);
+  const [artist, setArtist] = useState<any>(null);
+  const [albums, setAlbums] = useState<any[]>([]);
+  const [topTracks, setTopTracks] = useState<any[]>([]);
 
   useEffect(() => {
     load();
   }, [id]);
 
   async function load() {
-    const data = await AsyncStorage.getItem('reviews');
-    const reviews = data ? JSON.parse(data) : [];
-    const found = reviews.find((r: any) => r.id === id);
-    setEntry(found || null);
+    const token = await AsyncStorage.getItem('spotify_token');
+    if (!token) return;
 
-    const profileData = await AsyncStorage.getItem('profile');
-    if (profileData) {
-      const p = JSON.parse(profileData);
-      setUsername(p.username || 'nia');
-      setAvatar(p.avatar || null);
+    try {
+      const [artistRes, albumsRes, tracksRes] = await Promise.all([
+        fetch(`https://api.spotify.com/v1/artists/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`https://api.spotify.com/v1/artists/${id}/albums?limit=10&include_groups=album,single`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`https://api.spotify.com/v1/artists/${id}/top-tracks?market=US`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      if (artistRes.ok) setArtist(await artistRes.json());
+      if (albumsRes.ok) {
+        const d = await albumsRes.json();
+        setAlbums(d.items || []);
+      }
+      if (tracksRes.ok) {
+        const d = await tracksRes.json();
+        setTopTracks((d.tracks || []).slice(0, 5));
+      }
+    } catch (e) {
+      console.log('artist load failed', e);
     }
   }
-
-  async function openAlbum() {
-    if (!entry) return;
-
-    const listenedData = await AsyncStorage.getItem('listened');
-    const listenedList = listenedData ? JSON.parse(listenedData) : [];
-    const likedData = await AsyncStorage.getItem('liked');
-    const likedList = likedData ? JSON.parse(likedData) : [];
-
-    const match =
-      listenedList.find((i: any) => i.id === entry.albumId) ||
-      likedList.find((i: any) => i.id === entry.albumId);
-
-    if (match && match.type === 'track' && match.albumId) {
-      router.push({
-        pathname: `/album/${match.albumId}` as any,
-        params: { highlightTrackId: entry.albumId },
-      });
-    } else {
-      router.push(`/album/${entry.albumId}` as any);
-    }
-  }
-
-  if (!entry) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backRow}>
-            <Text style={styles.backText}>‹ Diary</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Review</Text>
-          <View style={{ width: 40 }} />
-        </View>
-        <Text style={styles.empty}>რევიუ ვერ მოიძებნა</Text>
-      </View>
-    );
-  }
-
-  const formattedDate = new Date(entry.date).toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'short', year: 'numeric',
-  });
-  const year = new Date(entry.date).getFullYear();
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backRow}>
-          <Text style={styles.backText}>‹ Diary</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Review</Text>
-        <TouchableOpacity>
-          <Text style={styles.dots}>•••</Text>
-        </TouchableOpacity>
-      </View>
+    <ScrollView style={styles.container}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <Text style={styles.backText}>‹</Text>
+      </TouchableOpacity>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.userRow}>
-          {avatar
-            ? <Image source={{ uri: avatar }} style={styles.avatar} />
-            : <View style={styles.avatar} />}
-          <Text style={styles.username}>{username}</Text>
+      {artist && (
+        <View style={styles.heroSection}>
+          {artist.images?.[0]?.url ? (
+            <Image source={{ uri: artist.images[0].url }} style={styles.heroImage} />
+          ) : (
+            <View style={[styles.heroImage, { backgroundColor: '#2a2a2a' }]} />
+          )}
+          <Text style={styles.artistName}>{artist.name}</Text>
+          <Text style={styles.followers}>
+            {artist.followers?.total?.toLocaleString()} followers
+          </Text>
         </View>
+      )}
 
-        <View style={styles.mainRow}>
-          <View style={{ flex: 1, paddingRight: 12 }}>
-            <Text style={styles.title}>{entry.albumName}</Text>
-            <Text style={styles.year}>{year}</Text>
-            <Stars count={entry.rating} />
-            <Text style={styles.listenedText}>Listened {formattedDate}</Text>
-          </View>
-          <TouchableOpacity onPress={openAlbum}>
-            {entry.albumCover
-              ? <Image source={{ uri: entry.albumCover }} style={styles.cover} />
-              : <View style={[styles.cover, { backgroundColor: '#2a2a2a' }]} />}
-          </TouchableOpacity>
-        </View>
+      {topTracks.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Popular</Text>
+          {topTracks.map((track, index) => (
+            <View key={track.id} style={styles.trackRow}>
+              <Text style={styles.trackNum}>{index + 1}</Text>
+              <Image source={{ uri: track.album?.images?.[0]?.url }} style={styles.trackCover} />
+              <View style={styles.trackInfo}>
+                <Text style={styles.trackName} numberOfLines={1}>{track.name}</Text>
+                <Text style={styles.trackMeta} numberOfLines={1}>
+                  {(track.popularity || 0)}% popularity
+                </Text>
+              </View>
+            </View>
+          ))}
+        </>
+      )}
 
-        {entry.review ? (
-          <Text style={styles.reviewText}>{entry.review}</Text>
-        ) : null}
+      {albums.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Discography</Text>
+          <FlatList
+            data={albums}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.albumCard}
+                onPress={() => router.push(`/album/${item.id}` as any)}
+              >
+                {item.images?.[0]?.url ? (
+                  <Image source={{ uri: item.images[0].url }} style={styles.albumCover} />
+                ) : (
+                  <View style={[styles.albumCover, { backgroundColor: '#2a2a2a' }]} />
+                )}
+                <Text style={styles.albumName} numberOfLines={1}>{item.name}</Text>
+                <Text style={styles.albumYear}>
+                  {new Date(item.release_date).getFullYear()} • {item.album_type}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        </>
+      )}
 
-        <TouchableOpacity style={styles.likeRow}>
-          <Text style={styles.heartIcon}>♡</Text>
-          <Text style={styles.likeText}>No likes yet</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.pillBtn}>
-          <Text style={styles.pillText}>Reply</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.pillBtn} onPress={openAlbum}>
-          <Text style={styles.pillText}>Album  ›</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+      <View style={{ height: 40 }} />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0a0a0a' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingBottom: 16, paddingHorizontal: 16 },
-  backRow: { flexDirection: 'row', alignItems: 'center' },
-  backText: { color: '#aaa', fontSize: 16 },
-  headerTitle: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
-  dots: { color: '#aaa', fontSize: 16 },
-  empty: { color: '#555', textAlign: 'center', marginTop: 40 },
-  content: { padding: 20, paddingBottom: 40 },
-  userRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 10 },
-  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#333' },
-  username: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  mainRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-  title: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
-  year: { color: '#888', fontSize: 15, marginTop: 2 },
-  listenedText: { color: '#888', fontSize: 13, marginTop: 12 },
-  cover: { width: 100, height: 140, borderRadius: 6 },
-  reviewText: { color: '#eee', fontSize: 16, lineHeight: 24, marginBottom: 24 },
-  likeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#1e1e1e' },
-  heartIcon: { color: '#888', fontSize: 18 },
-  likeText: { color: '#888', fontSize: 14 },
-  stars: { color: '#ffb6c1', fontSize: 20, marginTop: 10 },
-  bottomBar: { flexDirection: 'row', gap: 12, padding: 16, borderTopWidth: 1, borderTopColor: '#1e1e1e' },
-  pillBtn: { backgroundColor: '#1c1c1c', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10 },
-  pillText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  backBtn: { position: 'absolute', top: 60, left: 16, zIndex: 10, padding: 8 },
+  backText: { color: '#fff', fontSize: 32, lineHeight: 36 },
+  heroSection: { alignItems: 'center', paddingTop: 40 },
+  heroImage: { width: '100%', height: 300 },
+  artistName: { color: '#fff', fontSize: 28, fontWeight: 'bold', marginTop: 16, textAlign: 'center', paddingHorizontal: 20 },
+  followers: { color: '#888', fontSize: 14, marginTop: 4, marginBottom: 24 },
+  sectionTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', paddingHorizontal: 16, marginTop: 24, marginBottom: 12 },
+  trackRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, gap: 12 },
+  trackNum: { color: '#555', fontSize: 14, width: 20, textAlign: 'center' },
+  trackCover: { width: 44, height: 44, borderRadius: 4 },
+  trackInfo: { flex: 1 },
+  trackName: { color: '#fff', fontSize: 15 },
+  trackMeta: { color: '#888', fontSize: 12, marginTop: 2 },
+  albumCard: { width: 130 },
+  albumCover: { width: 130, height: 130, borderRadius: 6, marginBottom: 6 },
+  albumName: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  albumYear: { color: '#888', fontSize: 11, marginTop: 2 },
 });
