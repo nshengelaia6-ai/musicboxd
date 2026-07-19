@@ -20,8 +20,29 @@ export default function Followers() {
     if (!myId) return;
     try {
       const res = await fetch(`${API_BASE}/follows/${myId}/followers`);
-      const data = await res.json();
+      const raw = await res.json();
+
+      if (!res.ok) {
+        console.log('followers request failed', res.status, raw);
+        setFollowers([]);
+        return;
+      }
+
+      // Backend might return a bare array, or wrap it as { followers: [...] } / { data: [...] }.
+      const data: any[] = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.followers)
+          ? raw.followers
+          : Array.isArray(raw?.data)
+            ? raw.data
+            : [];
+
       setFollowers(data);
+
+      if (data.length === 0) {
+        setFollowingBack(new Set());
+        return;
+      }
 
       const checks = await Promise.all(
         data.map((u: any) =>
@@ -35,6 +56,7 @@ export default function Followers() {
       setFollowingBack(set);
     } catch (e) {
       console.log('failed to load followers', e);
+      setFollowers([]);
     }
   }
 
