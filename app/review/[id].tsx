@@ -86,9 +86,22 @@ export default function ReviewDetail() {
             <Stars count={entry.rating} />
             <Text style={styles.listenedText}>Listened {formattedDate}</Text>
           </View>
-          {entry.albumCover
-            ? <Image source={{ uri: entry.albumCover }} style={styles.cover} />
-            : <View style={[styles.cover, { backgroundColor: '#2a2a2a' }]} />}
+       // review/[id].tsx-ში, mainRow-ის შიგნით ცვლილება:
+
+<View style={styles.mainRow}>
+  <View style={{ flex: 1, paddingRight: 12 }}>
+    <Text style={styles.title}>{entry.albumName}</Text>
+    <Text style={styles.year}>{year}</Text>
+    <Stars count={entry.rating} />
+    <Text style={styles.listenedText}>Listened {formattedDate}</Text>
+  </View>
+  <TouchableOpacity onPress={() => router.push(`/album/${entry.albumId}` as any)}>
+    {entry.albumCover
+      ? <Image source={{ uri: entry.albumCover }} style={styles.cover} />
+      : <View style={[styles.cover, { backgroundColor: '#2a2a2a' }]} />}
+  </TouchableOpacity>
+</View>
+
         </View>
 
         {entry.review ? (
