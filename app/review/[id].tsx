@@ -1,15 +1,27 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 function Stars({ count }: { count: number }) {
-  const full = Math.floor(count);
-  const half = count % 1 >= 0.5;
+  const starWidth = 22;
   return (
-    <Text style={styles.stars}>
-      {'★'.repeat(full)}{half ? '½' : ''}{'☆'.repeat(5 - full - (half ? 1 : 0))}
-    </Text>
+    <View style={{ flexDirection: 'row', marginTop: 10 }}>
+      {[1, 2, 3, 4, 5].map((s) => {
+        const filled = count >= s;
+        const half = !filled && count >= s - 0.5;
+        return (
+          <View key={s} style={{ width: starWidth, height: starWidth }}>
+            <Text style={{ fontSize: starWidth, color: '#333', position: 'absolute' }}>★</Text>
+            {(filled || half) && (
+              <View style={{ overflow: 'hidden', width: filled ? starWidth : starWidth / 2, position: 'absolute' }}>
+                <Text style={{ fontSize: starWidth, color: '#ffb6c1' }}>★</Text>
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </View>
   );
 }
 
@@ -35,6 +47,40 @@ export default function ReviewDetail() {
       const p = JSON.parse(profileData);
       setUsername(p.username || 'nia');
       setAvatar(p.avatar || null);
+    }
+  }
+
+  async function goToAlbum() {
+    if (!entry) return;
+
+    // თუ ალბომის review-ია — პირდაპირ გადავიდეთ
+    if (!entry.albumArtist || entry.type === 'album') {
+      router.push(`/album/${entry.albumId}` as any);
+      return;
+    }
+
+    // თუ ტრეკის review-ია — Spotify-დან ვიღებთ ალბომის ID-ს
+    const token = await AsyncStorage.getItem('spotify_token');
+    if (!token) {
+      router.push(`/album/${entry.albumId}` as any);
+      return;
+    }
+    try {
+      const res = await fetch(`https://api.spotify.com/v1/tracks/${entry.albumId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      const realAlbumId = data.album?.id;
+      if (realAlbumId) {
+        router.push({
+          pathname: '/album/[id]',
+          params: { id: realAlbumId, highlightTrackId: entry.albumId },
+        } as any);
+      } else {
+        router.push(`/album/${entry.albumId}` as any);
+      }
+    } catch {
+      router.push(`/album/${entry.albumId}` as any);
     }
   }
 
@@ -85,11 +131,11 @@ export default function ReviewDetail() {
             <Stars count={entry.rating} />
             <Text style={styles.listenedText}>Listened {formattedDate}</Text>
           </View>
-          <TouchableOpacity onPress={() => router.push(`/album/${entry.albumId}` as any)}>
+          <Pressable onPress={goToAlbum}>
             {entry.albumCover
               ? <Image source={{ uri: entry.albumCover }} style={styles.cover} />
               : <View style={[styles.cover, { backgroundColor: '#2a2a2a' }]} />}
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {entry.review ? (
@@ -106,10 +152,7 @@ export default function ReviewDetail() {
         <TouchableOpacity style={styles.pillBtn}>
           <Text style={styles.pillText}>Reply</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.pillBtn}
-          onPress={() => router.push(`/album/${entry.albumId}` as any)}
-        >
+        <TouchableOpacity style={styles.pillBtn} onPress={goToAlbum}>
           <Text style={styles.pillText}>Album  ›</Text>
         </TouchableOpacity>
       </View>
@@ -138,7 +181,6 @@ const styles = StyleSheet.create({
   likeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#1e1e1e' },
   heartIcon: { color: '#888', fontSize: 18 },
   likeText: { color: '#888', fontSize: 14 },
-  stars: { color: '#1DB954', fontSize: 20, marginTop: 10 },
   bottomBar: { flexDirection: 'row', gap: 12, padding: 16, borderTopWidth: 1, borderTopColor: '#1e1e1e' },
   pillBtn: { backgroundColor: '#1c1c1c', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10 },
   pillText: { color: '#fff', fontSize: 14, fontWeight: '600' },
