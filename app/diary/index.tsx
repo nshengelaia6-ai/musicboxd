@@ -1,7 +1,8 @@
+// app/diary.tsx (განახლებული — ემატება tap ნავიგაცია)
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 function Stars({ count }: { count: number }) {
   const full = Math.floor(count);
@@ -54,9 +55,11 @@ export default function DiaryScreen() {
                 <Text style={styles.monthText}>{month}</Text>
               </View>
               {entries.map((entry, index) => (
-               <View key={entry.id ?? `${entry.albumId}-${entry.date}-${index}`} style={styles.diaryRow}>
-
-
+                <TouchableOpacity
+                  key={entry.id ?? `${entry.albumId}-${entry.date}-${index}`}
+                  style={styles.diaryRow}
+                  onPress={() => router.push(`/review/${entry.id}` as any)}
+                >
                   <Text style={styles.diaryDay}>
                     {new Date(entry.date).getDate()}
                   </Text>
@@ -74,7 +77,7 @@ export default function DiaryScreen() {
                       ? <Text style={styles.diaryReview} numberOfLines={2}>{entry.review}</Text>
                       : null}
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           ))
