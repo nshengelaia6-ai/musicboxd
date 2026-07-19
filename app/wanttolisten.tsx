@@ -6,13 +6,49 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View 
 export default function WantToListenScreen() {
   const router = useRouter();
   const [items, setItems] = useState<any[]>([]);
-  const [tab, setTab] = useState<'albums' | 'tracks'>('albums');
+  const [tab, setTab] = useState<'tracks' | 'albums'>('tracks');
 
   useEffect(() => {
     AsyncStorage.getItem('wantToListen').then(data => {
       if (data) setItems(JSON.parse(data));
     });
   }, []);
+
+  async function openItem(item: any) {
+    if (item.type === 'album') {
+      router.push(`/album/${item.id}` as any);
+      return;
+    }
+
+    // ტრეკი — albumId ინახება თუ არა
+    let albumId = item.albumId;
+
+    if (!albumId) {
+      const token = await AsyncStorage.getItem('spotify_token');
+      if (!token) return;
+      try {
+        const res = await fetch(`https://api.spotify.com/v1/tracks/${item.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        albumId = data.album?.id;
+      } catch (e) {
+        console.log('failed to resolve album', e);
+        return;
+      }
+    }
+
+    if (!albumId) return;
+
+    router.push({
+      pathname: '/album/[id]',
+      params: { id: albumId, highlightTrackId: item.id },
+    } as any);
+  }
+
+  const filtered = items.filter(i =>
+    tab === 'albums' ? i.type === 'album' : i.type === 'track'
+  );
 
   return (
     <View style={styles.container}>
@@ -24,29 +60,37 @@ export default function WantToListenScreen() {
       </View>
 
       <View style={styles.tabs}>
-        <TouchableOpacity style={[styles.tab, tab === 'albums' && styles.tabActive]} onPress={() => setTab('albums')}>
-          <Text style={[styles.tabText, tab === 'albums' && styles.tabTextActive]}>Albums</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, tab === 'tracks' && styles.tabActive]} onPress={() => setTab('tracks')}>
+        <TouchableOpacity
+          style={[styles.tab, tab === 'tracks' && styles.tabActive]}
+          onPress={() => setTab('tracks')}
+        >
           <Text style={[styles.tabText, tab === 'tracks' && styles.tabTextActive]}>Tracks</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, tab === 'albums' && styles.tabActive]}
+          onPress={() => setTab('albums')}
+        >
+          <Text style={[styles.tabText, tab === 'albums' && styles.tabTextActive]}>Albums</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView>
-        {items.filter(i => tab === 'albums' ? i.type === 'album' : i.type === 'track').length === 0 ? (
+        {filtered.length === 0 ? (
           <Text style={styles.empty}>ჯერ არ გაქვს Want to Listen items</Text>
         ) : (
           <View style={styles.grid}>
-            {items
-              .filter(i => tab === 'albums' ? i.type === 'album' : i.type === 'track')
-              .map(item => (
-                <View key={item.id} style={styles.gridItem}>
-                  {item.cover
-                    ? <Image source={{ uri: item.cover }} style={styles.gridCover} />
-                    : <View style={[styles.gridCover, { backgroundColor: '#2a2a2a' }]} />}
-                  <Text style={styles.gridTitle} numberOfLines={1}>{item.name}</Text>
-                </View>
-              ))}
+            {filtered.map(item => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.gridItem}
+                onPress={() => openItem(item)}
+              >
+                {item.cover
+                  ? <Image source={{ uri: item.cover }} style={styles.gridCover} />
+                  : <View style={[styles.gridCover, { backgroundColor: '#2a2a2a' }]} />}
+                <Text style={styles.gridTitle} numberOfLines={1}>{item.name}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         )}
       </ScrollView>
