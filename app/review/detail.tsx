@@ -10,9 +10,11 @@ export default function ReviewDetail() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [currentReview, setCurrentReview] = useState(review as string);
   const [currentRating, setCurrentRating] = useState(Number(rating));
+  const [isTrack, setIsTrack] = useState(false);
 
   useEffect(() => {
     loadLikes();
+    detectType();
   }, []);
 
   useFocusEffect(
@@ -29,6 +31,44 @@ export default function ReviewDetail() {
       reload();
     }, [albumId])
   );
+
+  async function detectType() {
+    // listened-ში ვამოწმებ type-ს
+    const data = await AsyncStorage.getItem('listened');
+    const list = data ? JSON.parse(data) : [];
+    const found = list.find((i: any) => i.id === albumId);
+    if (found?.type === 'track') setIsTrack(true);
+  }
+
+  async function goToAlbum() {
+    if (!isTrack) {
+      router.push(`/album/${albumId}` as any);
+      return;
+    }
+
+    let realAlbumId = null;
+    const token = await AsyncStorage.getItem('spotify_token');
+    if (token) {
+      try {
+        const res = await fetch(`https://api.spotify.com/v1/tracks/${albumId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        realAlbumId = data.album?.id;
+      } catch (e) {
+        console.log('failed to resolve album', e);
+      }
+    }
+
+    if (realAlbumId) {
+      router.push({
+        pathname: '/album/[id]',
+        params: { id: realAlbumId, highlightTrackId: albumId },
+      } as any);
+    } else {
+      router.push(`/album/${albumId}` as any);
+    }
+  }
 
   async function loadLikes() {
     const data = await AsyncStorage.getItem(`likes_${id}`);
@@ -76,9 +116,11 @@ export default function ReviewDetail() {
             <Text style={styles.rating}>{'★'.repeat(Math.floor(currentRating))}{currentRating % 1 ? '½' : ''}</Text>
             <Text style={styles.date}>{new Date(date as string).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
           </View>
-          {albumCover
-            ? <Image source={{ uri: albumCover as string }} style={styles.cover} />
-            : <View style={[styles.cover, { backgroundColor: '#2a2a2a' }]} />}
+          <TouchableOpacity onPress={goToAlbum}>
+            {albumCover
+              ? <Image source={{ uri: albumCover as string }} style={styles.cover} />
+              : <View style={[styles.cover, { backgroundColor: '#2a2a2a' }]} />}
+          </TouchableOpacity>
         </View>
 
         <Text style={styles.reviewText}>{currentReview}</Text>
@@ -96,7 +138,7 @@ export default function ReviewDetail() {
             setMenuVisible(false);
             router.push({
               pathname: '/review/new',
-              params: { albumId: albumId, albumName, albumArtist, albumCover },
+              params: { albumId, albumName, albumArtist, albumCover },
             });
           }}>
             <Text style={styles.menuText}>Edit</Text>
