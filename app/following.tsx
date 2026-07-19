@@ -19,10 +19,27 @@ export default function Following() {
     if (!myId) return;
     try {
       const res = await fetch(`${API_BASE}/follows/${myId}/following`);
-      const data = await res.json();
+      const raw = await res.json();
+
+      if (!res.ok) {
+        console.log('following request failed', res.status, raw);
+        setFollowing([]);
+        return;
+      }
+
+      // Backend might return a bare array, or wrap it as { following: [...] } / { data: [...] }.
+      const data: any[] = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.following)
+          ? raw.following
+          : Array.isArray(raw?.data)
+            ? raw.data
+            : [];
+
       setFollowing(data);
     } catch (e) {
       console.log('failed to load following', e);
+      setFollowing([]);
     }
   }
 
