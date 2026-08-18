@@ -10,7 +10,6 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
-
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
@@ -22,6 +21,11 @@ export default function RootLayout() {
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           <Stack.Screen name="lists" options={{ headerShown: false }} />
           <Stack.Screen name="customize" options={{ headerShown: false, presentation: 'modal' }} />
+          <Stack.Screen name="artist/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="album/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="review/new" options={{ headerShown: false }} />
+          <Stack.Screen name="review/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="find-people" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
