@@ -1,53 +1,173 @@
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { API_BASE } from '@/utils/api';
+import { getCurrentUserId } from '@/utils/currentUser';
 
-const tabs = ['Friends', 'You', 'Incoming'];
+const tabs = ['Friends', 'You'];
 
-const data = {
-  Friends: [
-    { id: '1', user: 'ana', action: 'rated', song: 'Blinding Lights', rating: '5', time: '2m ago' },
-    { id: '2', user: 'giorgi', action: 'reviewed', song: 'Bad Guy', rating: '4', time: '1h ago' },
-    { id: '3', user: 'nino', action: 'rated', song: 'Levitating', rating: '3', time: '3h ago' },
-  ],
-  You: [
-    { id: '1', user: 'you', action: 'rated', song: 'Starboy', rating: '5', time: '1d ago' },
-    { id: '2', user: 'you', action: 'reviewed', song: 'Save Your Tears', rating: '4', time: '2d ago' },
-  ],
-  Incoming: [
-    { id: '1', user: 'ana', action: 'liked your review of', song: 'Blinding Lights', rating: '', time: '5m ago' },
-    { id: '2', user: 'giorgi', action: 'followed you', song: '', rating: '', time: '2h ago' },
-  ],
-};
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
 
 export default function Activity() {
   const [activeTab, setActiveTab] = useState('Friends');
+  const [youItems, setYouItems] = useState<any[]>([]);
+  const [friendItems, setFriendItems] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<{ [id: string]: any }>({});
+
+  useFocusEffect(
+    useCallback(() => {
+      loadYou();
+      loadFriends();
+    }, [])
+  );
+
+  async function loadYou() {
+    const data = await AsyncStorage.getItem('reviews');
+    const reviews = data ? JSON.parse(data) : [];
+    setYouItems(reviews.slice(0, 20));
+  }
+
+  async function loadFriends() {
+    const myId = await getCurrentUserId();
+    if (!myId) return;
+
+    try {
+      // ვიღებთ following სიას
+      const res = await fetch(`${API_BASE}/follows/${myId}/following`);
+      const following: any[] = await res.json();
+      if (!following.length) return;
+
+      // პროფილები შევინახოთ
+      const profileMap: { [id: string]: any } = {};
+      following.forEach(u => { profileMap[u.id] = u; });
+      setProfiles(profileMap);
+
+      // თითო user-ის reviews backend-დან
+      const allReviews: any[] = [];
+      await Promise.all(
+        following.map(async (user) => {
+          try {
+            const r = await fetch(`${API_BASE}/reviews/${user.id}`);
+            if (r.ok) {
+              const userReviews = await r.json();
+              userReviews.forEach((rv: any) => {
+                allReviews.push({ ...rv, _userId: user.id });
+              });
+            }
+          } catch {}
+        })
+      );
+
+      // თარიღის მიხედვით დავალაგოთ
+      allReviews.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setFriendItems(allReviews.slice(0, 30));
+    } catch (e) {
+      console.log('loadFriends failed', e);
+    }
+  }
+
+  const myProfile = useCallback(async () => {
+    const data = await AsyncStorage.getItem('profile');
+    return data ? JSON.parse(data) : {};
+  }, []);
+
+  const [myAvatar, setMyAvatar] = useState<string | null>(null);
+  const [myUsername, setMyUsername] = useState('you');
+
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.getItem('profile').then(data => {
+        if (data) {
+          const p = JSON.parse(data);
+          setMyAvatar(p.avatar || null);
+          setMyUsername(p.username || 'you');
+        }
+      });
+    }, [])
+  );
+
+  function renderFriendItem(item: any) {
+    const user = profiles[item._userId];
+    const username = user?.username || 'user';
+    const avatar = user?.avatar || null;
+    const action = item.review ? 'reviewed' : 'rated';
+
+    return (
+      <View key={`${item._userId}-${item.albumId}`} style={styles.row}>
+        {avatar
+          ? <Image source={{ uri: avatar }} style={styles.avatar} />
+          : <View style={styles.avatar} />}
+        <View style={styles.info}>
+          <Text style={styles.text}>
+            <Text style={styles.username}>{username}</Text>
+            {' '}{action}{' '}
+            <Text style={styles.song}>{item.albumName}</Text>
+            {item.rating
+              ? <Text style={styles.rating}> ⭐{item.rating}</Text>
+              : null}
+          </Text>
+          <Text style={styles.time}>{timeAgo(item.date)}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  function renderYouItem(item: any) {
+    const action = item.review ? 'reviewed' : 'rated';
+    return (
+      <View key={item.id} style={styles.row}>
+        {myAvatar
+          ? <Image source={{ uri: myAvatar }} style={styles.avatar} />
+          : <View style={styles.avatar} />}
+        <View style={styles.info}>
+          <Text style={styles.text}>
+            <Text style={styles.username}>{myUsername}</Text>
+            {' '}{action}{' '}
+            <Text style={styles.song}>{item.albumName}</Text>
+            {item.rating
+              ? <Text style={styles.rating}> ⭐{item.rating}</Text>
+              : null}
+          </Text>
+          <Text style={styles.time}>{timeAgo(item.date)}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const currentItems = activeTab === 'You' ? youItems : friendItems;
+  const isEmpty = currentItems.length === 0;
 
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Activity</Text>
       <View style={styles.tabs}>
         {tabs.map(tab => (
-          <Pressable key={tab} onPress={() => setActiveTab(tab)} style={styles.tabBtn}>
+          <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={styles.tabBtn}>
             <Text style={[styles.tabText, activeTab === tab && styles.activeTab]}>{tab}</Text>
             {activeTab === tab && <View style={styles.underline} />}
-          </Pressable>
+          </TouchableOpacity>
         ))}
       </View>
       <ScrollView>
-        {data[activeTab].map(item => (
-          <View key={item.id} style={styles.row}>
-            <View style={styles.avatar} />
-            <View style={styles.info}>
-              <Text style={styles.text}>
-                <Text style={styles.username}>{item.user}</Text>
-                {' '}{item.action}{' '}
-                <Text style={styles.song}>{item.song}</Text>
-                {item.rating ? <Text style={styles.rating}> ⭐{item.rating}</Text> : null}
-              </Text>
-              <Text style={styles.time}>{item.time}</Text>
-            </View>
-          </View>
-        ))}
+        {isEmpty ? (
+          <Text style={styles.empty}>
+            {activeTab === 'Friends'
+              ? 'შენი მეგობრების აქტივობა ჯერ არ არის'
+              : 'ჯერ არ გაქვს აქტივობა'}
+          </Text>
+        ) : activeTab === 'You'
+          ? youItems.map(renderYouItem)
+          : friendItems.map(renderFriendItem)
+        }
       </ScrollView>
     </View>
   );
@@ -69,4 +189,5 @@ const styles = StyleSheet.create({
   song: { color: '#00b4d8' },
   rating: { color: '#f4c430' },
   time: { color: '#555', fontSize: 12, marginTop: 4 },
+  empty: { color: '#555', textAlign: 'center', marginTop: 40, fontSize: 15 },
 });
