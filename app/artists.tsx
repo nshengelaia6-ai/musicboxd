@@ -1,20 +1,36 @@
+import { useAppTheme } from '@/context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export default function ArtistsScreen() {
   const router = useRouter();
+  const { backgroundColor } = useAppTheme();
   const [artists, setArtists] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    AsyncStorage.getItem('followed_artists').then(data => {
-      if (data) setArtists(JSON.parse(data));
-    });
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      setLoading(true);
+      AsyncStorage.getItem('followed_artists')
+        .then(data => {
+          if (active) setArtists(data ? JSON.parse(data) : []);
+        })
+        .catch(() => {
+          if (active) setError('Could not load followed artists.');
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+      return () => { active = false; };
+    }, [])
+  );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backText}>‹</Text>
@@ -23,8 +39,12 @@ export default function ArtistsScreen() {
       </View>
 
       <ScrollView>
-        {artists.length === 0 ? (
-          <Text style={styles.empty}>ჯერ არ გაქვს დაფოლოვებული არტისტი</Text>
+        {loading ? (
+          <ActivityIndicator color="#1DB954" style={{ marginTop: 32 }} />
+        ) : error ? (
+          <Text accessibilityRole="alert" style={styles.empty}>{error}</Text>
+        ) : artists.length === 0 ? (
+          <Text style={styles.empty}>No followed artists yet.</Text>
         ) : (
           artists.map(artist => (
             <Pressable

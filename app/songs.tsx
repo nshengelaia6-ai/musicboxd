@@ -1,9 +1,10 @@
+import { useAppTheme } from '@/context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Stack, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
-function Stars({ count }: { count: number }) {
+function Stars({ count, color }: { count: number; color: string }) {
   const starSize = 10;
   return (
     <View style={{ flexDirection: 'row', marginTop: 2 }}>
@@ -15,7 +16,7 @@ function Stars({ count }: { count: number }) {
             <Text style={{ fontSize: starSize, color: '#555', position: 'absolute' }}>★</Text>
             {(filled || half) && (
               <View style={{ overflow: 'hidden', width: filled ? starSize : starSize / 2, position: 'absolute' }}>
-                <Text style={{ fontSize: starSize, color: '#ffb6c1' }}>★</Text>
+                <Text style={{ fontSize: starSize, color }}>★</Text>
               </View>
             )}
           </View>
@@ -27,40 +28,52 @@ function Stars({ count }: { count: number }) {
 
 export default function SongsScreen() {
   const router = useRouter();
+  const { backgroundColor, accentColor } = useAppTheme();
+  const { width: windowWidth } = useWindowDimensions();
+  const columns = windowWidth >= 1024 ? 5 : windowWidth >= 720 ? 4 : 3;
+  const gridWidth = Math.min(windowWidth, 960);
+  const tileWidth = Math.max(72, (gridWidth - 24 - (columns - 1) * 12) / columns);
   const [listened, setListened] = useState<any[]>([]);
- const [tab, setTab] = useState<'albums' | 'tracks'>('tracks');
+  const [tab, setTab] = useState<'albums' | 'tracks'>('tracks');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-
-  useEffect(() => {
-    async function load() {
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
       const data = await AsyncStorage.getItem('listened');
-      if (data) {
-        const all = JSON.parse(data);
-        const seen = new Set();
-        const unique = all.filter((item: any) => {
-          const key = `${item.id}-${item.type}`;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-        setListened(unique);
-        await AsyncStorage.setItem('listened', JSON.stringify(unique));
-      }
+      const all = data ? JSON.parse(data) : [];
+      const seen = new Set<string>();
+      const unique = all.filter((item: any) => {
+        const key = `${item.id}-${item.type}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setListened(unique);
+      if (unique.length !== all.length) await AsyncStorage.setItem('listened', JSON.stringify(unique));
+    } catch {
+      setError('Could not load your listening history. Try again.');
+    } finally {
+      setLoading(false);
     }
-    load();
   }, []);
 
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
   function openItem(item: any) {
-  if (item.type === 'album') {
-    router.push(`/album/${item.id}` as any);
-  } else {
-    if (!item.albumId) return;
-    router.push(`/album/${item.albumId}?highlightTrackId=${item.id}` as any);
-  }
-}
+      if (item.type === 'album') {
+        router.push(`/album/${item.id}` as any);
+      } else if (item.albumId) {
+        router.push({ pathname: '/album/[id]', params: { id: item.albumId, highlightTrackId: item.id } } as any);
+      }
+    }
+
+    const visibleItems = listened.filter(item => tab === 'albums' ? item.type === 'album' : item.type === 'track');
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor }]}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.header}>
@@ -71,32 +84,34 @@ export default function SongsScreen() {
       </View>
 
       <View style={styles.tabs}>
-         <TouchableOpacity style={[styles.tab, tab === 'tracks' && styles.tabActive]} onPress={() => setTab('tracks')}>
+         <TouchableOpacity style={[styles.tab, tab === 'tracks' && styles.tabActive, tab === 'tracks' && { borderBottomColor: accentColor }]} onPress={() => setTab('tracks')} accessibilityRole="tab" accessibilityState={{ selected: tab === 'tracks' }}>
   <Text style={[styles.tabText, tab === 'tracks' && styles.tabTextActive]}>Tracks</Text>
 </TouchableOpacity>
-<TouchableOpacity style={[styles.tab, tab === 'albums' && styles.tabActive]} onPress={() => setTab('albums')}>
+<TouchableOpacity style={[styles.tab, tab === 'albums' && styles.tabActive, tab === 'albums' && { borderBottomColor: accentColor }]} onPress={() => setTab('albums')} accessibilityRole="tab" accessibilityState={{ selected: tab === 'albums' }}>
   <Text style={[styles.tabText, tab === 'albums' && styles.tabTextActive]}>Albums</Text>
 </TouchableOpacity>
 
       </View>
 
       <ScrollView>
-        {listened.length === 0 ? (
-          <Text style={styles.empty}>ჯერ არ გაქვს listened items</Text>
+        {loading ? (
+          <ActivityIndicator color={accentColor} style={{ marginTop: 32 }} />
+        ) : error ? (
+          <Text accessibilityRole="alert" style={styles.empty}>{error}</Text>
+        ) : visibleItems.length === 0 ? (
+          <Text style={styles.empty}>No {tab} logged yet.</Text>
         ) : (
-          <View style={styles.grid}>
-            {listened
-              .filter(item => tab === 'albums' ? item.type === 'album' : item.type === 'track')
-              .map(item => (
+          <View style={[styles.grid, { maxWidth: gridWidth }]}>
+            {visibleItems.map(item => (
                 <TouchableOpacity
                   key={`${item.id}-${item.type}`}
-                  style={styles.gridItem}
+                  style={[styles.gridItem, { width: tileWidth }]}
                   onPress={() => openItem(item)}
                 >
                   {item.cover
                     ? <Image source={{ uri: item.cover }} style={styles.gridCover} />
                     : <View style={[styles.gridCover, { backgroundColor: '#2a2a2a' }]} />}
-                  {item.rating ? <Stars count={item.rating} /> : null}
+                  {item.rating ? <Stars count={item.rating} color={accentColor} /> : null}
                   <Text style={styles.gridTitle} numberOfLines={1}>{item.name}</Text>
                 </TouchableOpacity>
               ))}
@@ -119,7 +134,7 @@ const styles = StyleSheet.create({
   tabText: { color: '#888', fontSize: 15 },
   tabTextActive: { color: '#fff', fontWeight: 'bold' },
   empty: { color: '#555', paddingHorizontal: 20, paddingVertical: 20 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingVertical: 12, gap: 12 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignSelf: 'center', width: '100%', paddingHorizontal: 12, paddingVertical: 12, gap: 12 },
   gridItem: { width: '30%', alignItems: 'center' },
   gridCover: { width: '100%', aspectRatio: 1, borderRadius: 6 },
   gridTitle: { color: '#ccc', fontSize: 11, marginTop: 4, textAlign: 'center' },

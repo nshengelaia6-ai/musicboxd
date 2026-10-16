@@ -1,94 +1,117 @@
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAppTheme } from '@/context/ThemeContext';
 import { API_BASE } from '@/utils/api';
 import { getCurrentUserId } from '@/utils/currentUser';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function Followers() {
   const router = useRouter();
+  const { backgroundColor, accentColor } = useAppTheme();
   const [followers, setFollowers] = useState<any[]>([]);
   const [followingBack, setFollowingBack] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
 
   useFocusEffect(
     useCallback(() => {
+      let active = true;
+      setLoading(true);
+      setError('');
+      async function load() {
+        const myId = await getCurrentUserId();
+        if (!myId) {
+          if (active) {
+            setFollowers([]);
+            setError('Sign in to view your followers.');
+          }
+          setLoading(false);
+          return;
+        }
+        try {
+          const res = await fetch(`${API_BASE}/follows/${myId}/followers`);
+          if (!res.ok) throw new Error(`Followers request failed (${res.status})`);
+          const raw = await res.json();
+          const data: any[] = Array.isArray(raw)
+            ? raw
+            : Array.isArray(raw?.followers)
+              ? raw.followers
+              : Array.isArray(raw?.data)
+                ? raw.data
+                : [];
+          if (active) setFollowers(data);
+          if (data.length === 0) {
+            if (active) setFollowingBack(new Set());
+            return;
+          }
+          const checks = await Promise.all(data.map(async (user: any) => {
+            try {
+              const response = await fetch(`${API_BASE}/follows/${myId}/is-following/${user.id}`);
+              if (!response.ok) return false;
+              const result = await response.json();
+              return !!result?.isFollowing;
+            } catch {
+              return false;
+            }
+          }));
+          if (active) setFollowingBack(new Set(data.filter((_: any, index: number) => checks[index]).map((user: any) => user.id)));
+        } catch {
+          if (active) {
+            setFollowers([]);
+            setError('Could not load followers. Try again later.');
+          }
+        } finally {
+          if (active) setLoading(false);
+        }
+      }
       load();
+      return () => { active = false; };
     }, [])
   );
 
-  async function load() {
-    const myId = await getCurrentUserId();
-    if (!myId) return;
-    try {
-      const res = await fetch(`${API_BASE}/follows/${myId}/followers`);
-      const raw = await res.json();
-
-      if (!res.ok) {
-        console.log('followers request failed', res.status, raw);
-        setFollowers([]);
-        return;
-      }
-
-      // Backend might return a bare array, or wrap it as { followers: [...] } / { data: [...] }.
-      const data: any[] = Array.isArray(raw)
-        ? raw
-        : Array.isArray(raw?.followers)
-          ? raw.followers
-          : Array.isArray(raw?.data)
-            ? raw.data
-            : [];
-
-      setFollowers(data);
-
-      if (data.length === 0) {
-        setFollowingBack(new Set());
-        return;
-      }
-
-      const checks = await Promise.all(
-        data.map((u: any) =>
-          fetch(`${API_BASE}/follows/${myId}/is-following/${u.id}`).then(r => r.json())
-        )
-      );
-      const set = new Set<string>();
-      data.forEach((u: any, i: number) => {
-        if (checks[i]?.isFollowing) set.add(u.id);
-      });
-      setFollowingBack(set);
-    } catch (e) {
-      console.log('failed to load followers', e);
-      setFollowers([]);
-    }
-  }
-
   async function toggleFollowBack(targetId: string) {
     const myId = await getCurrentUserId();
-    if (!myId) return;
+    if (!myId) {
+      setError('Your Spotify session has expired.');
+      return;
+    }
     const isFollowing = followingBack.has(targetId);
     const next = new Set(followingBack);
+    setPendingIds(previous => new Set(previous).add(targetId));
     try {
       if (isFollowing) {
-        await fetch(`${API_BASE}/follows`, {
+        const response = await fetch(`${API_BASE}/follows`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ followerId: myId, followingId: targetId }),
         });
+        if (!response.ok) throw new Error(`Unfollow failed (${response.status})`);
         next.delete(targetId);
       } else {
-        await fetch(`${API_BASE}/follows`, {
+        const response = await fetch(`${API_BASE}/follows`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ followerId: myId, followingId: targetId }),
         });
+        if (!response.ok) throw new Error(`Follow failed (${response.status})`);
         next.add(targetId);
       }
       setFollowingBack(next);
-    } catch (e) {
-      console.log('toggle follow back failed', e);
+      setError('');
+    } catch {
+      setError('Could not update this follow. Please try again.');
+    } finally {
+      setPendingIds(previous => {
+        const next = new Set(previous);
+        next.delete(targetId);
+        return next;
+      });
     }
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.back}>‹</Text>
@@ -97,8 +120,12 @@ export default function Followers() {
         <View style={{ width: 24 }} />
       </View>
 
-      {followers.length === 0 ? (
-        <Text style={styles.empty}>ჯერ არავინ მოგდევია</Text>
+      {loading ? (
+        <ActivityIndicator color="#1DB954" style={{ marginTop: 32 }} />
+      ) : error ? (
+        <Text accessibilityRole="alert" style={styles.empty}>{error}</Text>
+      ) : followers.length === 0 ? (
+        <Text style={styles.empty}>No followers yet.</Text>
       ) : (
         followers.map(user => (
           <View key={user.id} style={styles.row}>
@@ -111,8 +138,11 @@ export default function Followers() {
             </View>
             <Text style={styles.username}>{user.username}</Text>
             <TouchableOpacity
-              style={[styles.followBtn, followingBack.has(user.id) && { backgroundColor: '#2a2a2a' }]}
+              style={[styles.followBtn, { backgroundColor: followingBack.has(user.id) ? '#2a2a2a' : accentColor }]}
               onPress={() => toggleFollowBack(user.id)}
+              disabled={pendingIds.has(user.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`${followingBack.has(user.id) ? 'Unfollow' : 'Follow back'} ${user.username}`}
             >
               <Text style={[styles.followBtnText, followingBack.has(user.id) ? { color: '#aaa' } : { color: '#000' }]}>
                 {followingBack.has(user.id) ? 'Following' : 'Follow Back'}

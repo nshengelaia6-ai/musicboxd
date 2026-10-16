@@ -1,22 +1,39 @@
+import { useAppTheme } from '@/context/ThemeContext';
+import { getValidSpotifyToken } from '@/utils/spotify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 export default function Likes() {
   const router = useRouter();
+  const { backgroundColor, accentColor } = useAppTheme();
+  const { width: windowWidth } = useWindowDimensions();
+  const columns = windowWidth >= 1024 ? 5 : windowWidth >= 720 ? 4 : 3;
+  const gridWidth = Math.min(windowWidth, 960);
+  const tileWidth = Math.max(72, (gridWidth - 24 - (columns - 1) * 8) / columns);
   const [activeTab, setActiveTab] = useState<'Tracks' | 'Albums'>('Tracks');
   const [albums, setAlbums] = useState<any[]>([]);
   const [tracks, setTracks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  useEffect(() => { loadLikes(); }, []);
+  const loadLikes = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await AsyncStorage.getItem('liked');
+      const list = data ? JSON.parse(data) : [];
+      setAlbums(list.filter((i: any) => i.type === 'album'));
+      setTracks(list.filter((i: any) => i.type === 'track'));
+    } catch {
+      setError('Could not load your likes. Try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  async function loadLikes() {
-    const data = await AsyncStorage.getItem('liked');
-    const list = data ? JSON.parse(data) : [];
-    setAlbums(list.filter((i: any) => i.type === 'album'));
-    setTracks(list.filter((i: any) => i.type === 'track'));
-  }
+  useFocusEffect(useCallback(() => { loadLikes(); }, [loadLikes]));
 
   async function openTrack(item: any) {
     // Newer liked tracks already carry albumId — use it directly.
@@ -29,7 +46,7 @@ export default function Likes() {
     }
 
     // Older liked tracks (saved before albumId was tracked) — look it up from Spotify.
-    const token = await AsyncStorage.getItem('spotify_token');
+    const token = await getValidSpotifyToken();
     if (!token) return;
     try {
       const res = await fetch(`https://api.spotify.com/v1/tracks/${item.id}`, {
@@ -57,8 +74,10 @@ export default function Likes() {
     }
   }
 
+  const visibleItems = activeTab === 'Albums' ? albums : tracks;
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.back}>‹</Text>
@@ -69,18 +88,25 @@ export default function Likes() {
 
       <View style={styles.tabs}>
         {['Tracks', 'Albums'].map(tab => (
-          <Pressable key={tab} onPress={() => setActiveTab(tab as any)} style={styles.tab}>
+          <Pressable key={tab} onPress={() => setActiveTab(tab as any)} style={styles.tab} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab }}>
             <Text style={[styles.tabText, activeTab === tab && styles.tabActive]}>{tab}</Text>
-            {activeTab === tab && <View style={styles.tabLine} />}
+            {activeTab === tab && <View style={[styles.tabLine, { backgroundColor: accentColor }]} />}
           </Pressable>
         ))}
       </View>
 
-      <View style={styles.grid}>
-        {(activeTab === 'Albums' ? albums : tracks).map(item => (
+      {loading ? (
+        <ActivityIndicator color={accentColor} style={{ marginTop: 32 }} />
+      ) : error ? (
+        <Text accessibilityRole="alert" style={styles.empty}>{error}</Text>
+      ) : visibleItems.length === 0 ? (
+        <Text style={styles.empty}>No {activeTab.toLowerCase()} liked yet.</Text>
+      ) : (
+      <View style={[styles.grid, { maxWidth: gridWidth }]}>
+        {visibleItems.map(item => (
           <TouchableOpacity
             key={item.id}
-            style={styles.item}
+            style={[styles.item, { width: tileWidth }]}
             onPress={() => {
               if (activeTab === 'Albums') {
                 router.push(`/album/${item.id}` as any);
@@ -94,6 +120,7 @@ export default function Likes() {
           </TouchableOpacity>
         ))}
       </View>
+      )}
     </ScrollView>
   );
 }
@@ -108,8 +135,9 @@ const styles = StyleSheet.create({
   tabText: { color: '#888', fontSize: 15, fontWeight: '600' },
   tabActive: { color: 'white' },
   tabLine: { position: 'absolute', bottom: 0, height: 2, width: '100%', backgroundColor: '#1DB954' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 8 },
-  item: { width: '30%' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignSelf: 'center', width: '100%', padding: 12, gap: 8 },
+  item: {},
   cover: { width: '100%', aspectRatio: 1, borderRadius: 6 },
   name: { color: 'white', fontSize: 12, marginTop: 4 },
+  empty: { color: '#888', textAlign: 'center', paddingHorizontal: 20, paddingVertical: 24 },
 });

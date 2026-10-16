@@ -1,21 +1,12 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Image, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAppTheme } from '@/context/ThemeContext';
 import { API_BASE } from '@/utils/api';
 import { getCurrentUserId } from '@/utils/currentUser';
-
-function Stars({ count }: { count: number }) {
-  const full = Math.floor(count);
-  const half = count % 1 >= 0.5;
-  return (
-    <Text style={styles.stars}>
-      {'★'.repeat(full)}{half ? '½' : ''}{'☆'.repeat(5 - full - (half ? 1 : 0))}
-    </Text>
-  );
-}
+import { clearSpotifySession } from '@/utils/spotify';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { Image, Keyboard, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function Profile() {
   const router = useRouter();
@@ -33,6 +24,12 @@ export default function Profile() {
   const [pendingSlotIndex, setPendingSlotIndex] = useState<number | null>(null);
   const [followingCount, setFollowingCount] = useState(0);
   const [followersCount, setFollowersCount] = useState(0);
+  const profileEditSnapshot = useRef<{
+    username: string;
+    bio: string;
+    avatar: string | null;
+    favoriteAlbums: (any | null)[];
+  } | null>(null);
 
   // Only entries that actually have written review text count as a "review".
   // Items that only have a star rating (no written text) are excluded.
@@ -52,7 +49,7 @@ export default function Profile() {
         router.push({ pathname: '/pick-album', params: { index: String(idx) } } as any);
       }, 300);
     }
-  }, [showSettings]);
+  }, [pendingSlotIndex, router, showSettings]);
 
   async function loadData() {
     // reviews
@@ -100,7 +97,7 @@ export default function Profile() {
       const counts = await res.json();
       setFollowingCount(counts.following ?? followingList.length);
       setFollowersCount(counts.followers ?? followersList.length);
-    } catch (e) {
+    } catch {
       console.log('API sync failed, using local counts');
     }
   }
@@ -113,6 +110,21 @@ export default function Profile() {
       quality: 0.8,
     });
     if (!result.canceled) setEditAvatar(result.assets[0].uri);
+  }
+
+  async function shareProfile() {
+    setShowShare(false);
+    try {
+      const userId = await getCurrentUserId();
+      const profileUrl = userId ? `https://open.spotify.com/user/${userId}` : undefined;
+      await Share.share({
+        title: `${username} on Musicboxd`,
+        message: [`@${username}`, bio, profileUrl].filter(Boolean).join('\n'),
+        url: profileUrl,
+      });
+    } catch (error) {
+      console.log('Could not share profile', error);
+    }
   }
 
   async function saveProfile() {
@@ -141,12 +153,52 @@ export default function Profile() {
     }
   }
 
+  async function cancelProfileEdit() {
+    const snapshot = profileEditSnapshot.current;
+    setShowSettings(false);
+
+    if (!snapshot) return;
+
+    setUsername(snapshot.username);
+    setBio(snapshot.bio);
+    setEditUsername(snapshot.username);
+    setEditBio(snapshot.bio);
+    setAvatar(snapshot.avatar);
+    setEditAvatar(snapshot.avatar);
+    setFavoriteAlbums(snapshot.favoriteAlbums);
+
+    const profileData = await AsyncStorage.getItem('profile');
+    const profile = profileData ? JSON.parse(profileData) : {};
+    await AsyncStorage.setItem('profile', JSON.stringify({
+      ...profile,
+      username: snapshot.username,
+      bio: snapshot.bio,
+      avatar: snapshot.avatar,
+      favoriteAlbums: snapshot.favoriteAlbums,
+    }));
+  }
+
+  async function logOut() {
+    await clearSpotifySession();
+    router.replace('/' as any);
+  }
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView style={[styles.container, { backgroundColor }]}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.headerBtnLeft} onPress={() => { setEditUsername(username); setEditBio(bio); setShowSettings(true); }}>
-            <Text style={styles.headerBtnText}>🎛️</Text>
+          <TouchableOpacity style={styles.headerBtnLeft} onPress={() => {
+            profileEditSnapshot.current = {
+              username,
+              bio,
+              avatar,
+              favoriteAlbums: [...favoriteAlbums],
+            };
+            setEditUsername(username);
+            setEditBio(bio);
+            setShowSettings(true);
+          }}>
+            <Text style={styles.headerBtnText}>⚙️</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerBtnRight} onPress={() => setShowShare(true)}>
             <Text style={styles.headerBtnText}>•••</Text>
@@ -230,8 +282,8 @@ export default function Profile() {
           <View style={styles.bottomSheet}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Share Profile</Text>
-            <TouchableOpacity style={styles.sheetOption}>
-              <Text style={styles.sheetOptionText}>🔗  Copy Profile Link</Text>
+            <TouchableOpacity style={styles.sheetOption} onPress={shareProfile} accessibilityRole="button">
+              <Text style={styles.sheetOptionText}>🔗  Share Profile</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.sheetOption, { marginTop: 8 }]} onPress={() => setShowShare(false)}>
               <Text style={[styles.sheetOptionText, { color: '#888' }]}>Cancel</Text>
@@ -240,9 +292,9 @@ export default function Profile() {
         </Pressable>
       </Modal>
 
-      <Modal visible={showSettings} transparent animationType="slide">
+      <Modal visible={showSettings} transparent animationType="slide" onRequestClose={cancelProfileEdit}>
         <View style={styles.modalOverlay}>
-          <Pressable style={{ flex: 1 }} onPress={() => setShowSettings(false)} />
+          <Pressable style={{ flex: 1 }} onPress={cancelProfileEdit} />
           <View style={[styles.bottomSheet, { paddingBottom: 40 }]}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Settings</Text>
@@ -309,14 +361,14 @@ export default function Profile() {
             <TouchableOpacity style={styles.sheetOption} onPress={() => { setShowSettings(false); router.push('/customize'); }}>
               <Text style={styles.sheetOptionText}>🎨  Customize</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.sheetOption}>
-              <Text style={styles.sheetOptionText}>🔒  Privacy Settings</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={[styles.saveBtn, { backgroundColor: accentColor }]} onPress={saveProfile}>
               <Text style={styles.saveBtnText}>Save Changes</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.logoutBtn}>
+            <TouchableOpacity style={styles.logoutBtn} onPress={logOut}>
               <Text style={styles.logoutBtnText}>Log Out</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.logoutBtn} onPress={cancelProfileEdit}>
+              <Text style={styles.sheetOptionText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>

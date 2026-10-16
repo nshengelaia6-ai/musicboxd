@@ -1,9 +1,11 @@
+import { useAppTheme } from '@/context/ThemeContext';
+import { getValidSpotifyToken } from '@/utils/spotify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-function Stars({ count }: { count: number }) {
+function Stars({ count, color }: { count: number; color: string }) {
   const starWidth = 22;
   return (
     <View style={{ flexDirection: 'row', marginTop: 10 }}>
@@ -15,7 +17,7 @@ function Stars({ count }: { count: number }) {
             <Text style={{ fontSize: starWidth, color: '#333', position: 'absolute' }}>★</Text>
             {(filled || half) && (
               <View style={{ overflow: 'hidden', width: filled ? starWidth : starWidth / 2, position: 'absolute' }}>
-                <Text style={{ fontSize: starWidth, color: '#ffb6c1' }}>★</Text>
+                <Text style={{ fontSize: starWidth, color }}>★</Text>
               </View>
             )}
           </View>
@@ -28,39 +30,77 @@ function Stars({ count }: { count: number }) {
 export default function ReviewDetail() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { backgroundColor, accentColor } = useAppTheme();
   const [entry, setEntry] = useState<any>(null);
   const [username, setUsername] = useState('nia');
   const [avatar, setAvatar] = useState<string | null>(null);
+  const [likes, setLikes] = useState(0);
+  const [isLiked, setIsLiked] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    load();
-  }, [id]);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      setLoading(true);
+      setError('');
 
-  async function load() {
-    const data = await AsyncStorage.getItem('reviews');
-    const reviews = data ? JSON.parse(data) : [];
-    const found = reviews.find((r: any) => r.id === id);
-    setEntry(found || null);
+      async function load() {
+        try {
+          const [reviewsData, profileData, likesData, likedData] = await Promise.all([
+            AsyncStorage.getItem('reviews'),
+            AsyncStorage.getItem('profile'),
+            AsyncStorage.getItem(`likes_${id}`),
+            AsyncStorage.getItem(`review_liked_${id}`),
+          ]);
+          const reviews = reviewsData ? JSON.parse(reviewsData) : [];
+          const found = reviews.find((review: any) => String(review.id) === String(id));
+          const profile = profileData ? JSON.parse(profileData) : {};
+          if (active) {
+            setEntry(found || null);
+            setUsername(profile.username || 'nia');
+            setAvatar(profile.avatar || null);
+            setLikes(Number(likesData) || 0);
+            setIsLiked(likedData === 'true');
+          }
+        } catch {
+          if (active) setError('Could not load this review.');
+        } finally {
+          if (active) setLoading(false);
+        }
+      }
 
-    const profileData = await AsyncStorage.getItem('profile');
-    if (profileData) {
-      const p = JSON.parse(profileData);
-      setUsername(p.username || 'nia');
-      setAvatar(p.avatar || null);
-    }
-  }
+      load();
+      return () => { active = false; };
+    }, [id])
+  );
 
   async function goToAlbum() {
     if (!entry) return;
 
-    // თუ ალბომის review-ია — პირდაპირ გადავიდეთ
-    if (!entry.albumArtist || entry.type === 'album') {
+    const isTrack = entry.itemType === 'track' || entry.type === 'track';
+    if (!isTrack) {
       router.push(`/album/${entry.albumId}` as any);
       return;
     }
 
-    // თუ ტრეკის review-ია — Spotify-დან ვიღებთ ალბომის ID-ს
-    const token = await AsyncStorage.getItem('spotify_token');
+    let parentAlbumId = entry.parentAlbumId;
+    if (!parentAlbumId) {
+      const listenedData = await AsyncStorage.getItem('listened');
+      const listened = listenedData ? JSON.parse(listenedData) : [];
+      parentAlbumId = listened.find((item: any) => item.id === entry.albumId)?.albumId;
+    }
+    if (parentAlbumId) {
+      router.push({
+        pathname: '/album/[id]',
+        params: { id: parentAlbumId, highlightTrackId: entry.albumId },
+      } as any);
+      return;
+    }
+
+    const token = await getValidSpotifyToken();
     if (!token) {
       router.push(`/album/${entry.albumId}` as any);
       return;
@@ -84,17 +124,84 @@ export default function ReviewDetail() {
     }
   }
 
+  async function handleLike() {
+    const nextLiked = !isLiked;
+    const nextLikes = Math.max(0, likes + (nextLiked ? 1 : -1));
+    setLikes(nextLikes);
+    setIsLiked(nextLiked);
+    try {
+      await AsyncStorage.setItem(`likes_${id}`, String(nextLikes));
+      await AsyncStorage.setItem(`review_liked_${id}`, String(nextLiked));
+    } catch {
+      setError('Could not update this like. Please try again.');
+    }
+  }
+
+  function editReview() {
+    setMenuVisible(false);
+    router.push({
+      pathname: '/review/new',
+      params: {
+        albumId: entry.albumId,
+        albumName: entry.albumName,
+        albumArtist: entry.albumArtist,
+        albumCover: entry.albumCover,
+        currentRating: String(entry.rating || 0),
+        itemType: entry.itemType || entry.type || 'album',
+        parentAlbumId: entry.parentAlbumId || entry.albumId,
+      },
+    } as any);
+  }
+
+  async function shareReview() {
+    setMenuVisible(false);
+    const itemType = entry.itemType === 'track' || entry.type === 'track' ? 'track' : 'album';
+    const itemId = entry.albumId;
+    const url = `https://open.spotify.com/${itemType}/${itemId}`;
+    const reviewText = entry.review ? `\n\n${entry.review}` : '';
+    try {
+      await Share.share({
+        title: entry.albumName,
+        message: `${username} rated ${entry.albumName} ${entry.rating}/5${reviewText}\n${url}`,
+        url,
+      });
+    } catch {
+      setError('Could not open sharing options.');
+    }
+  }
+
+  async function deleteReview() {
+    try {
+      const data = await AsyncStorage.getItem('reviews');
+      const reviews = data ? JSON.parse(data) : [];
+      await AsyncStorage.setItem('reviews', JSON.stringify(reviews.filter((review: any) => String(review.id) !== String(id))));
+      setShowDeleteConfirm(false);
+      router.back();
+    } catch {
+      setShowDeleteConfirm(false);
+      setError('Could not delete this review. Please try again.');
+    }
+  }
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor }]}>
+        <ActivityIndicator color={accentColor} style={{ marginTop: 80 }} />
+      </View>
+    );
+  }
+
   if (!entry) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor }]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backRow}>
-            <Text style={styles.backText}>‹ Diary</Text>
+            <Text style={styles.backText}>‹ Back</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Review</Text>
           <View style={{ width: 40 }} />
         </View>
-        <Text style={styles.empty}>რევიუ ვერ მოიძებნა</Text>
+        <Text style={styles.empty}>{error || 'Review not found.'}</Text>
       </View>
     );
   }
@@ -105,13 +212,13 @@ export default function ReviewDetail() {
   const year = new Date(entry.date).getFullYear();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backRow}>
-          <Text style={styles.backText}>‹ Diary</Text>
+          <Text style={styles.backText}>‹ Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Review</Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => setMenuVisible(true)} accessibilityRole="button" accessibilityLabel="Review actions">
           <Text style={styles.dots}>•••</Text>
         </TouchableOpacity>
       </View>
@@ -128,7 +235,7 @@ export default function ReviewDetail() {
           <View style={{ flex: 1, paddingRight: 12 }}>
             <Text style={styles.title}>{entry.albumName}</Text>
             <Text style={styles.year}>{year}</Text>
-            <Stars count={entry.rating} />
+            <Stars count={entry.rating} color={accentColor} />
             <Text style={styles.listenedText}>Listened {formattedDate}</Text>
           </View>
           <Pressable onPress={goToAlbum}>
@@ -142,20 +249,57 @@ export default function ReviewDetail() {
           <Text style={styles.reviewText}>{entry.review}</Text>
         ) : null}
 
-        <TouchableOpacity style={styles.likeRow}>
-          <Text style={styles.heartIcon}>♡</Text>
-          <Text style={styles.likeText}>No likes yet</Text>
+        {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+
+        <TouchableOpacity style={styles.likeRow} onPress={handleLike} accessibilityRole="button" accessibilityLabel={isLiked ? 'Unlike review' : 'Like review'}>
+          <Text style={[styles.heartIcon, isLiked && { color: accentColor }]}>{isLiked ? '♥' : '♡'}</Text>
+          <Text style={styles.likeText}>{likes === 0 ? 'Be the first to like' : `${likes} ${likes === 1 ? 'like' : 'likes'}`}</Text>
         </TouchableOpacity>
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.pillBtn}>
-          <Text style={styles.pillText}>Reply</Text>
+        <TouchableOpacity style={styles.pillBtn} onPress={editReview} accessibilityRole="button">
+          <Text style={styles.pillText}>Edit</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.pillBtn} onPress={goToAlbum}>
           <Text style={styles.pillText}>Album  ›</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal visible={menuVisible} transparent animationType="slide" onRequestClose={() => setMenuVisible(false)}>
+        <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)} />
+        <View style={styles.sheet}>
+          <TouchableOpacity style={styles.menuItem} onPress={editReview} accessibilityRole="button">
+            <Text style={styles.menuText}>Edit review</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={shareReview} accessibilityRole="button">
+            <Text style={styles.menuText}>Share review</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(false); setShowDeleteConfirm(true); }} accessibilityRole="button">
+            <Text style={styles.deleteText}>Delete review</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.doneBtn} onPress={() => setMenuVisible(false)}>
+            <Text style={styles.doneBtnText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmDialog}>
+            <Text style={styles.confirmTitle}>Delete this review?</Text>
+            <Text style={styles.confirmBody}>This removes it from your diary and activity.</Text>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={styles.confirmCancel} onPress={() => setShowDeleteConfirm(false)}>
+                <Text style={styles.menuText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.confirmDelete} onPress={deleteReview}>
+                <Text style={styles.confirmDeleteText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -180,8 +324,25 @@ const styles = StyleSheet.create({
   reviewText: { color: '#eee', fontSize: 16, lineHeight: 24, marginBottom: 24 },
   likeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#1e1e1e' },
   heartIcon: { color: '#888', fontSize: 18 },
+  heartActive: { color: '#ffb6c1' },
   likeText: { color: '#888', fontSize: 14 },
+  error: { color: '#ff8b8b', fontSize: 13, marginBottom: 12 },
   bottomBar: { flexDirection: 'row', gap: 12, padding: 16, borderTopWidth: 1, borderTopColor: '#1e1e1e' },
   pillBtn: { backgroundColor: '#1c1c1c', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10 },
   pillText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
+  sheet: { backgroundColor: '#1c1c1e', padding: 24, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  menuItem: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#2a2a2a', alignItems: 'center' },
+  menuText: { color: '#fff', fontSize: 16 },
+  deleteText: { color: '#ff6b6b', fontSize: 16 },
+  doneBtn: { backgroundColor: '#2a2a2a', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
+  doneBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  confirmOverlay: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(0,0,0,0.65)' },
+  confirmDialog: { backgroundColor: '#1c1c1e', padding: 24, borderRadius: 14 },
+  confirmTitle: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  confirmBody: { color: '#aaa', fontSize: 14, marginTop: 8 },
+  confirmActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 24 },
+  confirmCancel: { paddingHorizontal: 16, paddingVertical: 10 },
+  confirmDelete: { backgroundColor: '#b83232', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
+  confirmDeleteText: { color: '#fff', fontWeight: '700' },
 });

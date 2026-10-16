@@ -1,10 +1,13 @@
+import { useAppTheme } from '@/context/ThemeContext';
+import { getValidSpotifyToken } from '@/utils/spotify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActionSheetIOS, ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function Lists() {
   const router = useRouter();
+  const { backgroundColor, accentColor } = useAppTheme();
   const [lists, setLists] = useState<any[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
@@ -17,6 +20,13 @@ export default function Lists() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [showPrivacyOptions, setShowPrivacyOptions] = useState(false);
+  const [selectedList, setSelectedList] = useState<any | null>(null);
+  const [showListDetail, setShowListDetail] = useState(false);
+  const searchRequestId = useRef(0);
 
   useEffect(() => { loadLists(); }, []);
 
@@ -27,21 +37,39 @@ export default function Lists() {
 
   async function runSearch(query: string, type: 'album' | 'track') {
     setSearchQuery(query);
-    if (!query.trim()) { setSearchResults([]); return; }
-    const token = await AsyncStorage.getItem('spotify_token');
-    if (!token) return;
+    const requestId = ++searchRequestId.current;
+    if (!query.trim()) {
+      setSearchResults([]);
+      setSearchError('');
+      setSearching(false);
+      return;
+    }
+    const token = await getValidSpotifyToken();
+    if (requestId !== searchRequestId.current) return;
+    if (!token) {
+      setSearchResults([]);
+      setSearchError('Sign in to search Spotify.');
+      return;
+    }
     setSearching(true);
+    setSearchError('');
     try {
       const res = await fetch(
         `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=${type}&limit=15`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      if (!res.ok) throw new Error(`Search failed (${res.status})`);
       const data = await res.json();
-      setSearchResults(type === 'album' ? data.albums?.items || [] : data.tracks?.items || []);
-    } catch (e) {
-      setSearchResults([]);
+      if (requestId === searchRequestId.current) {
+        setSearchResults(type === 'album' ? data.albums?.items || [] : data.tracks?.items || []);
+      }
+    } catch {
+      if (requestId === searchRequestId.current) {
+        setSearchResults([]);
+        setSearchError('Could not search Spotify. Check your connection and try again.');
+      }
     } finally {
-      setSearching(false);
+      if (requestId === searchRequestId.current) setSearching(false);
     }
   }
 
@@ -86,19 +114,27 @@ export default function Lists() {
   }
 
   async function createList() {
-    if (!name.trim()) return;
-    const newList = {
-      id: Date.now().toString(),
-      name: name.trim(),
-      description: description.trim(),
-      privacy,
-      albums: selectedItems,
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [newList, ...lists];
-    setLists(updated);
-    await AsyncStorage.setItem('lists', JSON.stringify(updated));
-    handleCancel();
+    if (!name.trim() || saving) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      const newList = {
+        id: Date.now().toString(),
+        name: name.trim(),
+        description: description.trim(),
+        privacy,
+        albums: selectedItems,
+        createdAt: new Date().toISOString(),
+      };
+      const updated = [newList, ...lists];
+      await AsyncStorage.setItem('lists', JSON.stringify(updated));
+      setLists(updated);
+      handleCancel();
+    } catch {
+      setSaveError('Could not save this list. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   function privacyLabel() {
@@ -108,26 +144,47 @@ export default function Lists() {
     return '🔒  You (private list)';
   }
 
+  function privacyLabelFor(value?: string) {
+    if (value === 'public') return 'Public';
+    if (value === 'link') return 'Link access';
+    if (value === 'friends') return 'Friends';
+    return 'Private';
+  }
+
   function showPrivacySheet() {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          title: 'List visible to',
-          options: ['Anyone (public list)', 'Anyone with share link', 'Friends with share link', 'You (private list)', 'Cancel'],
-          cancelButtonIndex: 4,
-        },
-        (idx) => {
-          if (idx === 0) setPrivacy('public');
-          if (idx === 1) setPrivacy('link');
-          if (idx === 2) setPrivacy('friends');
-          if (idx === 3) setPrivacy('private');
-        }
-      );
+    setShowPrivacyOptions(true);
+  }
+
+  async function openListItem(item: any) {
+    if (item.type !== 'track') {
+      router.push(`/album/${item.id}` as any);
+      return;
+    }
+
+    let albumId = item.albumId;
+    if (!albumId) {
+      const token = await getValidSpotifyToken();
+      if (!token) return;
+      try {
+        const response = await fetch(`https://api.spotify.com/v1/tracks/${item.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) throw new Error(`Track lookup failed (${response.status})`);
+        const data = await response.json();
+        albumId = data.album?.id;
+      } catch {
+        setSearchError('Could not open this track. Please try again.');
+        return;
+      }
+    }
+
+    if (albumId) {
+      router.push({ pathname: '/album/[id]', params: { id: albumId, highlightTrackId: item.id } } as any);
     }
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor }]}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.header}>
@@ -136,7 +193,7 @@ export default function Lists() {
         </TouchableOpacity>
         <Text style={styles.title}>Lists</Text>
         <TouchableOpacity onPress={() => setShowCreate(true)}>
-          <Text style={styles.plus}>+</Text>
+          <Text style={[styles.plus, { color: accentColor }]}>+</Text>
         </TouchableOpacity>
       </View>
 
@@ -151,7 +208,12 @@ export default function Lists() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 16 }}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.listCard}>
+            <TouchableOpacity
+              style={styles.listCard}
+              onPress={() => { setSelectedList(item); setShowListDetail(true); }}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${item.name}`}
+            >
               <View style={styles.listInfo}>
                 <Text style={styles.listName}>{item.name}</Text>
                 {item.description ? <Text style={styles.listDesc} numberOfLines={1}>{item.description}</Text> : null}
@@ -173,10 +235,14 @@ export default function Lists() {
                 <Text style={styles.cancelBtn}>Cancel</Text>
               </TouchableOpacity>
               <Text style={styles.sheetTitle}>New List</Text>
-              <TouchableOpacity onPress={createList} disabled={!name.trim()}>
-                <Text style={[styles.saveBtn, !name.trim() && { opacity: 0.4 }]}>Save</Text>
+              <TouchableOpacity onPress={createList} disabled={!name.trim() || saving}>
+                {saving
+                  ? <ActivityIndicator color={accentColor} />
+                  : <Text style={[styles.saveBtn, { color: accentColor }, !name.trim() && { opacity: 0.4 }]}>Save</Text>}
               </TouchableOpacity>
             </View>
+
+            {!!saveError && <Text accessibilityRole="alert" style={styles.errorText}>{saveError}</Text>}
 
             <Text style={styles.label}>Name</Text>
             <TextInput
@@ -278,7 +344,11 @@ export default function Lists() {
               autoFocus
             />
 
-            {searching && <ActivityIndicator color="#1DB954" style={{ marginTop: 16 }} />}
+            {searching && <ActivityIndicator color={accentColor} style={{ marginTop: 16 }} />}
+            {!!searchError && <Text accessibilityRole="alert" style={styles.errorText}>{searchError}</Text>}
+            {!searching && !searchError && searchQuery.trim().length > 0 && searchResults.length === 0 && (
+              <Text style={styles.emptySearch}>No results found.</Text>
+            )}
 
             <FlatList
               data={searchResults}
@@ -302,6 +372,69 @@ export default function Lists() {
             />
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal visible={showPrivacyOptions} transparent animationType="fade" onRequestClose={() => setShowPrivacyOptions(false)}>
+        <Pressable style={styles.overlay} onPress={() => setShowPrivacyOptions(false)} />
+        <View style={styles.privacySheet}>
+          <Text style={styles.sheetTitle}>List visible to</Text>
+          {([
+            ['public', 'Anyone (public list)'],
+            ['link', 'Anyone with share link'],
+            ['friends', 'Friends with share link'],
+            ['private', 'You (private list)'],
+          ] as const).map(([value, label]) => (
+            <TouchableOpacity
+              key={value}
+              style={styles.privacyOption}
+              onPress={() => { setPrivacy(value); setShowPrivacyOptions(false); }}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: privacy === value }}
+            >
+              <Text style={styles.privacyOptionText}>{label}</Text>
+              <Text style={styles.privacyChevron}>{privacy === value ? '✓' : ''}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity onPress={() => setShowPrivacyOptions(false)} style={styles.privacyCancel}>
+            <Text style={styles.cancelBtn}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      <Modal visible={showListDetail} transparent animationType="slide" onRequestClose={() => setShowListDetail(false)}>
+        <Pressable style={styles.overlay} onPress={() => setShowListDetail(false)} />
+        <View style={[styles.sheet, styles.detailSheet]}>
+          <View style={styles.sheetHandle} />
+          <View style={styles.sheetTopBar}>
+            <View style={{ width: 44 }} />
+            <Text style={styles.sheetTitle} numberOfLines={1}>{selectedList?.name}</Text>
+            <TouchableOpacity onPress={() => setShowListDetail(false)} accessibilityRole="button" accessibilityLabel="Close list">
+              <Text style={styles.cancelBtn}>Done</Text>
+            </TouchableOpacity>
+          </View>
+          {!!selectedList?.description && <Text style={styles.listDesc}>{selectedList.description}</Text>}
+          <Text style={styles.listMeta}>
+            {privacyLabelFor(selectedList?.privacy)} · {selectedList?.albums?.length || 0} items
+          </Text>
+          {(selectedList?.albums || []).length === 0 ? (
+            <Text style={styles.emptySearch}>This list is empty.</Text>
+          ) : (
+            <FlatList
+              data={selectedList.albums}
+              keyExtractor={(item, index) => `${item.type || 'album'}-${item.id}-${index}`}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.resultRow} onPress={() => openListItem(item)} accessibilityRole="link">
+                  {item.cover ? <Image source={{ uri: item.cover }} style={styles.resultImg} /> : <View style={[styles.resultImg, { backgroundColor: '#333' }]} />}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.resultName} numberOfLines={1}>{item.name}</Text>
+                    <Text style={styles.resultArtist} numberOfLines={1}>{item.artist || (item.type === 'track' ? 'Track' : 'Album')}</Text>
+                  </View>
+                  <Text style={styles.arrow}>›</Text>
+                </TouchableOpacity>
+              )}
+            />
+          )}
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -348,6 +481,13 @@ const styles = StyleSheet.create({
   privacyLabel: { color: '#fff', fontSize: 15 },
   privacyChevron: { color: '#555', fontSize: 20 },
   privacyHint: { color: '#555', fontSize: 12, marginTop: 8 },
+  errorText: { color: '#ff8b8b', fontSize: 13, marginTop: 10 },
+  emptySearch: { color: '#888', textAlign: 'center', paddingVertical: 20 },
+  privacySheet: { backgroundColor: '#1c1c1c', paddingHorizontal: 24, paddingTop: 24, paddingBottom: 36, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  privacyOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#2a2a2a' },
+  privacyOptionText: { color: '#fff', fontSize: 15 },
+  privacyCancel: { alignItems: 'center', paddingTop: 18 },
+  detailSheet: { maxHeight: '85%' },
   resultRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
   resultImg: { width: 44, height: 44, borderRadius: 6, marginRight: 12 },
   resultName: { color: '#fff', fontSize: 15, fontWeight: '600' },

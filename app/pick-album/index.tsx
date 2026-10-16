@@ -1,3 +1,4 @@
+import { getValidSpotifyToken } from '@/utils/spotify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -12,7 +13,7 @@ export default function PickAlbum() {
   const searchAlbums = async (text: string) => {
     setQuery(text);
     if (text.length < 2) { setResults([]); return; }
-    const token = await AsyncStorage.getItem('spotify_token');
+    const token = await getValidSpotifyToken();
     if (!token) return;
     const res = await fetch(
       `https://api.spotify.com/v1/search?q=${encodeURIComponent(text)}&type=album`,

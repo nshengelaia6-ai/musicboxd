@@ -1,10 +1,15 @@
+import { useAppTheme } from '@/context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function Shared() {
+  const router = useRouter();
+  const { backgroundColor } = useAppTheme();
   const [sharedSongs, setSharedSongs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -13,8 +18,24 @@ export default function Shared() {
   );
 
   async function loadShared() {
-    const data = await AsyncStorage.getItem('shared_songs');
-    if (data) setSharedSongs(JSON.parse(data));
+    setLoading(true);
+    setError('');
+    try {
+      const data = await AsyncStorage.getItem('shared_songs');
+      setSharedSongs(data ? JSON.parse(data) : []);
+    } catch {
+      setError('Could not load your shared history. Try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openSharedItem(item: any) {
+    if (item.type === 'track' && item.albumId) {
+      router.push({ pathname: '/album/[id]', params: { id: item.albumId, highlightTrackId: item.itemId || item.id } } as any);
+    } else if (item.type === 'album' && (item.itemId || item.id)) {
+      router.push(`/album/${item.itemId || item.id}` as any);
+    }
   }
 
   function formatDate(iso: string) {
@@ -23,13 +44,17 @@ export default function Shared() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor }]}>
       <Text style={styles.heading}>Shared Songs</Text>
-      {sharedSongs.length === 0 ? (
-        <Text style={styles.empty}>Nothing shared yet</Text>
+      {loading ? (
+        <ActivityIndicator color="#1DB954" style={{ marginTop: 32 }} />
+      ) : error ? (
+        <Text accessibilityRole="alert" style={styles.empty}>{error}</Text>
+      ) : sharedSongs.length === 0 ? (
+        <Text style={styles.empty}>Nothing shared yet. Share an album or track to start your history.</Text>
       ) : (
         sharedSongs.map(item => (
-          <View key={item.id} style={styles.card}>
+          <TouchableOpacity key={item.id} style={styles.card} onPress={() => openSharedItem(item)} disabled={!item.type} accessibilityRole={item.type ? 'button' : undefined}>
             <View style={styles.cardInner}>
               <Image source={{ uri: item.cover }} style={styles.cover} />
               <View style={styles.info}>
@@ -39,7 +64,7 @@ export default function Shared() {
                 <Text style={styles.meta}>from {item.from} • {formatDate(item.date)}</Text>
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
         ))
       )}
     </ScrollView>

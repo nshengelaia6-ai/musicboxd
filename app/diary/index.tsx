@@ -1,13 +1,14 @@
+import { useAppTheme } from '@/context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-function Stars({ count }: { count: number }) {
+function Stars({ count, color }: { count: number; color: string }) {
   const full = Math.floor(count);
   const half = count % 1 >= 0.5;
   return (
-    <Text style={styles.stars}>
+    <Text style={[styles.stars, { color }]}>
       {'★'.repeat(full)}{half ? '½' : ''}{'☆'.repeat(5 - full - (half ? 1 : 0))}
     </Text>
   );
@@ -25,18 +26,30 @@ function groupByMonth(entries: any[]) {
 
 export default function DiaryScreen() {
   const router = useRouter();
+  const { backgroundColor, accentColor } = useAppTheme();
   const [reviews, setReviews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    AsyncStorage.getItem('reviews').then(data => {
-      if (data) setReviews(JSON.parse(data));
-    });
+  const loadReviews = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await AsyncStorage.getItem('reviews');
+      setReviews(data ? JSON.parse(data) : []);
+    } catch {
+      setError('Could not load your diary. Try again.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useFocusEffect(useCallback(() => { loadReviews(); }, [loadReviews]));
 
   const grouped = groupByMonth(reviews);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backText}>‹</Text>
@@ -45,7 +58,11 @@ export default function DiaryScreen() {
       </View>
 
       <ScrollView>
-        {reviews.length === 0 ? (
+        {loading ? (
+          <ActivityIndicator color={accentColor} style={{ marginTop: 32 }} />
+        ) : error ? (
+          <Text accessibilityRole="alert" style={styles.empty}>{error}</Text>
+        ) : reviews.length === 0 ? (
           <Text style={styles.empty}>ჯერ არ გაქვს reviews</Text>
         ) : (
           Object.entries(grouped).map(([month, entries]) => (
@@ -71,7 +88,7 @@ export default function DiaryScreen() {
                       <Text style={styles.diaryYear}>{new Date(entry.date).getFullYear()}</Text>
                     </Text>
                     <Text style={styles.diaryArtist}>{entry.albumArtist}</Text>
-                    <Stars count={entry.rating} />
+                    <Stars count={entry.rating} color={accentColor} />
                     {entry.review
                       ? <Text style={styles.diaryReview} numberOfLines={2}>{entry.review}</Text>
                       : null}

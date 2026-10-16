@@ -1,9 +1,10 @@
+import { useAppTheme } from '@/context/ThemeContext';
+import { API_BASE } from '@/utils/api';
+import { getCurrentUserId } from '@/utils/currentUser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { API_BASE } from '@/utils/api';
-import { getCurrentUserId } from '@/utils/currentUser';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const tabs = ['Friends', 'You'];
 
@@ -18,10 +19,14 @@ function timeAgo(dateStr: string) {
 }
 
 export default function Activity() {
+  const { backgroundColor, accentColor } = useAppTheme();
   const [activeTab, setActiveTab] = useState('Friends');
   const [youItems, setYouItems] = useState<any[]>([]);
   const [friendItems, setFriendItems] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<{ [id: string]: any }>({});
+  const [loadingYou, setLoadingYou] = useState(true);
+  const [loadingFriends, setLoadingFriends] = useState(true);
+  const [friendsError, setFriendsError] = useState('');
 
   useFocusEffect(
     useCallback(() => {
@@ -31,27 +36,43 @@ export default function Activity() {
   );
 
   async function loadYou() {
-    const data = await AsyncStorage.getItem('reviews');
-    const reviews = data ? JSON.parse(data) : [];
-    setYouItems(reviews.slice(0, 20));
+    setLoadingYou(true);
+    try {
+      const data = await AsyncStorage.getItem('reviews');
+      const reviews = data ? JSON.parse(data) : [];
+      setYouItems(reviews.slice(0, 20));
+    } catch {
+      setYouItems([]);
+    } finally {
+      setLoadingYou(false);
+    }
   }
 
   async function loadFriends() {
+    setLoadingFriends(true);
+    setFriendsError('');
     const myId = await getCurrentUserId();
-    if (!myId) return;
+    if (!myId) {
+      setFriendItems([]);
+      setLoadingFriends(false);
+      return;
+    }
 
     try {
-      // ვიღებთ following სიას
       const res = await fetch(`${API_BASE}/follows/${myId}/following`);
-      const following: any[] = await res.json();
-      if (!following.length) return;
+      if (!res.ok) throw new Error(`Following request failed (${res.status})`);
+      const raw = await res.json();
+      const following: any[] = Array.isArray(raw) ? raw : raw?.following || raw?.data || [];
+      if (!following.length) {
+        setProfiles({});
+        setFriendItems([]);
+        return;
+      }
 
-      // პროფილები შევინახოთ
       const profileMap: { [id: string]: any } = {};
       following.forEach(u => { profileMap[u.id] = u; });
       setProfiles(profileMap);
 
-      // თითო user-ის reviews backend-დან
       const allReviews: any[] = [];
       await Promise.all(
         following.map(async (user) => {
@@ -67,18 +88,16 @@ export default function Activity() {
         })
       );
 
-      // თარიღის მიხედვით დავალაგოთ
       allReviews.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setFriendItems(allReviews.slice(0, 30));
-    } catch (e) {
-      console.log('loadFriends failed', e);
+    } catch (error) {
+      console.log('loadFriends failed', error);
+      setFriendItems([]);
+      setFriendsError('Could not load friends activity. Try again later.');
+    } finally {
+      setLoadingFriends(false);
     }
   }
-
-  const myProfile = useCallback(async () => {
-    const data = await AsyncStorage.getItem('profile');
-    return data ? JSON.parse(data) : {};
-  }, []);
 
   const [myAvatar, setMyAvatar] = useState<string | null>(null);
   const [myUsername, setMyUsername] = useState('you');
@@ -144,21 +163,26 @@ export default function Activity() {
   }
 
   const currentItems = activeTab === 'You' ? youItems : friendItems;
+  const loadingItems = activeTab === 'You' ? loadingYou : loadingFriends;
   const isEmpty = currentItems.length === 0;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor }]}>
       <Text style={styles.header}>Activity</Text>
       <View style={styles.tabs}>
         {tabs.map(tab => (
           <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={styles.tabBtn}>
             <Text style={[styles.tabText, activeTab === tab && styles.activeTab]}>{tab}</Text>
-            {activeTab === tab && <View style={styles.underline} />}
+            {activeTab === tab && <View style={[styles.underline, { backgroundColor: accentColor }]} />}
           </TouchableOpacity>
         ))}
       </View>
       <ScrollView>
-        {isEmpty ? (
+        {loadingItems ? (
+          <ActivityIndicator color="#00b4d8" style={{ marginTop: 32 }} />
+        ) : activeTab === 'Friends' && friendsError ? (
+          <Text accessibilityRole="alert" style={styles.empty}>{friendsError}</Text>
+        ) : isEmpty ? (
           <Text style={styles.empty}>
             {activeTab === 'Friends'
               ? 'შენი მეგობრების აქტივობა ჯერ არ არის'

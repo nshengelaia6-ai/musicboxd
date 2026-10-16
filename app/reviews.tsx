@@ -1,27 +1,31 @@
+import { useAppTheme } from '@/context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
 
 export default function Reviews() {
   const router = useRouter();
+  const { backgroundColor, accentColor } = useAppTheme();
   const [reviews, setReviews] = useState<any[]>([]);
 
- useFocusEffect(
-  useCallback(() => {
-    loadReviews();
-  }, [])
-);
-
-  async function loadReviews() {
-    const data = await AsyncStorage.getItem('reviews');
-    if (data) setReviews(JSON.parse(data).filter((r: any) => r.review && r.review.trim() !== ''));
-  }
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      AsyncStorage.getItem('reviews')
+        .then(data => {
+          const allReviews = data ? JSON.parse(data) : [];
+          if (active) setReviews(allReviews.filter((review: any) => review.review && review.review.trim() !== ''));
+        })
+        .catch(() => {
+          if (active) setReviews([]);
+        });
+      return () => { active = false; };
+    }, [])
+  );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.back}>‹</Text>
@@ -41,20 +45,7 @@ export default function Reviews() {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.card}
-              onPress={() => router.push({
-                pathname: '/review/detail',
-             params: {
-  id: item.id,
-  albumId: item.albumId,
-  albumName: item.albumName,
-  albumArtist: item.albumArtist,
-  albumCover: item.albumCover,
-  rating: item.rating,
-  review: item.review,
-  date: item.date,
-}
-
-              })}
+              onPress={() => router.push(`/review/${item.id}` as any)}
             >
               {item.albumCover
                 ? <Image source={{ uri: item.albumCover }} style={styles.cover} />
@@ -62,7 +53,7 @@ export default function Reviews() {
               <View style={styles.info}>
                 <Text style={styles.albumName}>{item.albumName}</Text>
                 <Text style={styles.artist}>{item.albumArtist}</Text>
-                <Text style={styles.rating}>{'★'.repeat(Math.floor(item.rating))}{item.rating % 1 ? '½' : ''}</Text>
+                <Text style={[styles.rating, { color: accentColor }]}>{'★'.repeat(Math.floor(item.rating))}{item.rating % 1 ? '½' : ''}</Text>
                 {item.review ? <Text style={styles.review}>{item.review}</Text> : null}
                 <Text style={styles.date}>{new Date(item.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
               </View>
