@@ -1,234 +1,192 @@
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as AuthSession from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
-import { Platform } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Image, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-WebBrowser.maybeCompleteAuthSession();
+export default function ReviewPage() {
+  const { albumName, albumArtist, albumCover, albumId, currentRating, itemType, parentAlbumId } = useLocalSearchParams();
+  const router = useRouter();
+  const [review, setReview] = useState('');
+  const [rating, setRating] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-export const SPOTIFY_CLIENT_ID = '1aa0b67931ea472fb250a8dce0915c04';
+  const starWidth = 36;
+  const resolvedType = (itemType as string) || 'album';
+  const resolvedParentAlbumId = (parentAlbumId as string) || (albumId as string);
 
-const SCOPES = [
-  'user-read-private',
-  'user-read-recently-played',
-  'user-top-read',
-  'user-library-read',
-  'user-read-currently-playing',
-];
-
-const discovery = {
-  authorizationEndpoint: 'https://accounts.spotify.com/authorize',
-  tokenEndpoint: 'https://accounts.spotify.com/api/token',
-};
-
-type SpotifyTokenResponse = {
-  accessToken?: string;
-  access_token?: string;
-  expiresIn?: number;
-  expires_in?: number;
-  issuedAt?: number;
-  issued_at?: number;
-  refreshToken?: string;
-  refresh_token?: string;
-};
-
-const SESSION_KEYS = [
-  'spotify_token',
-  'spotify_refresh_token',
-  'spotify_token_expires_at',
-  'spotify_user_id',
-  'spotify_token_owner_id',
-];
-
-let refreshInProgress: Promise<string | null> | null = null;
-const sessionListeners = new Set<() => void>();
-
-export function subscribeToSpotifySession(listener: () => void) {
-  sessionListeners.add(listener);
-
-  return () => {
-    sessionListeners.delete(listener);
-  };
-}
-
-export function notifySpotifySessionChanged() {
-  sessionListeners.forEach(listener => listener());
-}
-
-export async function persistSpotifyTokenResponse(
-  response: SpotifyTokenResponse,
-  preserveRefreshToken = false
-) {
-  const accessToken = response.accessToken || response.access_token;
-
-  if (!accessToken) {
-    throw new Error('Spotify did not return an access token');
-  }
-
-  const expiresIn = response.expiresIn ?? response.expires_in;
-
-  const refreshToken =
-    response.refreshToken ||
-    response.refresh_token ||
-    (preserveRefreshToken
-      ? await AsyncStorage.getItem('spotify_refresh_token')
-      : null);
-
-  await AsyncStorage.setItem('spotify_token', accessToken);
-
-  if (!preserveRefreshToken) {
-    await AsyncStorage.removeItem('spotify_user_id');
-    await AsyncStorage.removeItem('spotify_token_owner_id');
-  }
-
-  if (expiresIn) {
-    await AsyncStorage.setItem(
-      'spotify_token_expires_at',
-      String(Date.now() + expiresIn * 1000)
-    );
-  } else {
-    await AsyncStorage.removeItem('spotify_token_expires_at');
-  }
-
-  if (refreshToken) {
-    await AsyncStorage.setItem('spotify_refresh_token', refreshToken);
-  } else {
-    await AsyncStorage.removeItem('spotify_refresh_token');
-  }
-
-  return accessToken;
-}
-
-export async function clearSpotifySession() {
-  await AsyncStorage.multiRemove(SESSION_KEYS);
-  notifySpotifySessionChanged();
-}
-
-async function refreshSpotifyTokenInternal() {
-  const refreshToken = await AsyncStorage.getItem('spotify_refresh_token');
-
-  if (!refreshToken) {
-    await clearSpotifySession();
-    return null;
-  }
-
-  try {
-    const response = await AuthSession.refreshAsync(
-      {
-        clientId: SPOTIFY_CLIENT_ID,
-        refreshToken,
-      },
-      discovery
-    );
-
-    return await persistSpotifyTokenResponse(response, true);
-  } catch (error) {
-    const code =
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error
-        ? String(error.code)
-        : '';
-
-    if (code === 'invalid_grant' || code === 'invalid_token') {
-      await clearSpotifySession();
+  useEffect(() => {
+    async function loadExisting() {
+      if (!albumId) { setLoaded(true); return; }
+      const existing = await AsyncStorage.getItem('reviews');
+      const reviews = existing ? JSON.parse(existing) : [];
+      const found = reviews.find((r: any) => r.albumId === albumId);
+      if (found) {
+        setRating(found.rating || 0);
+        setReview(found.review || '');
+      } else if (currentRating && parseFloat(currentRating as string) > 0) {
+        setRating(parseFloat(currentRating as string));
+      }
+      setLoaded(true);
     }
+    loadExisting();
+  }, [albumId]);
 
-    console.error('Spotify token refresh failed:', error);
-    return null;
-  }
-}
-
-export function refreshSpotifyToken() {
-  if (!refreshInProgress) {
-    refreshInProgress = refreshSpotifyTokenInternal().finally(() => {
-      refreshInProgress = null;
-    });
-  }
-
-  return refreshInProgress;
-}
-
-export async function getValidSpotifyToken() {
-  const accessToken = await AsyncStorage.getItem('spotify_token');
-
-  if (!accessToken) {
-    return null;
-  }
-
-  const expiresAt = Number(
-    await AsyncStorage.getItem('spotify_token_expires_at')
-  );
-
-  if (!expiresAt) {
-    const refreshToken = await AsyncStorage.getItem(
-      'spotify_refresh_token'
+  function renderStars() {
+    return (
+      <View style={styles.starsRow}>
+        {[1, 2, 3, 4, 5].map((s) => {
+          const filled = rating >= s;
+          const half = !filled && rating >= s - 0.5;
+          return (
+            <View key={s} style={{ width: starWidth, height: starWidth }}>
+              <Text style={styles.starEmpty}>★</Text>
+              {(filled || half) && (
+                <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', width: filled ? starWidth : starWidth / 2 }]}>
+                  <Text style={styles.starFilled}>★</Text>
+                </View>
+              )}
+              <Pressable
+                style={[StyleSheet.absoluteFillObject, { left: 0, width: starWidth / 2 }]}
+                onPress={() => setRating(s - 0.5)}
+              />
+              <Pressable
+                style={[StyleSheet.absoluteFillObject, { left: starWidth / 2, width: starWidth / 2 }]}
+                onPress={() => setRating(s)}
+              />
+            </View>
+          );
+        })}
+      </View>
     );
-
-    return refreshToken ? refreshSpotifyToken() : accessToken;
   }
 
-  if (expiresAt > Date.now() + 60_000) {
-    return accessToken;
-  }
+  async function handleSave() {
+    if (rating === 0) return;
 
-  return refreshSpotifyToken();
-}
+    const userId = await AsyncStorage.getItem('user_id');
 
-export function useSpotifyAuth() {
-  const redirectUri =
-    Platform.OS === 'web'
-      ? 'https://steady-lily-6b6e9e.netlify.app/'
-      : AuthSession.makeRedirectUri({
-          scheme: 'myapp',
-          path: 'redirect',
+    try {
+      const existing = await AsyncStorage.getItem('reviews');
+      const reviews = existing ? JSON.parse(existing) : [];
+      const existingIndex = reviews.findIndex((r: any) => r.albumId === albumId);
+
+      if (existingIndex !== -1) {
+        reviews[existingIndex] = {
+          ...reviews[existingIndex],
+          rating,
+          review,
+          date: new Date().toISOString(),
+          itemType: resolvedType,
+          parentAlbumId: resolvedParentAlbumId,
+        };
+      } else {
+        reviews.unshift({
+          id: Date.now().toString(),
+          userId,
+          albumId: albumId as string,
+          albumName: albumName as string,
+          albumArtist: albumArtist as string,
+          albumCover: albumCover as string,
+          rating,
+          review,
+          date: new Date().toISOString(),
+          itemType: resolvedType,
+          parentAlbumId: resolvedParentAlbumId,
         });
+      }
+      await AsyncStorage.setItem('reviews', JSON.stringify(reviews));
 
-  console.log('SPOTIFY REDIRECT URI:', redirectUri);
+      const listenedData = await AsyncStorage.getItem('listened');
+      const listenedList = listenedData ? JSON.parse(listenedData) : [];
+      const listenedIndex = listenedList.findIndex((i: any) => i.id === albumId);
 
-  const [request, response, promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: SPOTIFY_CLIENT_ID,
-      scopes: SCOPES,
-      usePKCE: true,
-      redirectUri,
-      extraParams: {
-        show_dialog: 'true',
-      },
-    },
-    discovery
+      if (listenedIndex !== -1) {
+        listenedList[listenedIndex].rating = rating;
+        listenedList[listenedIndex].type = resolvedType;
+        if (resolvedType === 'track') {
+          listenedList[listenedIndex].albumId = resolvedParentAlbumId;
+        }
+      } else {
+        listenedList.unshift({
+          id: albumId,
+          name: albumName,
+          cover: albumCover,
+          type: resolvedType,
+          albumId: resolvedType === 'track' ? resolvedParentAlbumId : undefined,
+          rating,
+          date: new Date().toISOString(),
+        });
+      }
+      await AsyncStorage.setItem('listened', JSON.stringify(listenedList));
+
+      router.back();
+    } catch (e) {
+      console.error('შენახვა ვერ მოხერხდა', e);
+    }
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.topBar}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={styles.cancel}>Cancel</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>
+          {loaded && rating > 0 ? 'Edit Review' : 'I Listened...'}
+        </Text>
+        <TouchableOpacity onPress={handleSave}>
+          <Text style={[styles.save, rating === 0 && { opacity: 0.4 }]}>Save</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.albumRow}>
+        {albumCover
+          ? <Image source={{ uri: albumCover as string }} style={styles.cover} />
+          : <View style={styles.cover} />}
+        <View>
+          <Text style={styles.albumName}>{albumName}</Text>
+          <Text style={styles.albumArtist}>{albumArtist}</Text>
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <Text style={styles.label}>Date</Text>
+        <Text style={styles.date}>{today}</Text>
+      </View>
+
+      <View style={styles.row}>
+        <Text style={styles.label}>Rating</Text>
+        {renderStars()}
+      </View>
+
+      <TextInput
+        style={styles.reviewInput}
+        placeholder="Add review..."
+        placeholderTextColor="#888"
+        multiline
+        value={review}
+        onChangeText={setReview}
+      />
+    </View>
   );
-
-  return {
-    request,
-    response,
-    promptAsync,
-    redirectUri,
-  };
 }
 
-export const getTopTracks = async (token: string) => {
-  const res = await fetch(
-    'https://api.spotify.com/v1/me/top/tracks?limit=20',
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
-
-  return res.json();
-};
-
-export const getRecentlyPlayed = async (token: string) => {
-  const res = await fetch(
-    'https://api.spotify.com/v1/me/player/recently-played?limit=20',
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
-
-  return res.json();
-};
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#3d5068' },
+  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingTop: 60, borderBottomWidth: 1, borderBottomColor: '#4a6080' },
+  cancel: { color: '#aaa', fontSize: 16 },
+  title: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
+  save: { color: '#2ecc71', fontSize: 16, fontWeight: '600' },
+  albumRow: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#4a6080' },
+  cover: { width: 48, height: 48, borderRadius: 6, backgroundColor: '#555', marginRight: 12 },
+  albumName: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  albumArtist: { color: '#aaa', fontSize: 13, marginTop: 2 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#4a6080' },
+  label: { color: '#ccc', fontSize: 16 },
+  date: { color: '#fff', fontSize: 15 },
+  starsRow: { flexDirection: 'row', gap: 6 },
+  starEmpty: { fontSize: 32, color: '#555' },
+  starFilled: { fontSize: 32, color: '#ffb6c1' },
+  reviewInput: { color: '#fff', fontSize: 15, padding: 16, minHeight: 200, textAlignVertical: 'top' },
+});

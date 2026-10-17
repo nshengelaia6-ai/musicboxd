@@ -1,10 +1,11 @@
-import { useAppTheme } from '@/context/ThemeContext';
+﻿import { useAppTheme } from '@/context/ThemeContext';
 import { API_BASE } from '@/utils/api';
 import { getCurrentUserId } from '@/utils/currentUser';
 import { clearSpotifySession } from '@/utils/spotify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { useEffect, useRef, useState } from 'react';
 import { Image, Keyboard, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -15,9 +16,9 @@ export default function Profile() {
   const [showShare, setShowShare] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [username, setUsername] = useState('nia');
-  const [bio, setBio] = useState('music is life 🎵');
+  const [bio, setBio] = useState('music is life \u{1F3B5}');
   const [editUsername, setEditUsername] = useState('nia');
-  const [editBio, setEditBio] = useState('music is life 🎵');
+  const [editBio, setEditBio] = useState('music is life \u{1F3B5}');
   const [editAvatar, setEditAvatar] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<string | null>(null);
   const [favoriteAlbums, setFavoriteAlbums] = useState<(any | null)[]>([null, null, null, null]);
@@ -61,14 +62,14 @@ export default function Profile() {
     if (profileData) {
       const p = JSON.parse(profileData);
       setUsername(p.username || 'nia');
-      setBio(p.bio || 'music is life 🎵');
+      setBio(p.bio || 'music is life \u{1F3B5}');
       setEditUsername(p.username || 'nia');
-      setEditBio(p.bio || 'music is life 🎵');
+      setEditBio(p.bio || 'music is life \u{1F3B5}');
       if (p.avatar) { setEditAvatar(p.avatar); setAvatar(p.avatar); }
       if (p.favoriteAlbums) setFavoriteAlbums(p.favoriteAlbums);
     }
 
-    // following / followers — local first
+    // following / followers â€” local first
     const followingData = await AsyncStorage.getItem('following');
     const followersData = await AsyncStorage.getItem('followers');
     const followingList = followingData ? JSON.parse(followingData) : [];
@@ -198,10 +199,17 @@ export default function Profile() {
             setEditBio(bio);
             setShowSettings(true);
           }}>
-            <Text style={styles.headerBtnText}>⚙️</Text>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+  <Path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="#FFFFFF" strokeWidth={1.7} />
+  <Path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z" stroke="#FFFFFF" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+</Svg>
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerBtnRight} onPress={() => setShowShare(true)}>
-            <Text style={styles.headerBtnText}>•••</Text>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="#FFFFFF">
+  <Circle cx={5} cy={12} r={1.7} />
+  <Circle cx={12} cy={12} r={1.7} />
+  <Circle cx={19} cy={12} r={1.7} />
+</Svg>
           </TouchableOpacity>
           {avatar
             ? <Image source={{ uri: avatar }} style={styles.avatar} />
@@ -283,7 +291,7 @@ export default function Profile() {
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Share Profile</Text>
             <TouchableOpacity style={styles.sheetOption} onPress={shareProfile} accessibilityRole="button">
-              <Text style={styles.sheetOptionText}>🔗  Share Profile</Text>
+              <Text style={styles.sheetOptionText}>Share Profile</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.sheetOption, { marginTop: 8 }]} onPress={() => setShowShare(false)}>
               <Text style={[styles.sheetOptionText, { color: '#888' }]}>Cancel</Text>
@@ -352,14 +360,14 @@ export default function Profile() {
                         setFavoriteAlbums(updated);
                       }}
                     >
-                      <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 9, fontWeight: '700', lineHeight: 11 }}>✕</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 9, fontWeight: '700', lineHeight: 11 }}>×</Text>
                     </TouchableOpacity>
                   )}
                 </View>
               ))}
             </View>
             <TouchableOpacity style={styles.sheetOption} onPress={() => { setShowSettings(false); router.push('/customize'); }}>
-              <Text style={styles.sheetOptionText}>🎨  Customize</Text>
+              <Text style={styles.sheetOptionText}>Customize</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.saveBtn, { backgroundColor: accentColor }]} onPress={saveProfile}>
               <Text style={styles.saveBtnText}>Save Changes</Text>
@@ -425,3 +433,9 @@ const styles = StyleSheet.create({
   logoutBtnText: { color: '#ff4444', fontSize: 16 },
   stars: { fontSize: 12, marginTop: 2 },
 });
+
+
+
+
+
+

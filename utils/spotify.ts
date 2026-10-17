@@ -177,7 +177,7 @@ export async function getValidSpotifyToken() {
 export function useSpotifyAuth() {
   const redirectUri =
     Platform.OS === 'web'
-      ? 'http://127.0.0.1:8081'
+      ? 'https://steady-lily-6b6e9e.netlify.app/'
       : AuthSession.makeRedirectUri({
           scheme: 'myapp',
           path: 'redirect',
@@ -231,3 +231,4 @@ export const getRecentlyPlayed = async (token: string) => {
 
   return res.json();
 };
+

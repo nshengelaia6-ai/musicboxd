@@ -1,4 +1,4 @@
-import { useAppTheme } from '@/context/ThemeContext';
+﻿import { useAppTheme } from '@/context/ThemeContext';
 import { shareMusicItem } from '@/utils/sharing';
 import { getValidSpotifyToken } from '@/utils/spotify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -6,7 +6,6 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  FlatList,
   Image,
   Modal,
   Pressable,
@@ -17,6 +16,16 @@ import {
   View,
 } from 'react-native';
 import StarRating from './StarRating';
+
+// Special glyphs written as Unicode escapes so the file encoding can never garble them.
+const DOTS = '\u00B7\u00B7\u00B7';
+const BULLET = '\u2022';
+const BACK = '\u2039';
+const CHECK = '\u2713';
+const HEART_FILLED = '\u2665';
+const HEART_EMPTY = '\u2661';
+const EYE = '\u{1F441}\uFE0F';
+const CLOCK = '\u{1F550}';
 
 export default function AlbumPage() {
   const { id, highlightTrackId } = useLocalSearchParams();
@@ -49,7 +58,6 @@ export default function AlbumPage() {
 
     const timer = setTimeout(() => {
       const y = trackRowOffsets.current[highlightTrackId as string];
-
       if (typeof y === 'number') {
         scrollViewRef.current?.scrollTo({
           y: Math.max(y - 100, 0),
@@ -63,44 +71,32 @@ export default function AlbumPage() {
 
   const checkReviewSavedNotification = useCallback(async () => {
     try {
-      const data = await AsyncStorage.getItem(
-        'review_saved_notification'
-      );
-
+      const data = await AsyncStorage.getItem('review_saved_notification');
       if (!data) return;
 
       const notification = JSON.parse(data);
 
       if (!notification?.time) {
-        await AsyncStorage.removeItem(
-          'review_saved_notification'
-        );
+        await AsyncStorage.removeItem('review_saved_notification');
         return;
       }
 
-      // თუ notification ძალიან ძველია, აღარ ვაჩვენებთ
+      // Ignore notifications that are too old
       if (Date.now() - notification.time > 5000) {
-        await AsyncStorage.removeItem(
-          'review_saved_notification'
-        );
+        await AsyncStorage.removeItem('review_saved_notification');
         return;
       }
 
       setShowReviewSaved(true);
 
-      // ერთხელ წავიკითხეთ — აღარ გამოჩნდეს ხელახლა
-      await AsyncStorage.removeItem(
-        'review_saved_notification'
-      );
+      // Consume it once so it does not show again
+      await AsyncStorage.removeItem('review_saved_notification');
 
       setTimeout(() => {
         setShowReviewSaved(false);
       }, 2000);
     } catch (e) {
-      console.log(
-        'Notification error:',
-        e
-      );
+      console.log('Notification error:', e);
     }
   }, []);
 
@@ -108,20 +104,12 @@ export default function AlbumPage() {
     const token = await getValidSpotifyToken();
     if (!token) return;
 
-    const res = await fetch(
-      `https://api.spotify.com/v1/albums/${id}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const res = await fetch(`https://api.spotify.com/v1/albums/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
     if (!res.ok) {
-      console.log(
-        'Spotify API error:',
-        res.status
-      );
+      console.log('Spotify API error:', res.status);
       return;
     }
 
@@ -130,65 +118,24 @@ export default function AlbumPage() {
     setAlbum(data);
     setTracks(data.tracks?.items || []);
 
-    const listenedData =
-      await AsyncStorage.getItem('listened');
-
-    const listenedList = listenedData
-      ? JSON.parse(listenedData)
-      : [];
-
-    const foundListened =
-      listenedList.find(
-        (i: any) => i.id === data.id
-      );
-
+    const listenedData = await AsyncStorage.getItem('listened');
+    const listenedList = listenedData ? JSON.parse(listenedData) : [];
+    const foundListened = listenedList.find((i: any) => i.id === data.id);
     setListened(!!foundListened);
+    if (foundListened?.rating) setRating(foundListened.rating);
 
-    if (foundListened?.rating) {
-      setRating(foundListened.rating);
-    }
+    const wantData = await AsyncStorage.getItem('wantToListen');
+    const wantList = wantData ? JSON.parse(wantData) : [];
+    setWantToListen(!!wantList.find((i: any) => i.id === data.id));
 
-    const wantData =
-      await AsyncStorage.getItem('wantToListen');
+    const likedData = await AsyncStorage.getItem('liked');
+    const likedList = likedData ? JSON.parse(likedData) : [];
+    setLiked(!!likedList.find((i: any) => i.id === data.id));
 
-    const wantList = wantData
-      ? JSON.parse(wantData)
-      : [];
-
-    setWantToListen(
-      !!wantList.find(
-        (i: any) => i.id === data.id
-      )
-    );
-
-    const likedData =
-      await AsyncStorage.getItem('liked');
-
-    const likedList = likedData
-      ? JSON.parse(likedData)
-      : [];
-
-    setLiked(
-      !!likedList.find(
-        (i: any) => i.id === data.id
-      )
-    );
-
-    const reviewsData =
-      await AsyncStorage.getItem('reviews');
-
-    const reviewsList = reviewsData
-      ? JSON.parse(reviewsData)
-      : [];
-
-    const foundReview =
-      reviewsList.find(
-        (i: any) => i.albumId === data.id
-      );
-
-    if (foundReview?.rating) {
-      setRating(foundReview.rating);
-    }
+    const reviewsData = await AsyncStorage.getItem('reviews');
+    const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
+    const foundReview = reviewsList.find((i: any) => i.albumId === data.id);
+    if (foundReview?.rating) setRating(foundReview.rating);
   }, [id]);
 
   useFocusEffect(
@@ -202,72 +149,28 @@ export default function AlbumPage() {
     setSelectedTrack(track);
     setTrackMenuVisible(true);
 
-    const listenedData =
-      await AsyncStorage.getItem('listened');
-
-    const listenedList = listenedData
-      ? JSON.parse(listenedData)
-      : [];
-
-    const foundListened =
-      listenedList.find(
-        (i: any) => i.id === track.id
-      );
-
+    const listenedData = await AsyncStorage.getItem('listened');
+    const listenedList = listenedData ? JSON.parse(listenedData) : [];
+    const foundListened = listenedList.find((i: any) => i.id === track.id);
     setTrackListened(!!foundListened);
-    setTrackRating(
-      foundListened?.rating || 0
-    );
+    setTrackRating(foundListened?.rating || 0);
 
-    const wantData =
-      await AsyncStorage.getItem('wantToListen');
+    const wantData = await AsyncStorage.getItem('wantToListen');
+    const wantList = wantData ? JSON.parse(wantData) : [];
+    setTrackWantToListen(!!wantList.find((i: any) => i.id === track.id));
 
-    const wantList = wantData
-      ? JSON.parse(wantData)
-      : [];
+    const likedData = await AsyncStorage.getItem('liked');
+    const likedList = likedData ? JSON.parse(likedData) : [];
+    setTrackLiked(!!likedList.find((i: any) => i.id === track.id));
 
-    setTrackWantToListen(
-      !!wantList.find(
-        (i: any) => i.id === track.id
-      )
-    );
-
-    const likedData =
-      await AsyncStorage.getItem('liked');
-
-    const likedList = likedData
-      ? JSON.parse(likedData)
-      : [];
-
-    setTrackLiked(
-      !!likedList.find(
-        (i: any) => i.id === track.id
-      )
-    );
-
-    const reviewsData =
-      await AsyncStorage.getItem('reviews');
-
-    const reviewsList = reviewsData
-      ? JSON.parse(reviewsData)
-      : [];
-
-    const foundReview =
-      reviewsList.find(
-        (i: any) => i.albumId === track.id
-      );
-
-    if (foundReview?.rating) {
-      setTrackRating(
-        foundReview.rating
-      );
-    }
+    const reviewsData = await AsyncStorage.getItem('reviews');
+    const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
+    const foundReview = reviewsList.find((i: any) => i.albumId === track.id);
+    if (foundReview?.rating) setTrackRating(foundReview.rating);
   }
 
   async function openTrack(track: any) {
-    await WebBrowser.openBrowserAsync(
-      `https://open.spotify.com/track/${track.id}`
-    );
+    await WebBrowser.openBrowserAsync(`https://open.spotify.com/track/${track.id}`);
   }
 
   async function openListPicker() {
@@ -282,1243 +185,569 @@ export default function AlbumPage() {
     setRating(newRating);
     setListened(true);
 
-    AsyncStorage.getItem('listened').then(
-      existing => {
-        const list = existing
-          ? JSON.parse(existing)
-          : [];
+    AsyncStorage.getItem('listened').then(existing => {
+      const list = existing ? JSON.parse(existing) : [];
+      const idx = list.findIndex((i: any) => i.id === album?.id);
 
-        const idx = list.findIndex(
-          (i: any) => i.id === album?.id
-        );
-
-        if (idx !== -1) {
-          list[idx].rating = newRating;
-        } else {
-          list.unshift({
-            id: album?.id,
-            name: album?.name,
-            cover:
-              album?.images?.[0]?.url,
-            type: 'album',
-            rating: newRating,
-            date:
-              new Date().toISOString(),
-          });
-        }
-
-        AsyncStorage.setItem(
-          'listened',
-          JSON.stringify(list)
-        );
+      if (idx !== -1) {
+        list[idx].rating = newRating;
+      } else {
+        list.unshift({
+          id: album?.id,
+          name: album?.name,
+          cover: album?.images?.[0]?.url,
+          type: 'album',
+          rating: newRating,
+          date: new Date().toISOString(),
+        });
       }
-    );
+
+      AsyncStorage.setItem('listened', JSON.stringify(list));
+    });
   }
 
-  function updateTrackRating(
-    newRating: number
-  ) {
+  function updateTrackRating(newRating: number) {
     setTrackRating(newRating);
     setTrackListened(true);
 
-    AsyncStorage.getItem('listened').then(
-      existing => {
-        const list = existing
-          ? JSON.parse(existing)
-          : [];
+    AsyncStorage.getItem('listened').then(existing => {
+      const list = existing ? JSON.parse(existing) : [];
+      const idx = list.findIndex((i: any) => i.id === selectedTrack?.id);
 
-        const idx = list.findIndex(
-          (i: any) =>
-            i.id === selectedTrack?.id
-        );
-
-        if (idx !== -1) {
-          list[idx].rating = newRating;
-          list[idx].albumId =
-            album?.id;
-        } else {
-          list.unshift({
-            id: selectedTrack?.id,
-            name: selectedTrack?.name,
-            cover:
-              album?.images?.[0]?.url,
-            type: 'track',
-            albumId: album?.id,
-            rating: newRating,
-            date:
-              new Date().toISOString(),
-          });
-        }
-
-        AsyncStorage.setItem(
-          'listened',
-          JSON.stringify(list)
-        );
+      if (idx !== -1) {
+        list[idx].rating = newRating;
+        list[idx].albumId = album?.id;
+      } else {
+        list.unshift({
+          id: selectedTrack?.id,
+          name: selectedTrack?.name,
+          cover: album?.images?.[0]?.url,
+          type: 'track',
+          albumId: album?.id,
+          rating: newRating,
+          date: new Date().toISOString(),
+        });
       }
-    );
+
+      AsyncStorage.setItem('listened', JSON.stringify(list));
+    });
   }
 
   return (
-    <View
-      style={[
-        styles.screen,
-        { backgroundColor },
-      ]}
-    >
+    <View style={[styles.screen, { backgroundColor }]}>
       <ScrollView
         style={styles.container}
         ref={scrollViewRef}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={true}
+        contentContainerStyle={{ paddingBottom: 60 }}
       >
         {album && (
           <View
             style={styles.header}
             onLayout={(e) => {
-              headerHeight.current =
-                e.nativeEvent.layout.height;
+              headerHeight.current = e.nativeEvent.layout.height;
             }}
           >
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backBtn}
-            >
-              <Text style={styles.backText}>
-                ‹
-              </Text>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <Text style={styles.backText}>{BACK}</Text>
             </TouchableOpacity>
 
-            <Image
-              source={{
-                uri:
-                  album.images?.[0]?.url,
-              }}
-              style={styles.cover}
-            />
+            <Image source={{ uri: album.images?.[0]?.url }} style={styles.cover} />
 
-            <Text
-              style={styles.albumName}
-            >
-              {album.name}
-            </Text>
-
+            <Text style={styles.albumName}>{album.name}</Text>
+            <Text style={styles.meta}>{album.artists?.[0]?.name}</Text>
             <Text style={styles.meta}>
-              {album.artists?.[0]?.name}
-            </Text>
-
-            <Text style={styles.meta}>
-              {album.album_type} •{' '}
-              {album.release_date} •{' '}
-              {album.total_tracks} tracks
+              {`${album.album_type} ${BULLET} ${album.release_date} ${BULLET} ${album.total_tracks} tracks`}
             </Text>
 
             <TouchableOpacity
-              onPress={() =>
-                {
-                  setSelectedTrack(null);
-                  setMenuVisible(true);
-                }
-              }
+              onPress={() => {
+                setSelectedTrack(null);
+                setMenuVisible(true);
+              }}
               style={styles.dotsBtn}
             >
-              <Text style={styles.dots}>
-                ···
-              </Text>
+              <Text style={styles.dots}>{DOTS}</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        <FlatList
-          data={tracks}
-          keyExtractor={(
-            item,
-            index
-          ) =>
-            item.id
-              ? `${item.id}-${index}`
-              : index.toString()
-          }
-          scrollEnabled={false}
-          renderItem={({
-            item,
-            index,
-          }) => {
-            const isHighlighted =
-              highlightTrackId &&
-              item.id === highlightTrackId;
+        <View>
+          {tracks.map((item, index) => {
+            const isHighlighted = highlightTrackId && item.id === highlightTrackId;
 
             return (
               <View
+                key={item.id ? `${item.id}-${index}` : String(index)}
                 style={[
                   styles.row,
-                  isHighlighted && {
-                    backgroundColor:
-                      accentColor + '26',
-                  },
+                  isHighlighted && { backgroundColor: accentColor + '26' },
                 ]}
                 onLayout={(e) => {
-                  trackRowOffsets.current[
-                    item.id
-                  ] =
-                    headerHeight.current +
-                    e.nativeEvent.layout.y;
+                  trackRowOffsets.current[item.id] =
+                    headerHeight.current + e.nativeEvent.layout.y;
                 }}
               >
-                <TouchableOpacity
-                  style={styles.rowMain}
-                  onPress={() =>
-                    openTrack(item)
-                  }
-                >
-                  <Text style={styles.num}>
-                    {index + 1}
-                  </Text>
+                <TouchableOpacity style={styles.rowMain} onPress={() => openTrack(item)}>
+                  <Text style={styles.num}>{index + 1}</Text>
 
                   <View style={styles.info}>
                     <Text
                       style={[
                         styles.trackName,
-                        isHighlighted && {
-                          color: accentColor,
-                          fontWeight:
-                            'bold',
-                        },
+                        isHighlighted && { color: accentColor, fontWeight: 'bold' },
                       ]}
                     >
                       {item.name}
                     </Text>
-
-                    <Text
-                      style={styles.artist}
-                    >
-                      {item.artists?.[0]?.name}
-                    </Text>
+                    <Text style={styles.artist}>{item.artists?.[0]?.name}</Text>
                   </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={
-                    styles.trackDotsBtn
-                  }
-                  onPress={() =>
-                    openTrackMenu(item)
-                  }
+                  style={styles.trackDotsBtn}
+                  onPress={() => openTrackMenu(item)}
                 >
-                  <Text
-                    style={styles.trackDots}
-                  >
-                    ···
-                  </Text>
+                  <Text style={styles.trackDots}>{DOTS}</Text>
                 </TouchableOpacity>
               </View>
             );
-          }}
-        />
-
-        {/* ALBUM MENU */}
-        <Modal
-          visible={menuVisible}
-          transparent
-          animationType="slide"
-        >
-          <Pressable
-            style={styles.overlay}
-            onPress={() =>
-              setMenuVisible(false)
-            }
-          />
-
-          <View style={styles.sheet}>
-            {album && (
-              <View
-                style={styles.sheetHeader}
-              >
-                <Image
-                  source={{
-                    uri:
-                      album.images?.[0]
-                        ?.url,
-                  }}
-                  style={
-                    styles.sheetCover
-                  }
-                />
-
-                <View>
-                  <Text
-                    style={
-                      styles.sheetTitle
-                    }
-                    numberOfLines={1}
-                  >
-                    {album.name}
-                  </Text>
-
-                  <Text
-                    style={
-                      styles.sheetArtist
-                    }
-                  >
-                    {
-                      album.artists?.[0]
-                        ?.name
-                    }
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            <View
-              style={
-                styles.sheetActions
-              }
-            >
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={async () => {
-                  const newVal =
-                    !listened;
-
-                  setListened(newVal);
-
-                  const existing =
-                    await AsyncStorage.getItem(
-                      'listened'
-                    );
-
-                  const list = existing
-                    ? JSON.parse(existing)
-                    : [];
-
-                  if (newVal) {
-                    if (
-                      !list.find(
-                        (i: any) =>
-                          i.id === album.id
-                      )
-                    ) {
-                      list.unshift({
-                        id: album.id,
-                        name: album.name,
-                        cover:
-                          album.images?.[0]
-                            ?.url,
-                        type: 'album',
-                        rating,
-                        date:
-                          new Date().toISOString(),
-                      });
-                    }
-                  } else {
-                    const idx =
-                      list.findIndex(
-                        (i: any) =>
-                          i.id === album.id
-                      );
-
-                    if (idx !== -1) {
-                      list.splice(idx, 1);
-                    }
-
-                    setRating(0);
-                  }
-
-                  await AsyncStorage.setItem(
-                    'listened',
-                    JSON.stringify(list)
-                  );
-                }}
-              >
-                <View
-                  style={[
-                    styles.actionIcon,
-                    listened && {
-                      backgroundColor:
-                        accentColor,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={
-                      styles.actionEmoji
-                    }
-                  >
-                    👁
-                  </Text>
-                </View>
-
-                <Text
-                  style={styles.actionText}
-                >
-                  Listened
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={async () => {
-                  const newVal =
-                    !liked;
-
-                  setLiked(newVal);
-
-                  const existing =
-                    await AsyncStorage.getItem(
-                      'liked'
-                    );
-
-                  const list = existing
-                    ? JSON.parse(existing)
-                    : [];
-
-                  if (newVal) {
-                    if (
-                      !list.find(
-                        (i: any) =>
-                          i.id === album.id
-                      )
-                    ) {
-                      list.unshift({
-                        id: album.id,
-                        name: album.name,
-                        cover:
-                          album.images?.[0]
-                            ?.url,
-                        type: 'album',
-                      });
-                    }
-                  } else {
-                    const idx =
-                      list.findIndex(
-                        (i: any) =>
-                          i.id === album.id
-                      );
-
-                    if (idx !== -1) {
-                      list.splice(idx, 1);
-                    }
-                  }
-
-                  await AsyncStorage.setItem(
-                    'liked',
-                    JSON.stringify(list)
-                  );
-                }}
-              >
-                <View
-                  style={[
-                    styles.actionIcon,
-                    liked && {
-                      backgroundColor:
-                        accentColor,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={
-                      styles.actionEmoji
-                    }
-                  >
-                    {liked
-                      ? '♥'
-                      : '♡'}
-                  </Text>
-                </View>
-
-                <Text
-                  style={styles.actionText}
-                >
-                  Like
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={async () => {
-                  const newVal =
-                    !wantToListen;
-
-                  setWantToListen(newVal);
-
-                  const existing =
-                    await AsyncStorage.getItem(
-                      'wantToListen'
-                    );
-
-                  const list = existing
-                    ? JSON.parse(existing)
-                    : [];
-
-                  if (newVal) {
-                    if (
-                      !list.find(
-                        (i: any) =>
-                          i.id === album.id
-                      )
-                    ) {
-                      list.unshift({
-                        id: album.id,
-                        name: album.name,
-                        cover:
-                          album.images?.[0]
-                            ?.url,
-                        type: 'album',
-                      });
-                    }
-                  } else {
-                    const idx =
-                      list.findIndex(
-                        (i: any) =>
-                          i.id === album.id
-                      );
-
-                    if (idx !== -1) {
-                      list.splice(idx, 1);
-                    }
-                  }
-
-                  await AsyncStorage.setItem(
-                    'wantToListen',
-                    JSON.stringify(list)
-                  );
-                }}
-              >
-                <View
-                  style={[
-                    styles.actionIcon,
-                    wantToListen && {
-                      backgroundColor:
-                        accentColor,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={
-                      styles.actionEmoji
-                    }
-                  >
-                    🕐
-                  </Text>
-                </View>
-
-                <Text
-                  style={styles.actionText}
-                >
-                  Want to Listen
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View
-              style={styles.rateSection}
-            >
-              <Text
-                style={styles.rateLabel}
-              >
-                Rate
-              </Text>
-
-              <StarRating
-                rating={rating}
-                onChange={updateRating}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuVisible(false);
-
-                router.push({
-                  pathname:
-                    '/review/new',
-                  params: {
-                    albumId: album.id,
-                    albumName:
-                      album.name,
-                    albumArtist:
-                      album.artists?.[0]
-                        ?.name,
-                    albumCover:
-                      album.images?.[0]
-                        ?.url,
-                    itemType: 'album',
-                    parentAlbumId: album.id,
-                    currentRating:
-                      String(rating),
-                  },
-                });
-              }}
-            >
-              <Text
-                style={styles.menuText}
-              >
-                Review or log
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={openListPicker}
-            >
-              <Text
-                style={styles.menuText}
-              >
-                Add to lists
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={async () => {
-                setMenuVisible(false);
-                await shareMusicItem({
-                  id: album.id,
-                  type: 'album',
-                  name: album.name,
-                  artist: album.artists?.[0]?.name,
-                  cover: album.images?.[0]?.url,
-                });
-              }}
-            >
-              <Text
-                style={styles.menuText}
-              >
-                Share
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.doneBtn}
-              onPress={() =>
-                setMenuVisible(false)
-              }
-            >
-              <Text
-                style={
-                  styles.doneBtnText
-                }
-              >
-                Done
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </Modal>
-
-        {/* TRACK MENU */}
-        <Modal
-          visible={trackMenuVisible}
-          transparent
-          animationType="slide"
-        >
-          <Pressable
-            style={styles.overlay}
-            onPress={() =>
-              setTrackMenuVisible(false)
-            }
-          />
-
-          <View style={styles.sheet}>
-            {selectedTrack && (
-              <View
-                style={styles.sheetHeader}
-              >
-                <Image
-                  source={{
-                    uri:
-                      album?.images?.[0]
-                        ?.url,
-                  }}
-                  style={
-                    styles.sheetCover
-                  }
-                />
-
-                <View>
-                  <Text
-                    style={
-                      styles.sheetTitle
-                    }
-                    numberOfLines={1}
-                  >
-                    {selectedTrack.name}
-                  </Text>
-
-                  <Text
-                    style={
-                      styles.sheetArtist
-                    }
-                  >
-                    {
-                      selectedTrack
-                        .artists?.[0]?.name
-                    }
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            <View
-              style={
-                styles.sheetActions
-              }
-            >
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={async () => {
-                  const newVal =
-                    !trackListened;
-
-                  setTrackListened(
-                    newVal
-                  );
-
-                  const existing =
-                    await AsyncStorage.getItem(
-                      'listened'
-                    );
-
-                  const list = existing
-                    ? JSON.parse(existing)
-                    : [];
-
-                  if (newVal) {
-                    if (
-                      !list.find(
-                        (i: any) =>
-                          i.id ===
-                          selectedTrack.id
-                      )
-                    ) {
-                      list.unshift({
-                        id:
-                          selectedTrack.id,
-                        name:
-                          selectedTrack.name,
-                        cover:
-                          album?.images?.[0]
-                            ?.url,
-                        type: 'track',
-                        albumId:
-                          album?.id,
-                        rating:
-                          trackRating,
-                        date:
-                          new Date().toISOString(),
-                      });
-                    }
-                  } else {
-                    const idx =
-                      list.findIndex(
-                        (i: any) =>
-                          i.id ===
-                          selectedTrack.id
-                      );
-
-                    if (idx !== -1) {
-                      list.splice(idx, 1);
-                    }
-
-                    setTrackRating(0);
-                  }
-
-                  await AsyncStorage.setItem(
-                    'listened',
-                    JSON.stringify(list)
-                  );
-                }}
-              >
-                <View
-                  style={[
-                    styles.actionIcon,
-                    trackListened && {
-                      backgroundColor:
-                        accentColor,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={
-                      styles.actionEmoji
-                    }
-                  >
-                    👁
-                  </Text>
-                </View>
-
-                <Text
-                  style={styles.actionText}
-                >
-                  Listened
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={async () => {
-                  const newVal =
-                    !trackLiked;
-
-                  setTrackLiked(
-                    newVal
-                  );
-
-                  const existing =
-                    await AsyncStorage.getItem(
-                      'liked'
-                    );
-
-                  const list = existing
-                    ? JSON.parse(existing)
-                    : [];
-
-                  if (newVal) {
-                    if (
-                      !list.find(
-                        (i: any) =>
-                          i.id ===
-                          selectedTrack.id
-                      )
-                    ) {
-                      list.unshift({
-                        id:
-                          selectedTrack.id,
-                        name:
-                          selectedTrack.name,
-                        cover:
-                          album?.images?.[0]
-                            ?.url,
-                        type: 'track',
-                        albumId:
-                          album?.id,
-                      });
-                    }
-                  } else {
-                    const idx =
-                      list.findIndex(
-                        (i: any) =>
-                          i.id ===
-                          selectedTrack.id
-                      );
-
-                    if (idx !== -1) {
-                      list.splice(idx, 1);
-                    }
-                  }
-
-                  await AsyncStorage.setItem(
-                    'liked',
-                    JSON.stringify(list)
-                  );
-                }}
-              >
-                <View
-                  style={[
-                    styles.actionIcon,
-                    trackLiked && {
-                      backgroundColor:
-                        accentColor,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={
-                      styles.actionEmoji
-                    }
-                  >
-                    {trackLiked
-                      ? '♥'
-                      : '♡'}
-                  </Text>
-                </View>
-
-                <Text
-                  style={styles.actionText}
-                >
-                  Like
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={async () => {
-                  const newVal =
-                    !trackWantToListen;
-
-                  setTrackWantToListen(
-                    newVal
-                  );
-
-                  const existing =
-                    await AsyncStorage.getItem(
-                      'wantToListen'
-                    );
-
-                  const list = existing
-                    ? JSON.parse(existing)
-                    : [];
-
-                  if (newVal) {
-                    if (
-                      !list.find(
-                        (i: any) =>
-                          i.id ===
-                          selectedTrack.id
-                      )
-                    ) {
-                      list.unshift({
-                        id:
-                          selectedTrack.id,
-                        name:
-                          selectedTrack.name,
-                        cover:
-                          album?.images?.[0]
-                            ?.url,
-                        type: 'track',
-                        albumId:
-                          album?.id,
-                      });
-                    }
-                  } else {
-                    const idx =
-                      list.findIndex(
-                        (i: any) =>
-                          i.id ===
-                          selectedTrack.id
-                      );
-
-                    if (idx !== -1) {
-                      list.splice(idx, 1);
-                    }
-                  }
-
-                  await AsyncStorage.setItem(
-                    'wantToListen',
-                    JSON.stringify(list)
-                  );
-                }}
-              >
-                <View
-                  style={[
-                    styles.actionIcon,
-                    trackWantToListen && {
-                      backgroundColor:
-                        accentColor,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={
-                      styles.actionEmoji
-                    }
-                  >
-                    🕐
-                  </Text>
-                </View>
-
-                <Text
-                  style={styles.actionText}
-                >
-                  Want to Listen
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View
-              style={styles.rateSection}
-            >
-              <Text
-                style={styles.rateLabel}
-              >
-                Rate
-              </Text>
-
-              <StarRating
-                rating={trackRating}
-                onChange={
-                  updateTrackRating
-                }
-              />
-            </View>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setTrackMenuVisible(
-                  false
-                );
-
-                router.push({
-                  pathname:
-                    '/review/new',
-                  params: {
-                    albumId:
-                      selectedTrack?.id,
-                    albumName:
-                      selectedTrack?.name,
-                    albumArtist:
-                      selectedTrack
-                        ?.artists?.[0]
-                        ?.name,
-                    albumCover:
-                      album?.images?.[0]
-                        ?.url,
-                    itemType: 'track',
-                    parentAlbumId: album?.id,
-                    currentRating:
-                      String(
-                        trackRating
-                      ),
-                  },
-                });
-              }}
-            >
-              <Text
-                style={styles.menuText}
-              >
-                Review or log
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={openListPicker}
-            >
-              <Text
-                style={styles.menuText}
-              >
-                Add to lists
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={async () => {
-                setTrackMenuVisible(false);
-                await shareMusicItem({
-                  id: selectedTrack.id,
-                  type: 'track',
-                  albumId: album?.id,
-                  name: selectedTrack.name,
-                  artist: selectedTrack.artists?.[0]?.name,
-                  cover: album?.images?.[0]?.url,
-                });
-              }}
-            >
-              <Text
-                style={styles.menuText}
-              >
-                Share
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.doneBtn}
-              onPress={() =>
-                setTrackMenuVisible(
-                  false
-                )
-              }
-            >
-              <Text
-                style={
-                  styles.doneBtnText
-                }
-              >
-                Done
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </Modal>
-
-        {/* ADD TO LIST */}
-        <Modal
-          visible={showLists}
-          transparent
-          animationType="slide"
-        >
-          <Pressable
-            style={styles.overlay}
-            onPress={() =>
-              setShowLists(false)
-            }
-          />
-
-          <View style={styles.sheet}>
-            <View
-              style={styles.sheetHandle}
-            />
-
-            <Text
-              style={[
-                styles.sheetTitle,
-                {
-                  textAlign: 'center',
-                  marginBottom: 16,
-                },
-              ]}
-            >
-              Add to List
-            </Text>
-
-            {userLists.length === 0 ? (
-              <Text
-                style={{
-                  color: '#888',
-                  textAlign: 'center',
-                  paddingVertical: 20,
-                }}
-              >
-                No lists yet
-              </Text>
-            ) : (
-              userLists.map(list => (
-                <TouchableOpacity
-                  key={list.id}
-                  style={
-                    styles.menuItem
-                  }
-                  onPress={async () => {
-                    const data =
-                      await AsyncStorage.getItem(
-                        'lists'
-                      );
-
-                    const lists = data
-                      ? JSON.parse(data)
-                      : [];
-
-                    const idx =
-                      lists.findIndex(
-                        (l: any) =>
-                          l.id === list.id
-                      );
-
-                    if (idx !== -1) {
-                      const listItem = selectedTrack
-                        ? {
-                            id: selectedTrack.id,
-                            name: selectedTrack.name,
-                            artist: selectedTrack.artists?.[0]?.name,
-                            cover: album.images?.[0]?.url,
-                            type: 'track',
-                            albumId: album.id,
-                          }
-                        : {
-                            id: album.id,
-                            name: album.name,
-                            artist: album.artists?.[0]?.name,
-                            cover: album.images?.[0]?.url,
-                            type: 'album',
-                          };
-                      const items = lists[idx].albums || [];
-                      const alreadyAdded = items.some((entry: any) =>
-                        entry.id === listItem.id && (entry.type || 'album') === listItem.type
-                      );
-                      if (!alreadyAdded) {
-                        lists[idx].albums = [listItem, ...items];
-                      }
-
-                      await AsyncStorage.setItem(
-                        'lists',
-                        JSON.stringify(
-                          lists
-                        )
-                      );
-                    }
-
-                    setShowLists(false);
-                  }}
-                >
-                  <Text
-                    style={
-                      styles.menuText
-                    }
-                  >
-                    {list.name}
-                  </Text>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-        </Modal>
+          })}
+        </View>
       </ScrollView>
 
       {showReviewSaved && (
         <View style={styles.toast}>
-          <Text style={styles.toastCheck}>
-            ✓
-          </Text>
-
-          <Text style={styles.toastText}>
-            Review saved
-          </Text>
+          <Text style={styles.toastCheck}>{CHECK}</Text>
+          <Text style={styles.toastText}>Review saved</Text>
         </View>
       )}
+
+      {/* ALBUM MENU */}
+      <Modal visible={menuVisible} transparent animationType="slide">
+        <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)} />
+
+        <View style={styles.sheet}>
+          {album && (
+            <View style={styles.sheetHeader}>
+              <Image source={{ uri: album.images?.[0]?.url }} style={styles.sheetCover} />
+              <View>
+                <Text style={styles.sheetTitle} numberOfLines={1}>{album.name}</Text>
+                <Text style={styles.sheetArtist}>{album.artists?.[0]?.name}</Text>
+              </View>
+            </View>
+          )}
+
+          <View style={styles.sheetActions}>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={async () => {
+                const newVal = !listened;
+                setListened(newVal);
+
+                const existing = await AsyncStorage.getItem('listened');
+                const list = existing ? JSON.parse(existing) : [];
+
+                if (newVal) {
+                  if (!list.find((i: any) => i.id === album.id)) {
+                    list.unshift({
+                      id: album.id,
+                      name: album.name,
+                      cover: album.images?.[0]?.url,
+                      type: 'album',
+                      rating,
+                      date: new Date().toISOString(),
+                    });
+                  }
+                } else {
+                  const idx = list.findIndex((i: any) => i.id === album.id);
+                  if (idx !== -1) list.splice(idx, 1);
+                  setRating(0);
+                }
+
+                await AsyncStorage.setItem('listened', JSON.stringify(list));
+              }}
+            >
+              <View style={[styles.actionIcon, listened && { backgroundColor: accentColor }]}>
+                <Text style={styles.actionEmoji}>{EYE}</Text>
+              </View>
+              <Text style={styles.actionText}>Listened</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={async () => {
+                const newVal = !liked;
+                setLiked(newVal);
+
+                const existing = await AsyncStorage.getItem('liked');
+                const list = existing ? JSON.parse(existing) : [];
+
+                if (newVal) {
+                  if (!list.find((i: any) => i.id === album.id)) {
+                    list.unshift({
+                      id: album.id,
+                      name: album.name,
+                      cover: album.images?.[0]?.url,
+                      type: 'album',
+                      date: new Date().toISOString(),
+                    });
+                  }
+                } else {
+                  const idx = list.findIndex((i: any) => i.id === album.id);
+                  if (idx !== -1) list.splice(idx, 1);
+                }
+
+                await AsyncStorage.setItem('liked', JSON.stringify(list));
+              }}
+            >
+              <View style={[styles.actionIcon, liked && { backgroundColor: accentColor }]}>
+                <Text style={styles.actionEmoji}>{liked ? HEART_FILLED : HEART_EMPTY}</Text>
+              </View>
+              <Text style={styles.actionText}>Like</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={async () => {
+                const newVal = !wantToListen;
+                setWantToListen(newVal);
+
+                const existing = await AsyncStorage.getItem('wantToListen');
+                const list = existing ? JSON.parse(existing) : [];
+
+                if (newVal) {
+                  if (!list.find((i: any) => i.id === album.id)) {
+                    list.unshift({
+                      id: album.id,
+                      name: album.name,
+                      cover: album.images?.[0]?.url,
+                      type: 'album',
+                    });
+                  }
+                } else {
+                  const idx = list.findIndex((i: any) => i.id === album.id);
+                  if (idx !== -1) list.splice(idx, 1);
+                }
+
+                await AsyncStorage.setItem('wantToListen', JSON.stringify(list));
+              }}
+            >
+              <View style={[styles.actionIcon, wantToListen && { backgroundColor: accentColor }]}>
+                <Text style={styles.actionEmoji}>{CLOCK}</Text>
+              </View>
+              <Text style={styles.actionText}>Want to Listen</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.rateSection}>
+            <Text style={styles.rateLabel}>Rate</Text>
+            <StarRating rating={rating} onChange={updateRating} />
+          </View>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              setMenuVisible(false);
+
+              router.push({
+                pathname: '/review/new',
+                params: {
+                  albumId: album.id,
+                  albumName: album.name,
+                  albumArtist: album.artists?.[0]?.name,
+                  albumCover: album.images?.[0]?.url,
+                  itemType: 'album',
+                  parentAlbumId: album.id,
+                  currentRating: String(rating),
+                },
+              });
+            }}
+          >
+            <Text style={styles.menuText}>Review or log</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem} onPress={openListPicker}>
+            <Text style={styles.menuText}>Add to lists</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={async () => {
+              setMenuVisible(false);
+              await shareMusicItem({
+                id: album.id,
+                type: 'album',
+                name: album.name,
+                artist: album.artists?.[0]?.name,
+                cover: album.images?.[0]?.url,
+              });
+            }}
+          >
+            <Text style={styles.menuText}>Share</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.doneBtn} onPress={() => setMenuVisible(false)}>
+            <Text style={styles.doneBtnText}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* TRACK MENU */}
+      <Modal visible={trackMenuVisible} transparent animationType="slide">
+        <Pressable style={styles.overlay} onPress={() => setTrackMenuVisible(false)} />
+
+        <View style={styles.sheet}>
+          {selectedTrack && (
+            <View style={styles.sheetHeader}>
+              <Image source={{ uri: album?.images?.[0]?.url }} style={styles.sheetCover} />
+              <View>
+                <Text style={styles.sheetTitle} numberOfLines={1}>{selectedTrack.name}</Text>
+                <Text style={styles.sheetArtist}>{selectedTrack.artists?.[0]?.name}</Text>
+              </View>
+            </View>
+          )}
+
+          <View style={styles.sheetActions}>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={async () => {
+                const newVal = !trackListened;
+                setTrackListened(newVal);
+
+                const existing = await AsyncStorage.getItem('listened');
+                const list = existing ? JSON.parse(existing) : [];
+
+                if (newVal) {
+                  if (!list.find((i: any) => i.id === selectedTrack.id)) {
+                    list.unshift({
+                      id: selectedTrack.id,
+                      name: selectedTrack.name,
+                      cover: album?.images?.[0]?.url,
+                      type: 'track',
+                      albumId: album?.id,
+                      rating: trackRating,
+                      date: new Date().toISOString(),
+                    });
+                  }
+                } else {
+                  const idx = list.findIndex((i: any) => i.id === selectedTrack.id);
+                  if (idx !== -1) list.splice(idx, 1);
+                  setTrackRating(0);
+                }
+
+                await AsyncStorage.setItem('listened', JSON.stringify(list));
+              }}
+            >
+              <View style={[styles.actionIcon, trackListened && { backgroundColor: accentColor }]}>
+                <Text style={styles.actionEmoji}>{EYE}</Text>
+              </View>
+              <Text style={styles.actionText}>Listened</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={async () => {
+                const newVal = !trackLiked;
+                setTrackLiked(newVal);
+
+                const existing = await AsyncStorage.getItem('liked');
+                const list = existing ? JSON.parse(existing) : [];
+
+                if (newVal) {
+                  if (!list.find((i: any) => i.id === selectedTrack.id)) {
+                    list.unshift({
+                      id: selectedTrack.id,
+                      name: selectedTrack.name,
+                      cover: album?.images?.[0]?.url,
+                      type: 'track',
+                      albumId: album?.id,
+                      date: new Date().toISOString(),
+                    });
+                  }
+                } else {
+                  const idx = list.findIndex((i: any) => i.id === selectedTrack.id);
+                  if (idx !== -1) list.splice(idx, 1);
+                }
+
+                await AsyncStorage.setItem('liked', JSON.stringify(list));
+              }}
+            >
+              <View style={[styles.actionIcon, trackLiked && { backgroundColor: accentColor }]}>
+                <Text style={styles.actionEmoji}>{trackLiked ? HEART_FILLED : HEART_EMPTY}</Text>
+              </View>
+              <Text style={styles.actionText}>Like</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={async () => {
+                const newVal = !trackWantToListen;
+                setTrackWantToListen(newVal);
+
+                const existing = await AsyncStorage.getItem('wantToListen');
+                const list = existing ? JSON.parse(existing) : [];
+
+                if (newVal) {
+                  if (!list.find((i: any) => i.id === selectedTrack.id)) {
+                    list.unshift({
+                      id: selectedTrack.id,
+                      name: selectedTrack.name,
+                      cover: album?.images?.[0]?.url,
+                      type: 'track',
+                      albumId: album?.id,
+                    });
+                  }
+                } else {
+                  const idx = list.findIndex((i: any) => i.id === selectedTrack.id);
+                  if (idx !== -1) list.splice(idx, 1);
+                }
+
+                await AsyncStorage.setItem('wantToListen', JSON.stringify(list));
+              }}
+            >
+              <View style={[styles.actionIcon, trackWantToListen && { backgroundColor: accentColor }]}>
+                <Text style={styles.actionEmoji}>{CLOCK}</Text>
+              </View>
+              <Text style={styles.actionText}>Want to Listen</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.rateSection}>
+            <Text style={styles.rateLabel}>Rate</Text>
+            <StarRating rating={trackRating} onChange={updateTrackRating} />
+          </View>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              setTrackMenuVisible(false);
+
+              router.push({
+                pathname: '/review/new',
+                params: {
+                  albumId: selectedTrack?.id,
+                  albumName: selectedTrack?.name,
+                  albumArtist: selectedTrack?.artists?.[0]?.name,
+                  albumCover: album?.images?.[0]?.url,
+                  itemType: 'track',
+                  parentAlbumId: album?.id,
+                  currentRating: String(trackRating),
+                },
+              });
+            }}
+          >
+            <Text style={styles.menuText}>Review or log</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem} onPress={openListPicker}>
+            <Text style={styles.menuText}>Add to lists</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={async () => {
+              setTrackMenuVisible(false);
+              await shareMusicItem({
+                id: selectedTrack.id,
+                type: 'track',
+                albumId: album?.id,
+                name: selectedTrack.name,
+                artist: selectedTrack.artists?.[0]?.name,
+                cover: album?.images?.[0]?.url,
+              });
+            }}
+          >
+            <Text style={styles.menuText}>Share</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.doneBtn} onPress={() => setTrackMenuVisible(false)}>
+            <Text style={styles.doneBtnText}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* ADD TO LIST */}
+      <Modal visible={showLists} transparent animationType="slide">
+        <Pressable style={styles.overlay} onPress={() => setShowLists(false)} />
+
+        <View style={styles.sheet}>
+          <View style={styles.sheetHandle} />
+
+          <Text style={[styles.sheetTitle, { textAlign: 'center', marginBottom: 16 }]}>
+            Add to List
+          </Text>
+
+          {userLists.length === 0 ? (
+            <Text style={{ color: '#888', textAlign: 'center', paddingVertical: 20 }}>
+              No lists yet
+            </Text>
+          ) : (
+            userLists.map(list => (
+              <TouchableOpacity
+                key={list.id}
+                style={styles.menuItem}
+                onPress={async () => {
+                  const data = await AsyncStorage.getItem('lists');
+                  const lists = data ? JSON.parse(data) : [];
+                  const idx = lists.findIndex((l: any) => l.id === list.id);
+
+                  if (idx !== -1) {
+                    const listItem = selectedTrack
+                      ? {
+                          id: selectedTrack.id,
+                          name: selectedTrack.name,
+                          artist: selectedTrack.artists?.[0]?.name,
+                          cover: album.images?.[0]?.url,
+                          type: 'track',
+                          albumId: album.id,
+                        }
+                      : {
+                          id: album.id,
+                          name: album.name,
+                          artist: album.artists?.[0]?.name,
+                          cover: album.images?.[0]?.url,
+                          type: 'album',
+                        };
+
+                    const items = lists[idx].albums || [];
+                    const alreadyAdded = items.some(
+                      (entry: any) =>
+                        entry.id === listItem.id && (entry.type || 'album') === listItem.type
+                    );
+
+                    if (!alreadyAdded) {
+                      lists[idx].albums = [listItem, ...items];
+                    }
+
+                    await AsyncStorage.setItem('lists', JSON.stringify(lists));
+                  }
+
+                  setShowLists(false);
+                }}
+              >
+                <Text style={styles.menuText}>{list.name}</Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-
-  container: {
-    flex: 1,
-  },
-
-  header: {
-    alignItems: 'center',
-    padding: 24,
-    paddingTop: 60,
-  },
-
-  cover: {
-    width: 200,
-    height: 200,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-
-  albumName: {
-    color: 'white',
-    fontSize: 22,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-
-  meta: {
-    color: '#888',
-    fontSize: 14,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-
-  backBtn: {
-    position: 'absolute',
-    top: 60,
-    left: 20,
-    padding: 8,
-    zIndex: 10,
-  },
-
-  backText: {
-    color: 'white',
-    fontSize: 36,
-    lineHeight: 36,
-  },
-
-  dotsBtn: {
-    position: 'absolute',
-    top: 60,
-    right: 20,
-    padding: 8,
-  },
-
-  dots: {
-    color: 'white',
-    fontSize: 24,
-  },
-
+  screen: { flex: 1 },
+  container: { flex: 1 },
+  header: { alignItems: 'center', padding: 24, paddingTop: 60 },
+  cover: { width: 200, height: 200, borderRadius: 8, marginBottom: 16 },
+  albumName: { color: 'white', fontSize: 22, fontWeight: 'bold', textAlign: 'center' },
+  meta: { color: '#888', fontSize: 14, marginTop: 4, textAlign: 'center' },
+  backBtn: { position: 'absolute', top: 60, left: 20, padding: 8, zIndex: 10 },
+  backText: { color: 'white', fontSize: 36, lineHeight: 36 },
+  dotsBtn: { position: 'absolute', top: 60, right: 20, padding: 8 },
+  dots: { color: 'white', fontSize: 24 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1527,57 +756,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1a1a1a',
   },
-
-  rowMain: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  num: {
-    color: '#555',
-    fontSize: 14,
-    width: 28,
-  },
-
-  info: {
-    flex: 1,
-  },
-
-  trackName: {
-    color: 'white',
-    fontSize: 15,
-  },
-
-  artist: {
-    color: '#888',
-    fontSize: 13,
-    marginTop: 2,
-  },
-
-  trackDotsBtn: {
-    padding: 8,
-    paddingLeft: 12,
-  },
-
-  trackDots: {
-    color: '#888',
-    fontSize: 20,
-  },
-
-  overlay: {
-    flex: 1,
-    backgroundColor:
-      'rgba(0,0,0,0.6)',
-  },
-
+  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  num: { color: '#555', fontSize: 14, width: 28 },
+  info: { flex: 1 },
+  trackName: { color: 'white', fontSize: 15 },
+  artist: { color: '#888', fontSize: 13, marginTop: 2 },
+  trackDotsBtn: { padding: 8, paddingLeft: 12 },
+  trackDots: { color: '#888', fontSize: 20 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: {
     backgroundColor: '#1c1c1e',
     padding: 24,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
-
   sheetHandle: {
     width: 40,
     height: 4,
@@ -1586,42 +778,12 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 16,
   },
-
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-
-  sheetCover: {
-    width: 48,
-    height: 48,
-    borderRadius: 6,
-    marginRight: 12,
-  },
-
-  sheetTitle: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-
-  sheetArtist: {
-    color: '#888',
-    fontSize: 13,
-    marginTop: 2,
-  },
-
-  sheetActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 24,
-  },
-
-  actionBtn: {
-    alignItems: 'center',
-  },
-
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  sheetCover: { width: 48, height: 48, borderRadius: 6, marginRight: 12 },
+  sheetTitle: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  sheetArtist: { color: '#888', fontSize: 13, marginTop: 2 },
+  sheetActions: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 24 },
+  actionBtn: { alignItems: 'center' },
   actionIcon: {
     width: 56,
     height: 56,
@@ -1631,39 +793,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 8,
   },
-
-  actionEmoji: {
-    fontSize: 24,
-  },
-
-  actionText: {
-    color: '#aaa',
-    fontSize: 12,
-  },
-
-  rateSection: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-
-  rateLabel: {
-    color: '#888',
-    fontSize: 13,
-    marginBottom: 10,
-  },
-
+  actionEmoji: { fontSize: 24 },
+  actionText: { color: '#aaa', fontSize: 12 },
+  rateSection: { alignItems: 'center', marginBottom: 24 },
+  rateLabel: { color: '#888', fontSize: 13, marginBottom: 10 },
   menuItem: {
     paddingVertical: 16,
     borderTopWidth: 1,
     borderTopColor: '#2a2a2a',
     alignItems: 'center',
   },
-
-  menuText: {
-    color: 'white',
-    fontSize: 16,
-  },
-
+  menuText: { color: 'white', fontSize: 16 },
   doneBtn: {
     backgroundColor: '#2a2a2a',
     borderRadius: 12,
@@ -1671,13 +811,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
   },
-
-  doneBtnText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-
+  doneBtnText: { color: 'white', fontSize: 16, fontWeight: '600' },
   toast: {
     position: 'absolute',
     left: 20,
@@ -1694,22 +828,9 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.25,
     shadowRadius: 8,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
+    shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
-
-  toastCheck: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-
-  toastText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  toastCheck: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  toastText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });
