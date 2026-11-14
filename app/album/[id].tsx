@@ -1,23 +1,26 @@
-﻿import { useAppTheme } from '@/context/ThemeContext';
-import { shareMusicItem } from '@/utils/sharing';
-import { getValidSpotifyToken } from '@/utils/spotify';
+﻿
+import { useAppTheme } from '@/context/ThemeContext';
+import { sendMusicToFriend, shareMusicItem } from '@/utils/sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import StarRating from './StarRating';
 
-// Special glyphs written as Unicode escapes so the file encoding can never garble them.
+
 const DOTS = '\u00B7\u00B7\u00B7';
 const BULLET = '\u2022';
 const BACK = '\u2039';
@@ -27,6 +30,12 @@ const HEART_EMPTY = '\u2661';
 const EYE = '\u{1F441}\uFE0F';
 const CLOCK = '\u{1F550}';
 
+type Friend = {
+  id: string;
+  username: string | null;
+  avatar_url: string | null;
+};
+
 export default function AlbumPage() {
   const { id, highlightTrackId } = useLocalSearchParams();
   const router = useRouter();
@@ -34,20 +43,34 @@ export default function AlbumPage() {
 
   const [album, setAlbum] = useState<any>(null);
   const [tracks, setTracks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+
   const [menuVisible, setMenuVisible] = useState(false);
   const [listened, setListened] = useState(false);
   const [liked, setLiked] = useState(false);
   const [wantToListen, setWantToListen] = useState(false);
   const [rating, setRating] = useState(0);
+
   const [trackMenuVisible, setTrackMenuVisible] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [trackListened, setTrackListened] = useState(false);
   const [trackLiked, setTrackLiked] = useState(false);
   const [trackWantToListen, setTrackWantToListen] = useState(false);
   const [trackRating, setTrackRating] = useState(0);
+
   const [showLists, setShowLists] = useState(false);
   const [userLists, setUserLists] = useState<any[]>([]);
   const [showReviewSaved, setShowReviewSaved] = useState(false);
+
+  const [shareFriendsVisible, setShareFriendsVisible] = useState(false);
+  const [shareFriends, setShareFriends] = useState<Friend[]>([]);
+  const [selectedFriendId, setSelectedFriendId] = useState('');
+  const [shareMessage, setShareMessage] = useState('');
+  const [shareItem, setShareItem] = useState<any>(null);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareError, setShareError] = useState('');
+  const [shareSuccess, setShareSuccess] = useState('');
 
   const scrollViewRef = useRef<ScrollView>(null);
   const trackRowOffsets = useRef<{ [key: string]: number }>({});
@@ -58,6 +81,7 @@ export default function AlbumPage() {
 
     const timer = setTimeout(() => {
       const y = trackRowOffsets.current[highlightTrackId as string];
+
       if (typeof y === 'number') {
         scrollViewRef.current?.scrollTo({
           y: Math.max(y - 100, 0),
@@ -81,61 +105,98 @@ export default function AlbumPage() {
         return;
       }
 
-      // Ignore notifications that are too old
       if (Date.now() - notification.time > 5000) {
         await AsyncStorage.removeItem('review_saved_notification');
         return;
       }
 
       setShowReviewSaved(true);
-
-      // Consume it once so it does not show again
       await AsyncStorage.removeItem('review_saved_notification');
 
-      setTimeout(() => {
-        setShowReviewSaved(false);
-      }, 2000);
+      setTimeout(() => setShowReviewSaved(false), 2000);
     } catch (e) {
       console.log('Notification error:', e);
     }
   }, []);
 
+  // Load album through Supabase instead of the user's Spotify account.
   const loadAlbum = useCallback(async () => {
-    const token = await getValidSpotifyToken();
-    if (!token) return;
+    setLoading(true);
+    setLoadError('');
 
-    const res = await fetch(`https://api.spotify.com/v1/albums/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    try {
+      const albumId = Array.isArray(id) ? id[0] : id;
 
-    if (!res.ok) {
-      console.log('Spotify API error:', res.status);
-      return;
+      if (!albumId) {
+        throw new Error('Album ID is missing.');
+      }
+
+      const { data, error } = await supabase.functions.invoke(
+        'spotify-search',
+        {
+          body: {
+            action: 'album',
+            id: albumId,
+          },
+        }
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      if (!data?.id) {
+        throw new Error('Album not found.');
+      }
+
+      setAlbum(data);
+      setTracks(data.tracks?.items || []);
+
+      const listenedData = await AsyncStorage.getItem('listened');
+      const listenedList = listenedData ? JSON.parse(listenedData) : [];
+      const foundListened = listenedList.find(
+        (i: any) => i.id === data.id
+      );
+
+      setListened(!!foundListened);
+      setRating(foundListened?.rating || 0);
+
+      const wantData = await AsyncStorage.getItem('wantToListen');
+      const wantList = wantData ? JSON.parse(wantData) : [];
+      setWantToListen(
+        !!wantList.find((i: any) => i.id === data.id)
+      );
+
+      const likedData = await AsyncStorage.getItem('liked');
+      const likedList = likedData ? JSON.parse(likedData) : [];
+      setLiked(
+        !!likedList.find((i: any) => i.id === data.id)
+      );
+
+      const reviewsData = await AsyncStorage.getItem('reviews');
+      const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
+      const foundReview = reviewsList.find(
+        (i: any) => i.albumId === data.id
+      );
+
+      if (foundReview?.rating) {
+        setRating(foundReview.rating);
+      }
+    } catch (error) {
+      console.log('Album loading error:', error);
+
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : 'Could not load this album.'
+      );
+    } finally {
+      setLoading(false);
     }
-
-    const data = await res.json();
-
-    setAlbum(data);
-    setTracks(data.tracks?.items || []);
-
-    const listenedData = await AsyncStorage.getItem('listened');
-    const listenedList = listenedData ? JSON.parse(listenedData) : [];
-    const foundListened = listenedList.find((i: any) => i.id === data.id);
-    setListened(!!foundListened);
-    if (foundListened?.rating) setRating(foundListened.rating);
-
-    const wantData = await AsyncStorage.getItem('wantToListen');
-    const wantList = wantData ? JSON.parse(wantData) : [];
-    setWantToListen(!!wantList.find((i: any) => i.id === data.id));
-
-    const likedData = await AsyncStorage.getItem('liked');
-    const likedList = likedData ? JSON.parse(likedData) : [];
-    setLiked(!!likedList.find((i: any) => i.id === data.id));
-
-    const reviewsData = await AsyncStorage.getItem('reviews');
-    const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
-    const foundReview = reviewsList.find((i: any) => i.albumId === data.id);
-    if (foundReview?.rating) setRating(foundReview.rating);
   }, [id]);
 
   useFocusEffect(
@@ -151,26 +212,130 @@ export default function AlbumPage() {
 
     const listenedData = await AsyncStorage.getItem('listened');
     const listenedList = listenedData ? JSON.parse(listenedData) : [];
-    const foundListened = listenedList.find((i: any) => i.id === track.id);
+    const foundListened = listenedList.find(
+      (i: any) => i.id === track.id
+    );
+
     setTrackListened(!!foundListened);
     setTrackRating(foundListened?.rating || 0);
 
     const wantData = await AsyncStorage.getItem('wantToListen');
     const wantList = wantData ? JSON.parse(wantData) : [];
-    setTrackWantToListen(!!wantList.find((i: any) => i.id === track.id));
+    setTrackWantToListen(
+      !!wantList.find((i: any) => i.id === track.id)
+    );
 
     const likedData = await AsyncStorage.getItem('liked');
     const likedList = likedData ? JSON.parse(likedData) : [];
-    setTrackLiked(!!likedList.find((i: any) => i.id === track.id));
+    setTrackLiked(
+      !!likedList.find((i: any) => i.id === track.id)
+    );
 
     const reviewsData = await AsyncStorage.getItem('reviews');
     const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
-    const foundReview = reviewsList.find((i: any) => i.albumId === track.id);
+    const foundReview = reviewsList.find(
+      (i: any) => i.albumId === track.id
+    );
+
     if (foundReview?.rating) setTrackRating(foundReview.rating);
   }
 
+  async function openShareWithFriends(item: any) {
+    setMenuVisible(false);
+    setTrackMenuVisible(false);
+
+    setShareItem(item);
+    setSelectedFriendId('');
+    setShareMessage('');
+    setShareError('');
+    setShareSuccess('');
+    setShareFriends([]);
+    setShareFriendsVisible(true);
+    setShareLoading(true);
+
+    try {
+      const myId = await AsyncStorage.getItem('supabase_user_id');
+
+      if (!myId) {
+        setShareError('Please sign in again to share music.');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('friendships')
+        .select('friend_id')
+        .eq('user_id', myId);
+
+      if (error) throw error;
+
+      const friendIds = (data || [])
+        .map((row: any) => row.friend_id)
+        .filter(Boolean);
+
+      if (friendIds.length === 0) {
+        setShareError('No friends found. Follow people first.');
+        return;
+      }
+
+      const { data: people, error: peopleError } = await supabase
+        .from('users')
+        .select('id, username, avatar_url')
+        .in('id', friendIds)
+        .order('username');
+
+      if (peopleError) throw peopleError;
+
+      setShareFriends(people || []);
+
+      if (!people?.length) {
+        setShareError('No friends found. Follow people first.');
+      }
+    } catch (error) {
+      console.log('Load friends error:', error);
+      setShareError('Could not load friends. Please try again.');
+    } finally {
+      setShareLoading(false);
+    }
+  }
+
+  async function sendToSelectedFriend() {
+    if (!shareItem || !selectedFriendId) {
+      setShareError('Please select a friend first.');
+      return;
+    }
+
+    setShareLoading(true);
+    setShareError('');
+    setShareSuccess('');
+
+    try {
+      await sendMusicToFriend(
+        shareItem,
+        selectedFriendId,
+        shareMessage
+      );
+
+      setShareSuccess('Music sent successfully!');
+      setShareMessage('');
+
+      setTimeout(() => {
+        setShareFriendsVisible(false);
+        setShareSuccess('');
+      }, 1000);
+    } catch (error: any) {
+      console.log('Send music error:', error);
+      setShareError(
+        error?.message || 'Could not send music. Please try again.'
+      );
+    } finally {
+      setShareLoading(false);
+    }
+  }
+
   async function openTrack(track: any) {
-    await WebBrowser.openBrowserAsync(`https://open.spotify.com/track/${track.id}`);
+    await WebBrowser.openBrowserAsync(
+      `https://open.spotify.com/track/${track.id}`
+    );
   }
 
   async function openListPicker() {
@@ -212,7 +377,9 @@ export default function AlbumPage() {
 
     AsyncStorage.getItem('listened').then(existing => {
       const list = existing ? JSON.parse(existing) : [];
-      const idx = list.findIndex((i: any) => i.id === selectedTrack?.id);
+      const idx = list.findIndex(
+        (i: any) => i.id === selectedTrack?.id
+      );
 
       if (idx !== -1) {
         list[idx].rating = newRating;
@@ -235,28 +402,60 @@ export default function AlbumPage() {
 
   return (
     <View style={[styles.screen, { backgroundColor }]}>
+      {loading && (
+        <ActivityIndicator
+          color={accentColor}
+          size="large"
+          style={{ marginTop: 100 }}
+        />
+      )}
+
+      {!loading && !!loadError && (
+        <View style={styles.loadErrorContainer}>
+          <Text style={styles.loadErrorText}>{loadError}</Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: accentColor }]}
+            onPress={loadAlbum}
+          >
+            <Text style={styles.retryButtonText}>Try again</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <ScrollView
         style={styles.container}
         ref={scrollViewRef}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={true}
+        showsVerticalScrollIndicator
         contentContainerStyle={{ paddingBottom: 60 }}
       >
         {album && (
           <View
             style={styles.header}
-            onLayout={(e) => {
+            onLayout={e => {
               headerHeight.current = e.nativeEvent.layout.height;
             }}
           >
-            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backBtn}
+            >
               <Text style={styles.backText}>{BACK}</Text>
             </TouchableOpacity>
 
-            <Image source={{ uri: album.images?.[0]?.url }} style={styles.cover} />
+            {album.images?.[0]?.url ? (
+              <Image
+                source={{ uri: album.images[0].url }}
+                style={styles.cover}
+              />
+            ) : (
+              <View style={[styles.cover, styles.coverPlaceholder]} />
+            )}
 
             <Text style={styles.albumName}>{album.name}</Text>
-            <Text style={styles.meta}>{album.artists?.[0]?.name}</Text>
+            <Text style={styles.meta}>
+              {album.artists?.[0]?.name}
+            </Text>
             <Text style={styles.meta}>
               {`${album.album_type} ${BULLET} ${album.release_date} ${BULLET} ${album.total_tracks} tracks`}
             </Text>
@@ -275,7 +474,8 @@ export default function AlbumPage() {
 
         <View>
           {tracks.map((item, index) => {
-            const isHighlighted = highlightTrackId && item.id === highlightTrackId;
+            const isHighlighted =
+              highlightTrackId && item.id === highlightTrackId;
 
             return (
               <View
@@ -284,24 +484,31 @@ export default function AlbumPage() {
                   styles.row,
                   isHighlighted && { backgroundColor: accentColor + '26' },
                 ]}
-                onLayout={(e) => {
+                onLayout={e => {
                   trackRowOffsets.current[item.id] =
                     headerHeight.current + e.nativeEvent.layout.y;
                 }}
               >
-                <TouchableOpacity style={styles.rowMain} onPress={() => openTrack(item)}>
+                <TouchableOpacity
+                  style={styles.rowMain}
+                  onPress={() => openTrack(item)}
+                >
                   <Text style={styles.num}>{index + 1}</Text>
-
                   <View style={styles.info}>
                     <Text
                       style={[
                         styles.trackName,
-                        isHighlighted && { color: accentColor, fontWeight: 'bold' },
+                        isHighlighted && {
+                          color: accentColor,
+                          fontWeight: 'bold',
+                        },
                       ]}
                     >
                       {item.name}
                     </Text>
-                    <Text style={styles.artist}>{item.artists?.[0]?.name}</Text>
+                    <Text style={styles.artist}>
+                      {item.artists?.[0]?.name}
+                    </Text>
                   </View>
                 </TouchableOpacity>
 
@@ -326,15 +533,25 @@ export default function AlbumPage() {
 
       {/* ALBUM MENU */}
       <Modal visible={menuVisible} transparent animationType="slide">
-        <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)} />
+        <Pressable
+          style={styles.overlay}
+          onPress={() => setMenuVisible(false)}
+        />
 
         <View style={styles.sheet}>
           {album && (
             <View style={styles.sheetHeader}>
-              <Image source={{ uri: album.images?.[0]?.url }} style={styles.sheetCover} />
-              <View>
-                <Text style={styles.sheetTitle} numberOfLines={1}>{album.name}</Text>
-                <Text style={styles.sheetArtist}>{album.artists?.[0]?.name}</Text>
+              <Image
+                source={{ uri: album.images?.[0]?.url }}
+                style={styles.sheetCover}
+              />
+              <View style={styles.sheetInfo}>
+                <Text style={styles.sheetTitle} numberOfLines={1}>
+                  {album.name}
+                </Text>
+                <Text style={styles.sheetArtist}>
+                  {album.artists?.[0]?.name}
+                </Text>
               </View>
             </View>
           )}
@@ -369,7 +586,12 @@ export default function AlbumPage() {
                 await AsyncStorage.setItem('listened', JSON.stringify(list));
               }}
             >
-              <View style={[styles.actionIcon, listened && { backgroundColor: accentColor }]}>
+              <View
+                style={[
+                  styles.actionIcon,
+                  listened && { backgroundColor: accentColor },
+                ]}
+              >
                 <Text style={styles.actionEmoji}>{EYE}</Text>
               </View>
               <Text style={styles.actionText}>Listened</Text>
@@ -402,8 +624,15 @@ export default function AlbumPage() {
                 await AsyncStorage.setItem('liked', JSON.stringify(list));
               }}
             >
-              <View style={[styles.actionIcon, liked && { backgroundColor: accentColor }]}>
-                <Text style={styles.actionEmoji}>{liked ? HEART_FILLED : HEART_EMPTY}</Text>
+              <View
+                style={[
+                  styles.actionIcon,
+                  liked && { backgroundColor: accentColor },
+                ]}
+              >
+                <Text style={styles.actionEmoji}>
+                  {liked ? HEART_FILLED : HEART_EMPTY}
+                </Text>
               </View>
               <Text style={styles.actionText}>Like</Text>
             </TouchableOpacity>
@@ -434,7 +663,12 @@ export default function AlbumPage() {
                 await AsyncStorage.setItem('wantToListen', JSON.stringify(list));
               }}
             >
-              <View style={[styles.actionIcon, wantToListen && { backgroundColor: accentColor }]}>
+              <View
+                style={[
+                  styles.actionIcon,
+                  wantToListen && { backgroundColor: accentColor },
+                ]}
+              >
                 <Text style={styles.actionEmoji}>{CLOCK}</Text>
               </View>
               <Text style={styles.actionText}>Want to Listen</Text>
@@ -450,7 +684,6 @@ export default function AlbumPage() {
             style={styles.menuItem}
             onPress={() => {
               setMenuVisible(false);
-
               router.push({
                 pathname: '/review/new',
                 params: {
@@ -468,8 +701,26 @@ export default function AlbumPage() {
             <Text style={styles.menuText}>Review or log</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem} onPress={openListPicker}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={openListPicker}
+          >
             <Text style={styles.menuText}>Add to lists</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() =>
+              openShareWithFriends({
+                id: album.id,
+                type: 'album',
+                name: album.name,
+                artist: album.artists?.[0]?.name,
+                cover: album.images?.[0]?.url,
+              })
+            }
+          >
+            <Text style={styles.menuText}>Share with friends</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -488,7 +739,10 @@ export default function AlbumPage() {
             <Text style={styles.menuText}>Share</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.doneBtn} onPress={() => setMenuVisible(false)}>
+          <TouchableOpacity
+            style={styles.doneBtn}
+            onPress={() => setMenuVisible(false)}
+          >
             <Text style={styles.doneBtnText}>Done</Text>
           </TouchableOpacity>
         </View>
@@ -496,15 +750,25 @@ export default function AlbumPage() {
 
       {/* TRACK MENU */}
       <Modal visible={trackMenuVisible} transparent animationType="slide">
-        <Pressable style={styles.overlay} onPress={() => setTrackMenuVisible(false)} />
+        <Pressable
+          style={styles.overlay}
+          onPress={() => setTrackMenuVisible(false)}
+        />
 
         <View style={styles.sheet}>
           {selectedTrack && (
             <View style={styles.sheetHeader}>
-              <Image source={{ uri: album?.images?.[0]?.url }} style={styles.sheetCover} />
-              <View>
-                <Text style={styles.sheetTitle} numberOfLines={1}>{selectedTrack.name}</Text>
-                <Text style={styles.sheetArtist}>{selectedTrack.artists?.[0]?.name}</Text>
+              <Image
+                source={{ uri: album?.images?.[0]?.url }}
+                style={styles.sheetCover}
+              />
+              <View style={styles.sheetInfo}>
+                <Text style={styles.sheetTitle} numberOfLines={1}>
+                  {selectedTrack.name}
+                </Text>
+                <Text style={styles.sheetArtist}>
+                  {selectedTrack.artists?.[0]?.name}
+                </Text>
               </View>
             </View>
           )}
@@ -532,7 +796,9 @@ export default function AlbumPage() {
                     });
                   }
                 } else {
-                  const idx = list.findIndex((i: any) => i.id === selectedTrack.id);
+                  const idx = list.findIndex(
+                    (i: any) => i.id === selectedTrack.id
+                  );
                   if (idx !== -1) list.splice(idx, 1);
                   setTrackRating(0);
                 }
@@ -540,7 +806,12 @@ export default function AlbumPage() {
                 await AsyncStorage.setItem('listened', JSON.stringify(list));
               }}
             >
-              <View style={[styles.actionIcon, trackListened && { backgroundColor: accentColor }]}>
+              <View
+                style={[
+                  styles.actionIcon,
+                  trackListened && { backgroundColor: accentColor },
+                ]}
+              >
                 <Text style={styles.actionEmoji}>{EYE}</Text>
               </View>
               <Text style={styles.actionText}>Listened</Text>
@@ -567,15 +838,24 @@ export default function AlbumPage() {
                     });
                   }
                 } else {
-                  const idx = list.findIndex((i: any) => i.id === selectedTrack.id);
+                  const idx = list.findIndex(
+                    (i: any) => i.id === selectedTrack.id
+                  );
                   if (idx !== -1) list.splice(idx, 1);
                 }
 
                 await AsyncStorage.setItem('liked', JSON.stringify(list));
               }}
             >
-              <View style={[styles.actionIcon, trackLiked && { backgroundColor: accentColor }]}>
-                <Text style={styles.actionEmoji}>{trackLiked ? HEART_FILLED : HEART_EMPTY}</Text>
+              <View
+                style={[
+                  styles.actionIcon,
+                  trackLiked && { backgroundColor: accentColor },
+                ]}
+              >
+                <Text style={styles.actionEmoji}>
+                  {trackLiked ? HEART_FILLED : HEART_EMPTY}
+                </Text>
               </View>
               <Text style={styles.actionText}>Like</Text>
             </TouchableOpacity>
@@ -600,14 +880,21 @@ export default function AlbumPage() {
                     });
                   }
                 } else {
-                  const idx = list.findIndex((i: any) => i.id === selectedTrack.id);
+                  const idx = list.findIndex(
+                    (i: any) => i.id === selectedTrack.id
+                  );
                   if (idx !== -1) list.splice(idx, 1);
                 }
 
                 await AsyncStorage.setItem('wantToListen', JSON.stringify(list));
               }}
             >
-              <View style={[styles.actionIcon, trackWantToListen && { backgroundColor: accentColor }]}>
+              <View
+                style={[
+                  styles.actionIcon,
+                  trackWantToListen && { backgroundColor: accentColor },
+                ]}
+              >
                 <Text style={styles.actionEmoji}>{CLOCK}</Text>
               </View>
               <Text style={styles.actionText}>Want to Listen</Text>
@@ -616,14 +903,16 @@ export default function AlbumPage() {
 
           <View style={styles.rateSection}>
             <Text style={styles.rateLabel}>Rate</Text>
-            <StarRating rating={trackRating} onChange={updateTrackRating} />
+            <StarRating
+              rating={trackRating}
+              onChange={updateTrackRating}
+            />
           </View>
 
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
               setTrackMenuVisible(false);
-
               router.push({
                 pathname: '/review/new',
                 params: {
@@ -641,8 +930,27 @@ export default function AlbumPage() {
             <Text style={styles.menuText}>Review or log</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem} onPress={openListPicker}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={openListPicker}
+          >
             <Text style={styles.menuText}>Add to lists</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() =>
+              openShareWithFriends({
+                id: selectedTrack.id,
+                type: 'track',
+                albumId: album?.id,
+                name: selectedTrack.name,
+                artist: selectedTrack.artists?.[0]?.name,
+                cover: album?.images?.[0]?.url,
+              })
+            }
+          >
+            <Text style={styles.menuText}>Share with friends</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -662,25 +970,208 @@ export default function AlbumPage() {
             <Text style={styles.menuText}>Share</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.doneBtn} onPress={() => setTrackMenuVisible(false)}>
+          <TouchableOpacity
+            style={styles.doneBtn}
+            onPress={() => setTrackMenuVisible(false)}
+          >
             <Text style={styles.doneBtnText}>Done</Text>
           </TouchableOpacity>
         </View>
       </Modal>
 
+      {/* SHARE WITH FRIENDS */}
+      <Modal
+        visible={shareFriendsVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShareFriendsVisible(false)}
+      >
+        <View style={styles.shareModalOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setShareFriendsVisible(false)}
+          />
+
+          <View style={styles.shareSheet}>
+            <View style={styles.sheetHandle} />
+
+            <Text style={styles.shareTitle}>Share with friends</Text>
+
+            {shareItem && (
+              <View style={styles.shareItemRow}>
+                {shareItem.cover ? (
+                  <Image
+                    source={{ uri: shareItem.cover }}
+                    style={styles.sheetCover}
+                  />
+                ) : (
+                  <View style={styles.sheetCoverPlaceholder} />
+                )}
+
+                <View style={styles.shareItemInfo}>
+                  <Text style={styles.sheetTitle} numberOfLines={1}>
+                    {shareItem.name}
+                  </Text>
+                  <Text style={styles.sheetArtist} numberOfLines={1}>
+                    {shareItem.artist || 'Unknown artist'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <Text style={styles.shareSectionLabel}>Choose a friend</Text>
+
+            {shareLoading && shareFriends.length === 0 ? (
+              <ActivityIndicator
+                color={accentColor}
+                style={{ marginVertical: 24 }}
+              />
+            ) : (
+              <ScrollView
+                style={styles.friendList}
+                keyboardShouldPersistTaps="handled"
+              >
+                {shareFriends.map(friend => {
+                  const selected = selectedFriendId === friend.id;
+
+                  return (
+                    <TouchableOpacity
+                      key={friend.id}
+                      style={[
+                        styles.friendRow,
+                        selected && {
+                          borderColor: accentColor,
+                          backgroundColor: '#252525',
+                        },
+                      ]}
+                      onPress={() => {
+                        setSelectedFriendId(friend.id);
+                        setShareError('');
+                      }}
+                    >
+                      {friend.avatar_url ? (
+                        <Image
+                          source={{ uri: friend.avatar_url }}
+                          style={styles.friendAvatar}
+                        />
+                      ) : (
+                        <View style={styles.friendAvatarPlaceholder}>
+                          <Text style={styles.friendAvatarLetter}>
+                            {(friend.username || '?')
+                              .charAt(0)
+                              .toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+
+                      <Text style={styles.friendName} numberOfLines={1}>
+                        {friend.username || 'Spotify listener'}
+                      </Text>
+
+                      <View
+                        style={[
+                          styles.radioOuter,
+                          selected && { borderColor: accentColor },
+                        ]}
+                      >
+                        {selected && (
+                          <View
+                            style={[
+                              styles.radioInner,
+                              { backgroundColor: accentColor },
+                            ]}
+                          />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            <Text style={styles.shareSectionLabel}>
+              Add a message (optional)
+            </Text>
+
+            <TextInput
+              style={styles.messageInput}
+              value={shareMessage}
+              onChangeText={setShareMessage}
+              placeholder="What do you want to say?"
+              placeholderTextColor="#888"
+              multiline
+              maxLength={500}
+              editable={!shareLoading}
+            />
+
+            {!!shareError && (
+              <Text style={styles.shareError}>{shareError}</Text>
+            )}
+
+            {!!shareSuccess && (
+              <Text style={styles.shareSuccess}>{shareSuccess}</Text>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                {
+                  backgroundColor: accentColor,
+                  opacity:
+                    shareLoading || !selectedFriendId ? 0.5 : 1,
+                },
+              ]}
+              onPress={sendToSelectedFriend}
+              disabled={shareLoading || !selectedFriendId}
+            >
+              {shareLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.sendButtonText}>Send</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => {
+                setShareFriendsVisible(false);
+                setShareError('');
+                setShareSuccess('');
+              }}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* ADD TO LIST */}
       <Modal visible={showLists} transparent animationType="slide">
-        <Pressable style={styles.overlay} onPress={() => setShowLists(false)} />
+        <Pressable
+          style={styles.overlay}
+          onPress={() => setShowLists(false)}
+        />
 
         <View style={styles.sheet}>
           <View style={styles.sheetHandle} />
 
-          <Text style={[styles.sheetTitle, { textAlign: 'center', marginBottom: 16 }]}>
+          <Text
+            style={[
+              styles.sheetTitle,
+              { textAlign: 'center', marginBottom: 16 },
+            ]}
+          >
             Add to List
           </Text>
 
           {userLists.length === 0 ? (
-            <Text style={{ color: '#888', textAlign: 'center', paddingVertical: 20 }}>
+            <Text
+              style={{
+                color: '#888',
+                textAlign: 'center',
+                paddingVertical: 20,
+              }}
+            >
               No lists yet
             </Text>
           ) : (
@@ -691,7 +1182,9 @@ export default function AlbumPage() {
                 onPress={async () => {
                   const data = await AsyncStorage.getItem('lists');
                   const lists = data ? JSON.parse(data) : [];
-                  const idx = lists.findIndex((l: any) => l.id === list.id);
+                  const idx = lists.findIndex(
+                    (l: any) => l.id === list.id
+                  );
 
                   if (idx !== -1) {
                     const listItem = selectedTrack
@@ -714,14 +1207,18 @@ export default function AlbumPage() {
                     const items = lists[idx].albums || [];
                     const alreadyAdded = items.some(
                       (entry: any) =>
-                        entry.id === listItem.id && (entry.type || 'album') === listItem.type
+                        entry.id === listItem.id &&
+                        (entry.type || 'album') === listItem.type
                     );
 
                     if (!alreadyAdded) {
                       lists[idx].albums = [listItem, ...items];
                     }
 
-                    await AsyncStorage.setItem('lists', JSON.stringify(lists));
+                    await AsyncStorage.setItem(
+                      'lists',
+                      JSON.stringify(lists)
+                    );
                   }
 
                   setShowLists(false);
@@ -742,9 +1239,21 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { alignItems: 'center', padding: 24, paddingTop: 60 },
   cover: { width: 200, height: 200, borderRadius: 8, marginBottom: 16 },
-  albumName: { color: 'white', fontSize: 22, fontWeight: 'bold', textAlign: 'center' },
+  coverPlaceholder: { backgroundColor: '#2a2a2a' },
+  albumName: {
+    color: 'white',
+    fontSize: 22,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
   meta: { color: '#888', fontSize: 14, marginTop: 4, textAlign: 'center' },
-  backBtn: { position: 'absolute', top: 60, left: 20, padding: 8, zIndex: 10 },
+  backBtn: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    padding: 8,
+    zIndex: 10,
+  },
   backText: { color: 'white', fontSize: 36, lineHeight: 36 },
   dotsBtn: { position: 'absolute', top: 60, right: 20, padding: 8 },
   dots: { color: 'white', fontSize: 24 },
@@ -778,11 +1287,25 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 16,
   },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  sheetCover: { width: 48, height: 48, borderRadius: 6, marginRight: 12 },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  sheetInfo: { flex: 1 },
+  sheetCover: {
+    width: 48,
+    height: 48,
+    borderRadius: 6,
+    marginRight: 12,
+  },
   sheetTitle: { color: 'white', fontSize: 16, fontWeight: 'bold' },
   sheetArtist: { color: '#888', fontSize: 13, marginTop: 2 },
-  sheetActions: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 24 },
+  sheetActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 24,
+  },
   actionBtn: { alignItems: 'center' },
   actionIcon: {
     width: 56,
@@ -825,12 +1348,148 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
+    boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.25)',
     elevation: 6,
   },
   toastCheck: { color: '#fff', fontSize: 18, fontWeight: '700' },
   toastText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+
+  loadErrorContainer: {
+    alignItems: 'center',
+    padding: 24,
+    marginTop: 70,
+  },
+  loadErrorText: {
+    color: '#ff8b8b',
+    textAlign: 'center',
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  retryButton: {
+    paddingHorizontal: 22,
+    paddingVertical: 11,
+    borderRadius: 20,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+
+  // Share with friends modal
+  shareModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  shareSheet: {
+    maxHeight: '90%',
+    backgroundColor: '#1c1c1e',
+    padding: 22,
+    paddingBottom: 28,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+  },
+  shareTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  shareItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#272729',
+    borderRadius: 12,
+    marginBottom: 18,
+  },
+  shareItemInfo: { flex: 1 },
+  sheetCoverPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 6,
+    backgroundColor: '#444',
+    marginRight: 12,
+  },
+  shareSectionLabel: {
+    color: '#ccc',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 9,
+  },
+  friendList: { maxHeight: 190, marginBottom: 16 },
+  friendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#363636',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 7,
+  },
+  friendAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    marginRight: 12,
+  },
+  friendAvatarPlaceholder: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    marginRight: 12,
+    backgroundColor: '#333',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  friendAvatarLetter: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  friendName: { color: '#fff', fontSize: 14, flex: 1 },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#777',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioInner: { width: 10, height: 10, borderRadius: 5 },
+  messageInput: {
+    minHeight: 76,
+    maxHeight: 120,
+    color: '#fff',
+    backgroundColor: '#29292b',
+    borderRadius: 10,
+    padding: 12,
+    textAlignVertical: 'top',
+    marginBottom: 12,
+  },
+  shareError: {
+    color: '#ff8b8b',
+    fontSize: 13,
+    marginBottom: 10,
+  },
+  shareSuccess: {
+    color: '#72df9a',
+    fontSize: 13,
+    marginBottom: 10,
+  },
+  sendButton: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  sendButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  cancelButton: {
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  cancelButtonText: { color: '#bbb', fontSize: 15 },
 });
+
+
+

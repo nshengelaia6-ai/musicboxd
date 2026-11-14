@@ -55,7 +55,7 @@ export default function Reviews() {
                 <Text style={styles.artist}>{item.albumArtist}</Text>
                 <Text style={[styles.rating, { color: accentColor }]}>{'★'.repeat(Math.floor(item.rating))}{item.rating % 1 ? '½' : ''}</Text>
                 {item.review ? <Text style={styles.review}>{item.review}</Text> : null}
-                <Text style={styles.date}>{new Date(item.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
+                <Text style={styles.date}>{new Date(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
               </View>
             </TouchableOpacity>
           )}

@@ -1,6 +1,7 @@
 import { useAppTheme } from '@/context/ThemeContext';
 import { API_BASE } from '@/utils/api';
 import { getCurrentUserId } from '@/utils/currentUser';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -16,6 +17,23 @@ function timeAgo(dateStr: string) {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
+}
+
+function Stars({ rating, size = 14 }: { rating: number; size?: number }) {
+  const value = Math.max(0, Math.min(5, Number(rating) || 0));
+  const full = Math.floor(value);
+  const hasHalf = value - full >= 0.5;
+
+  return (
+    <View style={{ flexDirection: 'row', marginTop: 4 }}>
+      {Array.from({ length: full }).map((_, i) => (
+        <Ionicons key={i} name="star" size={size} color="#ffc2d4" style={{ marginRight: 2 }} />
+      ))}
+      {hasHalf && (
+        <Ionicons name="star-half" size={size} color="#ffc2d4" style={{ marginRight: 2 }} />
+      )}
+    </View>
+  );
 }
 
 export default function Activity() {
@@ -130,10 +148,8 @@ export default function Activity() {
             <Text style={styles.username}>{username}</Text>
             {' '}{action}{' '}
             <Text style={styles.song}>{item.albumName}</Text>
-            {item.rating
-              ? <Text style={styles.rating}> ⭐{item.rating}</Text>
-              : null}
           </Text>
+          {item.rating ? <Stars rating={item.rating} /> : null}
           <Text style={styles.time}>{timeAgo(item.date)}</Text>
         </View>
       </View>
@@ -152,10 +168,8 @@ export default function Activity() {
             <Text style={styles.username}>{myUsername}</Text>
             {' '}{action}{' '}
             <Text style={styles.song}>{item.albumName}</Text>
-            {item.rating
-              ? <Text style={styles.rating}> ⭐{item.rating}</Text>
-              : null}
           </Text>
+          {item.rating ? <Stars rating={item.rating} /> : null}
           <Text style={styles.time}>{timeAgo(item.date)}</Text>
         </View>
       </View>
@@ -211,7 +225,6 @@ const styles = StyleSheet.create({
   text: { color: '#ccc', fontSize: 14 },
   username: { color: '#fff', fontWeight: 'bold' },
   song: { color: '#00b4d8' },
-  rating: { color: '#f4c430' },
   time: { color: '#555', fontSize: 12, marginTop: 4 },
   empty: { color: '#555', textAlign: 'center', marginTop: 40, fontSize: 15 },
 });

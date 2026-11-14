@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+﻿import { useRef } from 'react';
 import { PanResponder, StyleSheet, Text, View } from 'react-native';
 
 type StarRatingProps = {
@@ -76,3 +76,4 @@ const styles = StyleSheet.create({
   star: { color: '#333', textAlign: 'center' },
   starActive: { color: '#ffb6c1', textAlign: 'center' },
 });
+

@@ -1,124 +1,185 @@
-import { useAppTheme } from '@/context/ThemeContext';
+﻿import { useAppTheme } from '@/context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { SectionList, Image, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-function Stars({ count, color }: { count: number; color: string }) {
-  const full = Math.floor(count);
-  const half = count % 1 >= 0.5;
-  return (
-    <Text style={[styles.stars, { color }]}>
-      {'★'.repeat(full)}{half ? '½' : ''}{'☆'.repeat(5 - full - (half ? 1 : 0))}
-    </Text>
-  );
-}
-
-function groupByMonth(entries: any[]) {
-  const grouped: { [key: string]: any[] } = {};
-  entries.forEach(e => {
-    const month = new Date(e.date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
-    if (!grouped[month]) grouped[month] = [];
-    grouped[month].push(e);
-  });
-  return grouped;
-}
+type DiaryEntry = {
+  id: string;
+  itemId?: string;
+  name: string;
+  artist?: string;
+  cover?: string;
+  type: 'album' | 'track';
+  albumId?: string;
+  rating?: number;
+  date: string;
+  review?: string;
+};
 
 export default function DiaryScreen() {
   const router = useRouter();
   const { backgroundColor, accentColor } = useAppTheme();
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [sections, setSections] = useState<{ title: string; data: DiaryEntry[] }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
-  const loadReviews = useCallback(async () => {
+  const loadDiary = useCallback(async () => {
     setLoading(true);
-    setError('');
     try {
-      const data = await AsyncStorage.getItem('reviews');
-      setReviews(data ? JSON.parse(data) : []);
-    } catch {
-      setError('Could not load your diary. Try again.');
+      const diaryData = await AsyncStorage.getItem('diary_entries');
+      let entries: DiaryEntry[] = [];
+
+      if (diaryData === null) {
+        const listenedData = await AsyncStorage.getItem('listened');
+        const listened = listenedData ? JSON.parse(listenedData) : [];
+
+        entries = listened.map((item: any, index: number) => ({
+          ...item,
+          id: `legacy-${item.id}-${item.date || index}`,
+          itemId: item.id,
+        }));
+
+        await AsyncStorage.setItem('diary_entries', JSON.stringify(entries));
+      } else {
+        entries = JSON.parse(diaryData);
+      }
+
+      const reviewsData = await AsyncStorage.getItem('reviews');
+      const reviews = reviewsData ? JSON.parse(reviewsData) : [];
+
+      const enriched = entries.map(entry => {
+        const review = reviews.find((r: any) => r.albumId === (entry.itemId || entry.id));
+        return {
+          ...entry,
+          artist: entry.artist || review?.albumArtist,
+          rating: entry.rating || review?.rating,
+          review: review?.review || '',
+        };
+      });
+
+      enriched.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      const grouped = new Map<string, DiaryEntry[]>();
+      enriched.forEach(entry => {
+        const date = new Date(entry.date);
+        const title = date.toLocaleDateString('en-GB', {
+          month: 'long',
+          year: 'numeric',
+        });
+        if (!grouped.has(title)) grouped.set(title, []);
+        grouped.get(title)!.push(entry);
+      });
+
+      setSections(Array.from(grouped, ([title, data]) => ({ title, data })));
+    } catch (error) {
+      console.error('Could not load diary:', error);
+      setSections([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { loadReviews(); }, [loadReviews]));
+  useFocusEffect(useCallback(() => {
+    loadDiary();
+  }, [loadDiary]));
 
-  const grouped = groupByMonth(reviews);
+  function openEntry(item: DiaryEntry) {
+    if (item.type === 'album') {
+      router.push(`/album/${item.itemId || item.id}` as any);
+    } else if (item.albumId) {
+      router.push({
+        pathname: '/album/[id]',
+        params: { id: item.albumId, highlightTrackId: item.itemId || item.id },
+      } as any);
+    }
+  }
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
+      <Stack.Screen options={{ headerShown: false }} />
+
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>‹</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>Diary</Text>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={styles.back}>‹</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Diary</Text>
+        <View style={{ width: 30 }} />
       </View>
 
-      <ScrollView>
-        {loading ? (
-          <ActivityIndicator color={accentColor} style={{ marginTop: 32 }} />
-        ) : error ? (
-          <Text accessibilityRole="alert" style={styles.empty}>{error}</Text>
-        ) : reviews.length === 0 ? (
-          <Text style={styles.empty}>ჯერ არ გაქვს reviews</Text>
-        ) : (
-          Object.entries(grouped).map(([month, entries]) => (
-            <View key={month}>
-              <View style={styles.monthHeader}>
-                <Text style={styles.monthText}>{month}</Text>
-              </View>
-              {entries.map((entry, index) => (
-                <TouchableOpacity
-                  key={entry.id ?? `${entry.albumId}-${entry.date}-${index}`}
-                  style={styles.diaryRow}
-                  onPress={() => router.push(`/review/${entry.id}` as any)}
-                >
-                  <Text style={styles.diaryDay}>
-                    {new Date(entry.date).getDate()}
-                  </Text>
-                  {entry.albumCover
-                    ? <Image source={{ uri: entry.albumCover }} style={styles.diaryCover} />
-                    : <View style={[styles.diaryCover, { backgroundColor: '#2a2a2a' }]} />}
-                  <View style={styles.diaryInfo}>
-                    <Text style={styles.diaryTitle} numberOfLines={1}>
-                      {entry.albumName}{' '}
-                      <Text style={styles.diaryYear}>{new Date(entry.date).getFullYear()}</Text>
-                    </Text>
-                    <Text style={styles.diaryArtist}>{entry.albumArtist}</Text>
-                    <Stars count={entry.rating} color={accentColor} />
-                    {entry.review
-                      ? <Text style={styles.diaryReview} numberOfLines={2}>{entry.review}</Text>
-                      : null}
-                  </View>
-                </TouchableOpacity>
-              ))}
+      {loading ? (
+        <ActivityIndicator color={accentColor} style={{ marginTop: 40 }} />
+      ) : sections.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>Your diary starts here.</Text>
+          <Text style={styles.emptyText}>Mark an album or track as listened to see it here.</Text>
+        </View>
+      ) : (
+        <SectionList
+          sections={sections}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.list}
+          stickySectionHeadersEnabled={false}
+          renderSectionHeader={({ section }) => (
+            <View style={styles.dateHeader}>
+              <Text style={styles.dateText}>{section.title}</Text>
+              <View style={styles.dateLine} />
             </View>
-          ))
-        )}
-      </ScrollView>
+          )}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={styles.entry} onPress={() => openEntry(item)}>
+              {item.cover ? (
+                <Image source={{ uri: item.cover }} style={styles.cover} />
+              ) : (
+                <View style={[styles.cover, styles.coverPlaceholder]} />
+              )}
+              <View style={styles.info}>
+                <Text style={styles.itemType}>{item.type === 'album' ? 'ALBUM' : 'TRACK'}</Text>
+                <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
+                {item.artist ? <Text style={styles.artist}>{item.artist}</Text> : null}
+                {item.rating ? (
+                  <Text style={[styles.rating, { color: accentColor }]}>
+                    {'★'.repeat(Math.floor(item.rating))}{item.rating % 1 ? '½' : ''}
+                  </Text>
+                ) : null}
+                {item.review ? <Text style={styles.review} numberOfLines={3}>{item.review}</Text> : null}
+              </View>
+            </TouchableOpacity>
+          )}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#141414' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingTop: 60, paddingBottom: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#222' },
-  backBtn: { marginRight: 12 },
-  backText: { color: '#fff', fontSize: 32, lineHeight: 36 },
-  headerTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-  empty: { color: '#555', paddingHorizontal: 20, paddingVertical: 20 },
-  monthHeader: { backgroundColor: '#1e1e1e', paddingHorizontal: 20, paddingVertical: 8 },
-  monthText: { color: '#888', fontSize: 12, fontWeight: '700', letterSpacing: 1 },
-  diaryRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 },
-  diaryDay: { color: '#555', fontSize: 16, fontWeight: 'bold', width: 28, textAlign: 'center' },
-  diaryCover: { width: 48, height: 48, borderRadius: 4 },
-  diaryInfo: { flex: 1, marginLeft: 12 },
-  diaryTitle: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  diaryYear: { color: '#666', fontSize: 12, fontWeight: 'normal' },
-  diaryArtist: { color: '#888', fontSize: 12, marginTop: 1 },
-  diaryReview: { color: '#666', fontSize: 11, marginTop: 3, fontStyle: 'italic' },
-  stars: { color: '#1DB954', fontSize: 12, marginTop: 2 },
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
+  },
+  back: { color: '#fff', fontSize: 36, lineHeight: 40 },
+  title: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
+  list: { padding: 18, paddingBottom: 40 },
+  dateHeader: { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 16 },
+  dateText: { color: '#888', fontSize: 15, fontWeight: 'bold' },
+  dateLine: { flex: 1, height: 1, backgroundColor: '#333', marginLeft: 12 },
+  entry: { flexDirection: 'row', gap: 14, marginBottom: 22 },
+  cover: { width: 76, height: 76, borderRadius: 5 },
+  coverPlaceholder: { backgroundColor: '#292929' },
+  info: { flex: 1, justifyContent: 'center' },
+  itemType: { color: '#777', fontSize: 9, fontWeight: 'bold', letterSpacing: 1.2, marginBottom: 3 },
+  name: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
+  artist: { color: '#999', fontSize: 12, marginTop: 3 },
+  rating: { fontSize: 14, marginTop: 4 },
+  review: { color: '#bbb', fontSize: 12, lineHeight: 17, marginTop: 5 },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
+  emptyTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  emptyText: { color: '#888', fontSize: 13, textAlign: 'center', marginTop: 8 },
 });
+

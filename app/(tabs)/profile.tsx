@@ -1,30 +1,124 @@
-﻿import { useAppTheme } from '@/context/ThemeContext';
+
+import { useAppTheme } from '@/context/ThemeContext';
 import { API_BASE } from '@/utils/api';
-import { getCurrentUserId } from '@/utils/currentUser';
-import { clearSpotifySession } from '@/utils/spotify';
+import { getCurrentUserId, getCurrentSpotifyProfile } from '@/utils/currentUser';
+import { clearSpotifySession, useSpotifyAuth, exchangeSpotifyCode } from '@/utils/spotify';
+import { supabase } from '@/utils/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
-import Svg, { Path, Circle } from 'react-native-svg';
-import { useEffect, useRef, useState } from 'react';
-import { Image, Keyboard, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Image,
+  Keyboard,
+  Modal,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
+
+const EMPTY_ALBUMS = [null, null, null, null];
 
 export default function Profile() {
   const router = useRouter();
   const { backgroundColor, accentColor } = useAppTheme();
+  const {
+    request: spotifyRequest,
+    response: spotifyResponse,
+    promptAsync: promptSpotify,
+    redirectUri: spotifyRedirectUri,
+  } = useSpotifyAuth();
+
+  const [spotifyConnected, setSpotifyConnected] = useState(false);
+  const [spotifyConnecting, setSpotifyConnecting] = useState(false);
+  const [spotifyAuthError, setSpotifyAuthError] = useState('');
+
+  useEffect(() => {
+    getCurrentUserId().then(id => setSpotifyConnected(!!id));
+  }, []);
+
+  useEffect(() => {
+    if (spotifyResponse?.type !== 'success') return;
+
+    const code = spotifyResponse.params.code;
+    const verifier = spotifyRequest?.codeVerifier;
+
+    if (!code || !verifier) {
+      setSpotifyAuthError('Spotify authorization could not be completed.');
+      setSpotifyConnecting(false);
+      return;
+    }
+
+    let active = true;
+
+    async function finishSpotifyLogin() {
+      try {
+        const token = await exchangeSpotifyCode(
+          code,
+          verifier!,
+          spotifyRedirectUri
+        );
+
+        const profile = await getCurrentSpotifyProfile(token);
+
+        if (!profile) {
+          throw new Error('Could not load Spotify profile.');
+        }
+
+        if (active) {
+          setSpotifyConnected(true);
+          setSpotifyAuthError('');
+          setSpotifyConnecting(false);
+        }
+      } catch (error) {
+        console.error('Spotify login failed:', error);
+        if (active) {
+          setSpotifyAuthError(
+            error instanceof Error ? error.message : 'Spotify login failed.'
+          );
+          setSpotifyConnecting(false);
+        }
+      }
+    }
+
+    finishSpotifyLogin();
+
+    return () => {
+      active = false;
+    };
+  }, [spotifyResponse, spotifyRequest, spotifyRedirectUri]);
+
   const [reviews, setReviews] = useState<any[]>([]);
   const [showShare, setShowShare] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [username, setUsername] = useState('nia');
-  const [bio, setBio] = useState('music is life \u{1F3B5}');
-  const [editUsername, setEditUsername] = useState('nia');
-  const [editBio, setEditBio] = useState('music is life \u{1F3B5}');
+
+  const [username, setUsername] = useState('');
+  const [bio, setBio] = useState('');
+
+  const [editUsername, setEditUsername] = useState('');
+  const [editBio, setEditBio] = useState('');
+
   const [editAvatar, setEditAvatar] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<string | null>(null);
-  const [favoriteAlbums, setFavoriteAlbums] = useState<(any | null)[]>([null, null, null, null]);
-  const [pendingSlotIndex, setPendingSlotIndex] = useState<number | null>(null);
+
+  const [favoriteAlbums, setFavoriteAlbums] =
+    useState<(any | null)[]>([...EMPTY_ALBUMS]);
+
+  const [draftFavoriteAlbums, setDraftFavoriteAlbums] =
+    useState<(any | null)[]>([...EMPTY_ALBUMS]);
+
+  const [pendingSlotIndex, setPendingSlotIndex] =
+    useState<number | null>(null);
+
   const [followingCount, setFollowingCount] = useState(0);
   const [followersCount, setFollowersCount] = useState(0);
+
   const profileEditSnapshot = useRef<{
     username: string;
     bio: string;
@@ -32,74 +126,205 @@ export default function Profile() {
     favoriteAlbums: (any | null)[];
   } | null>(null);
 
-  // Only entries that actually have written review text count as a "review".
-  // Items that only have a star rating (no written text) are excluded.
   const writtenReviewsCount = reviews.filter(
     (r: any) => r.review && String(r.review).trim().length > 0
   ).length;
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // Load profile data when opening the screen.
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
+
+  // Restore selected albums when returning from the album picker.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      async function checkReturn() {
+        try {
+          const flag = await AsyncStorage.getItem('returnToSettings');
+
+          if (flag !== '1' || !active) {
+            return;
+          }
+
+          const pendingData = await AsyncStorage.getItem(
+            'pendingFavoriteAlbums'
+          );
+
+          if (pendingData && active) {
+            const parsed = JSON.parse(pendingData);
+            const albums = Array.isArray(parsed) ? [...parsed] : [];
+
+            while (albums.length < 4) {
+              albums.push(null);
+            }
+
+            setDraftFavoriteAlbums(albums.slice(0, 4));
+          }
+
+          const profileData = await AsyncStorage.getItem('profile');
+          const p = profileData ? JSON.parse(profileData) : {};
+
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+
+          const authUsername =
+            user?.user_metadata?.username?.trim() ||
+            user?.email?.split('@')[0] ||
+            '';
+
+          if (active) {
+            // Supabase username takes priority over old local username.
+            setEditUsername(authUsername || p.username || '');
+            setEditBio(p.bio || '');
+            setEditAvatar(p.avatar || null);
+          }
+
+          if (active) {
+            setShowSettings(true);
+            await AsyncStorage.removeItem('returnToSettings');
+          }
+        } catch (error) {
+          console.error('Could not reopen Settings:', error);
+        }
+      }
+
+      checkReturn();
+
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   useEffect(() => {
-    if (!showSettings && pendingSlotIndex !== null) {
-      const idx = pendingSlotIndex;
-      setPendingSlotIndex(null);
-      setTimeout(() => {
-        router.push({ pathname: '/pick-album', params: { index: String(idx) } } as any);
-      }, 300);
+    if (showSettings || pendingSlotIndex === null) {
+      return;
     }
+
+    const idx = pendingSlotIndex;
+
+    const timer = setTimeout(() => {
+      router.push({
+        pathname: '/pick-album',
+        params: { index: String(idx) },
+      } as any);
+
+      setPendingSlotIndex(null);
+    }, 350);
+
+    return () => clearTimeout(timer);
   }, [pendingSlotIndex, router, showSettings]);
 
   async function loadData() {
-    // reviews
-    const reviewsData = await AsyncStorage.getItem('reviews');
-    setReviews(reviewsData ? JSON.parse(reviewsData) : []);
-
-    // profile
-    const profileData = await AsyncStorage.getItem('profile');
-    if (profileData) {
-      const p = JSON.parse(profileData);
-      setUsername(p.username || 'nia');
-      setBio(p.bio || 'music is life \u{1F3B5}');
-      setEditUsername(p.username || 'nia');
-      setEditBio(p.bio || 'music is life \u{1F3B5}');
-      if (p.avatar) { setEditAvatar(p.avatar); setAvatar(p.avatar); }
-      if (p.favoriteAlbums) setFavoriteAlbums(p.favoriteAlbums);
-    }
-
-    // following / followers â€” local first
-    const followingData = await AsyncStorage.getItem('following');
-    const followersData = await AsyncStorage.getItem('followers');
-    const followingList = followingData ? JSON.parse(followingData) : [];
-    const followersList = followersData ? JSON.parse(followersData) : [];
-    setFollowingCount(followingList.length);
-    setFollowersCount(followersList.length);
-
-    // try API
     try {
-      const myId = await getCurrentUserId();
-      if (!myId) return;
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      const p2 = profileData ? JSON.parse(profileData) : {};
-      await fetch(`${API_BASE}/users`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: myId,
-          username: p2.username || 'nia',
-          avatar: p2.avatar || null,
-          bio: p2.bio || '',
-        }),
-      });
+      if (userError) {
+        throw userError;
+      }
 
-      const res = await fetch(`${API_BASE}/follows/${myId}/counts`);
-      const counts = await res.json();
-      setFollowingCount(counts.following ?? followingList.length);
-      setFollowersCount(counts.followers ?? followersList.length);
-    } catch {
-      console.log('API sync failed, using local counts');
+      const authUsername =
+        user?.user_metadata?.username?.trim() ||
+        user?.email?.split('@')[0] ||
+        '';
+
+      // Reset the screen before loading the current account.
+      setUsername(authUsername);
+      setBio('');
+      setEditUsername(authUsername);
+      setEditBio('');
+      setAvatar(null);
+      setEditAvatar(null);
+      setFavoriteAlbums([...EMPTY_ALBUMS]);
+      setDraftFavoriteAlbums([...EMPTY_ALBUMS]);
+
+      const reviewsData = await AsyncStorage.getItem('reviews');
+      setReviews(reviewsData ? JSON.parse(reviewsData) : []);
+
+      const profileData = await AsyncStorage.getItem('profile');
+      const p = profileData ? JSON.parse(profileData) : {};
+
+      // Supabase username takes priority over old local username.
+      const finalUsername = authUsername || p.username || '';
+      const finalBio = p.bio || '';
+
+      setUsername(finalUsername);
+      setBio(finalBio);
+
+      setEditUsername(finalUsername);
+      setEditBio(finalBio);
+
+      setAvatar(p.avatar || null);
+      setEditAvatar(p.avatar || null);
+
+      const pendingAlbumsData = await AsyncStorage.getItem(
+  'pendingFavoriteAlbums'
+);
+
+const sourceAlbums = pendingAlbumsData
+  ? JSON.parse(pendingAlbumsData)
+  : p.favoriteAlbums;
+
+if (Array.isArray(sourceAlbums)) {
+  const albums = [...sourceAlbums];
+
+  while (albums.length < 4) {
+    albums.push(null);
+  }
+
+  setFavoriteAlbums(albums.slice(0, 4));
+  setDraftFavoriteAlbums(albums.slice(0, 4));
+}
+
+      const followingData = await AsyncStorage.getItem('following');
+      const followersData = await AsyncStorage.getItem('followers');
+
+      const followingList = followingData
+        ? JSON.parse(followingData)
+        : [];
+
+      const followersList = followersData
+        ? JSON.parse(followersData)
+        : [];
+
+      setFollowingCount(followingList.length);
+      setFollowersCount(followersList.length);
+
+      // Keep the existing Spotify-based backend identity.
+      try {
+        const myId = await getCurrentUserId();
+
+        if (!myId) return;
+
+        await fetch(`${API_BASE}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: myId,
+            username: finalUsername,
+            avatar: p.avatar || null,
+            bio: finalBio,
+          }),
+        });
+
+        const res = await fetch(`${API_BASE}/follows/${myId}/counts`);
+        const counts = await res.json();
+
+        setFollowingCount(counts.following ?? followingList.length);
+        setFollowersCount(counts.followers ?? followersList.length);
+      } catch {
+        console.log('API sync failed, using local counts');
+      }
+    } catch (error) {
+      console.error('Could not load profile data:', error);
     }
   }
 
@@ -110,17 +335,27 @@ export default function Profile() {
       aspect: [1, 1],
       quality: 0.8,
     });
-    if (!result.canceled) setEditAvatar(result.assets[0].uri);
+
+    if (!result.canceled) {
+      setEditAvatar(result.assets[0].uri);
+    }
   }
 
   async function shareProfile() {
     setShowShare(false);
+
     try {
       const userId = await getCurrentUserId();
-      const profileUrl = userId ? `https://open.spotify.com/user/${userId}` : undefined;
+
+      const profileUrl = userId
+        ? `https://open.spotify.com/user/${userId}`
+        : undefined;
+
       await Share.share({
         title: `${username} on Musicboxd`,
-        message: [`@${username}`, bio, profileUrl].filter(Boolean).join('\n'),
+        message: [`@${username}`, bio, profileUrl]
+          .filter(Boolean)
+          .join('\n'),
         url: profileUrl,
       });
     } catch (error) {
@@ -129,36 +364,86 @@ export default function Profile() {
   }
 
   async function saveProfile() {
-    setUsername(editUsername);
-    setBio(editBio);
-    if (editAvatar) setAvatar(editAvatar);
-    await AsyncStorage.setItem('profile', JSON.stringify({
-      username: editUsername,
-      bio: editBio,
-      avatar: editAvatar,
-      favoriteAlbums,
-    }));
-    setShowSettings(false);
+    const cleanUsername = editUsername.trim();
+
+    if (!cleanUsername) {
+      console.log('Username cannot be empty');
+      return;
+    }
 
     try {
-      const myId = await getCurrentUserId();
-      if (myId) {
-        await fetch(`${API_BASE}/users`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: myId, username: editUsername, avatar: editAvatar, bio: editBio }),
-        });
+      // Update the username in Supabase Authentication.
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: {
+          username: cleanUsername,
+        },
+      });
+
+      if (updateError) {
+        throw updateError;
       }
-    } catch (e) {
-      console.log('failed to update user on backend', e);
+
+      const savedAlbums = [...draftFavoriteAlbums];
+
+      setUsername(cleanUsername);
+      setBio(editBio);
+      setAvatar(editAvatar);
+      setFavoriteAlbums(savedAlbums);
+
+      await AsyncStorage.setItem(
+        'profile',
+        JSON.stringify({
+          username: cleanUsername,
+          bio: editBio,
+          avatar: editAvatar,
+          favoriteAlbums: savedAlbums,
+        })
+      );
+
+      await AsyncStorage.removeItem('pendingFavoriteAlbums');
+      await AsyncStorage.removeItem('returnToSettings');
+
+      setShowSettings(false);
+
+      try {
+        const myId = await getCurrentUserId();
+
+        if (myId) {
+          await fetch(`${API_BASE}/users`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: myId,
+              username: cleanUsername,
+              avatar: editAvatar,
+              bio: editBio,
+            }),
+          });
+        }
+      } catch (error) {
+        console.log('Failed to update user on backend', error);
+      }
+    } catch (error) {
+      console.error('Could not save profile:', error);
     }
   }
 
   async function cancelProfileEdit() {
     const snapshot = profileEditSnapshot.current;
+
     setShowSettings(false);
 
-    if (!snapshot) return;
+    await AsyncStorage.removeItem('pendingFavoriteAlbums');
+    await AsyncStorage.removeItem('returnToSettings');
+
+    setDraftFavoriteAlbums([...favoriteAlbums]);
+
+    if (!snapshot) {
+      setEditUsername(username);
+      setEditBio(bio);
+      setEditAvatar(avatar);
+      return;
+    }
 
     setUsername(snapshot.username);
     setBio(snapshot.bio);
@@ -166,65 +451,98 @@ export default function Profile() {
     setEditBio(snapshot.bio);
     setAvatar(snapshot.avatar);
     setEditAvatar(snapshot.avatar);
-    setFavoriteAlbums(snapshot.favoriteAlbums);
+    setFavoriteAlbums([...snapshot.favoriteAlbums]);
+    setDraftFavoriteAlbums([...snapshot.favoriteAlbums]);
+  }
 
-    const profileData = await AsyncStorage.getItem('profile');
-    const profile = profileData ? JSON.parse(profileData) : {};
-    await AsyncStorage.setItem('profile', JSON.stringify({
-      ...profile,
-      username: snapshot.username,
-      bio: snapshot.bio,
-      avatar: snapshot.avatar,
-      favoriteAlbums: snapshot.favoriteAlbums,
-    }));
+  function openProfileSettings() {
+    profileEditSnapshot.current = {
+      username,
+      bio,
+      avatar,
+      favoriteAlbums: [...favoriteAlbums],
+    };
+
+    setEditUsername(username);
+    setEditBio(bio);
+    setEditAvatar(avatar);
+    setDraftFavoriteAlbums([...favoriteAlbums]);
+    setShowSettings(true);
   }
 
   async function logOut() {
-    await clearSpotifySession();
-    router.replace('/' as any);
+    try {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) throw error;
+
+      await clearSpotifySession();
+      await AsyncStorage.removeItem('musicboxd_test_mode');
+
+      setShowSettings(false);
+      setShowShare(false);
+
+      router.replace('/auth' as any);
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   }
 
   return (
     <View style={{ flex: 1 }}>
       <ScrollView style={[styles.container, { backgroundColor }]}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.headerBtnLeft} onPress={() => {
-            profileEditSnapshot.current = {
-              username,
-              bio,
-              avatar,
-              favoriteAlbums: [...favoriteAlbums],
-            };
-            setEditUsername(username);
-            setEditBio(bio);
-            setShowSettings(true);
-          }}>
+          <TouchableOpacity
+            style={styles.headerBtnLeft}
+            onPress={openProfileSettings}
+          >
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-  <Path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="#FFFFFF" strokeWidth={1.7} />
-  <Path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z" stroke="#FFFFFF" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-</Svg>
+              <Path
+                d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
+                stroke="#FFFFFF"
+                strokeWidth={1.7}
+              />
+              <Path
+                d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"
+                stroke="#FFFFFF"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerBtnRight} onPress={() => setShowShare(true)}>
+
+          <TouchableOpacity
+            style={styles.headerBtnRight}
+            onPress={() => setShowShare(true)}
+          >
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="#FFFFFF">
-  <Circle cx={5} cy={12} r={1.7} />
-  <Circle cx={12} cy={12} r={1.7} />
-  <Circle cx={19} cy={12} r={1.7} />
-</Svg>
+              <Circle cx={5} cy={12} r={1.7} />
+              <Circle cx={12} cy={12} r={1.7} />
+              <Circle cx={19} cy={12} r={1.7} />
+            </Svg>
           </TouchableOpacity>
-          {avatar
-            ? <Image source={{ uri: avatar }} style={styles.avatar} />
-            : <View style={styles.avatar} />}
-          <Text style={styles.username}>@{username}</Text>
+
+          {avatar ? (
+            <Image source={{ uri: avatar }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatar} />
+          )}
+
+          <Text style={styles.username}>{username}</Text>
           <Text style={styles.bio}>{bio}</Text>
+
           <View style={styles.stats}>
             <View style={styles.stat}>
               <Text style={styles.statNum}>{writtenReviewsCount}</Text>
               <Text style={styles.statLabel}>Reviews</Text>
             </View>
+
             <View style={styles.stat}>
               <Text style={styles.statNum}>{followingCount}</Text>
               <Text style={styles.statLabel}>Following</Text>
             </View>
+
             <View style={styles.stat}>
               <Text style={styles.statNum}>{followersCount}</Text>
               <Text style={styles.statLabel}>Followers</Text>
@@ -232,29 +550,72 @@ export default function Profile() {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>FAVORITE ALBUMS</Text>
-        <View style={styles.slotsRow}>
-          {favoriteAlbums.map((album, i) => (
-            <View key={i} style={styles.slot}>
-              {album && <Image source={{ uri: album.cover }} style={styles.slotImage} />}
-            </View>
-          ))}
-        </View>
+        {favoriteAlbums.some((album) => album != null) && (
+          <>
+            <Text style={styles.sectionTitle}>FAVORITE ALBUMS</Text>
 
+            <View style={styles.slotsRow}>
+              {favoriteAlbums.map((album, i) => (
+                <View key={i} style={styles.slot}>
+                  {album?.cover ? (
+                    <Image
+                      source={{ uri: album.cover }}
+                      style={styles.slotImage}
+                    />
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          </>
+        )}
         {reviews.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>RECENT ACTIVITY</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingHorizontal: 20,
+                gap: 12,
+              }}
+            >
               {reviews.slice(0, 10).map((item, index) => (
                 <View key={item.id ?? index} style={styles.activityCard}>
-                  {item.albumCover
-                    ? <Image source={{ uri: item.albumCover }} style={styles.activityCover} />
-                    : <View style={[styles.activityCover, { backgroundColor: '#2a2a2a' }]} />}
-                  <View style={[styles.activityBadge, { backgroundColor: accentColor }]}>
-                    <Text style={styles.activityBadgeText}>{item.review ? '✎' : '★'}</Text>
+                  {item.albumCover ? (
+                    <Image
+                      source={{ uri: item.albumCover }}
+                      style={styles.activityCover}
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.activityCover,
+                        { backgroundColor: '#2a2a2a' },
+                      ]}
+                    />
+                  )}
+
+                  <View
+                    style={[
+                      styles.activityBadge,
+                      { backgroundColor: accentColor },
+                    ]}
+                  >
+                    <Text style={styles.activityBadgeText}>
+                      {item.review ? '✎' : '★'}
+                    </Text>
                   </View>
-                  <Text style={[styles.activityRating, { color: accentColor }]}>{'★'.repeat(Math.floor(item.rating))}</Text>
-                  <Text style={styles.activityAlbum} numberOfLines={1}>{item.albumName}</Text>
+
+                  <Text
+                    style={[styles.activityRating, { color: accentColor }]}
+                  >
+                    {'★'.repeat(Math.floor(item.rating || 0))}
+                  </Text>
+
+                  <Text style={styles.activityAlbum} numberOfLines={1}>
+                    {item.albumName}
+                  </Text>
                 </View>
               ))}
             </ScrollView>
@@ -272,7 +633,7 @@ export default function Profile() {
             { label: 'Following', route: '/following' },
             { label: 'Followers', route: '/followers' },
             { label: 'Artists', route: '/artists' },
-          ].map(item => (
+          ].map((item) => (
             <Pressable
               key={item.label}
               style={styles.menuRow}
@@ -286,96 +647,237 @@ export default function Profile() {
       </ScrollView>
 
       <Modal visible={showShare} transparent animationType="slide">
-        <Pressable style={styles.modalOverlay} onPress={() => setShowShare(false)}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowShare(false)}
+        >
           <View style={styles.bottomSheet}>
             <View style={styles.sheetHandle} />
+
             <Text style={styles.sheetTitle}>Share Profile</Text>
-            <TouchableOpacity style={styles.sheetOption} onPress={shareProfile} accessibilityRole="button">
+
+            <TouchableOpacity
+              style={styles.sheetOption}
+              onPress={shareProfile}
+            >
               <Text style={styles.sheetOptionText}>Share Profile</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.sheetOption, { marginTop: 8 }]} onPress={() => setShowShare(false)}>
-              <Text style={[styles.sheetOptionText, { color: '#888' }]}>Cancel</Text>
+
+            <TouchableOpacity
+              style={[styles.sheetOption, { marginTop: 8 }]}
+              onPress={() => setShowShare(false)}
+            >
+              <Text style={[styles.sheetOptionText, { color: '#888' }]}>
+                Cancel
+              </Text>
             </TouchableOpacity>
           </View>
         </Pressable>
       </Modal>
 
-      <Modal visible={showSettings} transparent animationType="slide" onRequestClose={cancelProfileEdit}>
+      <Modal
+        visible={showSettings}
+        transparent
+        animationType="slide"
+        onRequestClose={cancelProfileEdit}
+      >
         <View style={styles.modalOverlay}>
-          <Pressable style={{ flex: 1 }} onPress={cancelProfileEdit} />
+          <Pressable
+            style={{ flex: 1 }}
+            onPress={cancelProfileEdit}
+          />
+
           <View style={[styles.bottomSheet, { paddingBottom: 40 }]}>
             <View style={styles.sheetHandle} />
+
             <Text style={styles.sheetTitle}>Settings</Text>
+
             <View style={styles.settingsAvatarContainer}>
-              {editAvatar
-                ? <Image source={{ uri: editAvatar }} style={styles.settingsAvatar} />
-                : <View style={styles.settingsAvatar} />}
+              {editAvatar ? (
+                <Image
+                  source={{ uri: editAvatar }}
+                  style={styles.settingsAvatar}
+                />
+              ) : (
+                <View style={styles.settingsAvatar} />
+              )}
+
               <TouchableOpacity onPress={pickImage}>
-                <Text style={[styles.changePhotoText, { color: accentColor }]}>Change</Text>
+                <Text
+                  style={[
+                    styles.changePhotoText,
+                    { color: accentColor },
+                  ]}
+                >
+                  Change
+                </Text>
               </TouchableOpacity>
             </View>
+
             <Text style={styles.settingsLabel}>Username</Text>
+
             <TextInput
               style={styles.settingsInput}
               value={editUsername}
               onChangeText={setEditUsername}
               placeholderTextColor="#555"
               placeholder="username"
-              blurOnSubmit={true}
+              blurOnSubmit
               onSubmitEditing={() => Keyboard.dismiss()}
             />
+
             <Text style={styles.settingsLabel}>Bio</Text>
+
             <TextInput
               style={styles.settingsInput}
               value={editBio}
               onChangeText={setEditBio}
               placeholderTextColor="#555"
               placeholder="bio"
-              blurOnSubmit={true}
+              blurOnSubmit
               onSubmitEditing={() => Keyboard.dismiss()}
             />
+
             <Text style={styles.settingsLabel}>Favorite Albums</Text>
+
             <View style={styles.settingsSlotsRow}>
-              {favoriteAlbums.map((album, i) => (
-                <View key={i} style={{ position: 'relative', flex: 1, aspectRatio: 1 }}>
+              {draftFavoriteAlbums.map((album, i) => (
+                <View
+                  key={i}
+                  style={{
+                    position: 'relative',
+                    flex: 1,
+                    aspectRatio: 1,
+                  }}
+                >
                   <TouchableOpacity
                     style={styles.settingsSlot}
-                    onPress={() => {
+                    onPress={async () => {
                       if (!album) {
+                        await AsyncStorage.setItem(
+                          'pendingFavoriteAlbums',
+                          JSON.stringify(draftFavoriteAlbums)
+                        );
+
                         setPendingSlotIndex(i);
                         setShowSettings(false);
                       }
                     }}
                   >
-                    {album
-                      ? <Image source={{ uri: album.cover }} style={styles.settingsSlotImage} />
-                      : <Text style={styles.settingsSlotPlus}>+</Text>}
+                    {album?.cover ? (
+                      <Image
+                        source={{ uri: album.cover }}
+                        style={styles.settingsSlotImage}
+                      />
+                    ) : (
+                      <Text style={styles.settingsSlotPlus}>+</Text>
+                    )}
                   </TouchableOpacity>
+
                   {album && (
                     <TouchableOpacity
-                      style={{ position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 8, width: 16, height: 16, alignItems: 'center', justifyContent: 'center' }}
-                      onPress={() => {
-                        const updated = [...favoriteAlbums];
+                      style={{
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        backgroundColor: 'rgba(0,0,0,0.55)',
+                        borderRadius: 8,
+                        width: 16,
+                        height: 16,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      onPress={async () => {
+                        const updated = [...draftFavoriteAlbums];
                         updated[i] = null;
-                        setFavoriteAlbums(updated);
+
+                        setDraftFavoriteAlbums(updated);
+
+                        await AsyncStorage.setItem(
+                          'pendingFavoriteAlbums',
+                          JSON.stringify(updated)
+                        );
                       }}
                     >
-                      <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 9, fontWeight: '700', lineHeight: 11 }}>×</Text>
+                      <Text
+                        style={{
+                          color: 'rgba(255,255,255,0.9)',
+                          fontSize: 9,
+                          fontWeight: '700',
+                          lineHeight: 11,
+                        }}
+                      >
+                        ×
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
               ))}
             </View>
-            <TouchableOpacity style={styles.sheetOption} onPress={() => { setShowSettings(false); router.push('/customize'); }}>
+
+            <TouchableOpacity
+              style={styles.sheetOption}
+              onPress={() => {
+                setShowSettings(false);
+                router.push('/customize' as any);
+              }}
+            >
+            <TouchableOpacity
+              style={styles.sheetOption}
+              disabled={!spotifyRequest || spotifyConnecting}
+              onPress={async () => {
+                setSpotifyAuthError('');
+                setSpotifyConnecting(true);
+
+                try {
+                  await promptSpotify();
+                  setSpotifyConnecting(false);
+                } catch (error) {
+                  setSpotifyConnecting(false);
+                  setSpotifyAuthError(
+                    error instanceof Error ? error.message : 'Spotify login failed.'
+                  );
+                }
+              }}
+            >
+              <Text style={styles.sheetOptionText}>
+                {spotifyConnecting
+                  ? 'Connecting to Spotify...'
+                  : spotifyConnected
+                    ? 'Spotify Connected ✓'
+                    : 'Connect Spotify'}
+              </Text>
+            </TouchableOpacity>
+
+            {spotifyAuthError ? (
+              <Text style={{ color: '#E06B6B', fontSize: 12, marginTop: 6 }}>
+                {spotifyAuthError}
+              </Text>
+            ) : null}
               <Text style={styles.sheetOptionText}>Customize</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: accentColor }]} onPress={saveProfile}>
+
+            <TouchableOpacity
+              style={[
+                styles.saveBtn,
+                { backgroundColor: accentColor },
+              ]}
+              onPress={saveProfile}
+            >
               <Text style={styles.saveBtnText}>Save Changes</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.logoutBtn} onPress={logOut}>
+
+            <TouchableOpacity
+              style={styles.logoutBtn}
+              onPress={logOut}
+            >
               <Text style={styles.logoutBtnText}>Log Out</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.logoutBtn} onPress={cancelProfileEdit}>
+
+            <TouchableOpacity
+              style={styles.logoutBtn}
+              onPress={cancelProfileEdit}
+            >
               <Text style={styles.sheetOptionText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -387,55 +889,223 @@ export default function Profile() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { alignItems: 'center', paddingTop: 60, paddingBottom: 24, borderBottomWidth: 1, borderBottomColor: '#222' },
-  headerBtnLeft: { position: 'absolute', top: 60, left: 20 },
-  headerBtnRight: { position: 'absolute', top: 60, right: 20 },
+  header: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingBottom: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
+  },
+  headerBtnLeft: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+  },
+  headerBtnRight: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+  },
   headerBtnText: { color: '#fff', fontSize: 20 },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#333', marginBottom: 12 },
-  username: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-  bio: { color: '#888', fontSize: 14, marginTop: 4 },
-  stats: { flexDirection: 'row', marginTop: 16, gap: 40 },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#333',
+    marginBottom: 12,
+  },
+  username: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  bio: {
+    color: '#888',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  stats: {
+    flexDirection: 'row',
+    marginTop: 16,
+    gap: 40,
+  },
   stat: { alignItems: 'center' },
-  statNum: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  statNum: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
   statLabel: { color: '#888', fontSize: 12 },
-  sectionTitle: { color: '#888', fontSize: 11, fontWeight: '700', letterSpacing: 1.5, paddingHorizontal: 20, marginTop: 28, marginBottom: 12 },
-  slotsRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 8 },
-  slot: { flex: 1, aspectRatio: 1, backgroundColor: '#1e1e1e', borderRadius: 6 },
-  slotImage: { width: '100%', height: '100%', borderRadius: 6 },
-  settingsSlotsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  settingsSlot: { flex: 1, aspectRatio: 1, backgroundColor: '#2a2a2a', borderRadius: 6, borderWidth: 1, borderColor: '#444', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
-  settingsSlotImage: { width: '100%', height: '100%', borderRadius: 6 },
+  sectionTitle: {
+    color: '#888',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    paddingHorizontal: 20,
+    marginTop: 28,
+    marginBottom: 12,
+  },
+  slotsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  slot: {
+    flex: 1,
+    aspectRatio: 1,
+    backgroundColor: '#1e1e1e',
+    borderRadius: 6,
+  },
+  slotImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 6,
+  },
+  settingsSlotsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  settingsSlot: {
+    flex: 1,
+    aspectRatio: 1,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#444',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsSlotImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 6,
+  },
   settingsSlotPlus: { color: '#666', fontSize: 20 },
-  activityCard: { width: 110, alignItems: 'center' },
-  activityCover: { width: 110, height: 110, borderRadius: 8 },
-  activityBadge: { position: 'absolute', top: 6, right: 6, borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
+  activityCard: {
+    width: 110,
+    alignItems: 'center',
+  },
+  activityCover: {
+    width: 110,
+    height: 110,
+    borderRadius: 8,
+  },
+  activityBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   activityBadgeText: { fontSize: 11, color: '#000' },
   activityRating: { fontSize: 11, marginTop: 4 },
-  activityAlbum: { color: '#fff', fontSize: 11, marginTop: 2, fontWeight: '600' },
-  menu: { marginTop: 24, borderTopWidth: 1, borderTopColor: '#222' },
-  menuRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#1e1e1e' },
+  activityAlbum: {
+    color: '#fff',
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  menu: {
+    marginTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#222',
+  },
+  menuRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1e1e1e',
+  },
   menuText: { color: '#fff', fontSize: 16 },
   arrow: { color: '#555', fontSize: 20 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  bottomSheet: { backgroundColor: '#1c1c1c', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 30 },
-  sheetHandle: { width: 40, height: 4, backgroundColor: '#444', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-  sheetTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' },
-  sheetOption: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#2a2a2a' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheet: {
+    backgroundColor: '#1c1c1c',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 30,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#444',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  sheetOption: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a2a',
+  },
   sheetOptionText: { color: '#fff', fontSize: 16 },
-  settingsAvatarContainer: { alignItems: 'center', marginBottom: 16 },
-  settingsAvatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#333', marginBottom: 8 },
+  settingsAvatarContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  settingsAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#333',
+    marginBottom: 8,
+  },
   changePhotoText: { fontSize: 14 },
-  settingsLabel: { color: '#888', fontSize: 13, marginTop: 12, marginBottom: 4 },
-  settingsInput: { backgroundColor: '#2a2a2a', color: '#fff', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, marginBottom: 4 },
-  saveBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 20 },
-  saveBtnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
-  logoutBtn: { paddingVertical: 14, alignItems: 'center', marginTop: 8 },
-  logoutBtnText: { color: '#ff4444', fontSize: 16 },
+  settingsLabel: {
+    color: '#888',
+    fontSize: 13,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  settingsInput: {
+    backgroundColor: '#2a2a2a',
+    color: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    marginBottom: 4,
+  },
+  saveBtn: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  saveBtnText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  logoutBtn: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  logoutBtnText: {
+    color: '#ff4444',
+    fontSize: 16,
+  },
   stars: { fontSize: 12, marginTop: 2 },
 });
-
-
-
-
-
-

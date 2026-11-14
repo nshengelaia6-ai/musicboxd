@@ -1,4 +1,5 @@
 import { useAppTheme } from '@/context/ThemeContext';
+import { supabase } from '@/utils/supabase';
 import { getValidSpotifyToken } from '@/utils/spotify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
@@ -38,38 +39,49 @@ export default function Lists() {
   async function runSearch(query: string, type: 'album' | 'track') {
     setSearchQuery(query);
     const requestId = ++searchRequestId.current;
+
     if (!query.trim()) {
       setSearchResults([]);
       setSearchError('');
       setSearching(false);
       return;
     }
-    const token = await getValidSpotifyToken();
-    if (requestId !== searchRequestId.current) return;
-    if (!token) {
-      setSearchResults([]);
-      setSearchError('Sign in to search Spotify.');
-      return;
-    }
+
     setSearching(true);
     setSearchError('');
+
     try {
-      const res = await fetch(
-        `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=${type}&limit=15`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const { data, error } = await supabase.functions.invoke(
+        'spotify-search',
+        {
+          body: {
+            query: query.trim(),
+            type,
+          },
+        }
       );
-      if (!res.ok) throw new Error(`Search failed (${res.status})`);
-      const data = await res.json();
-      if (requestId === searchRequestId.current) {
-        setSearchResults(type === 'album' ? data.albums?.items || [] : data.tracks?.items || []);
-      }
-    } catch {
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      if (requestId !== searchRequestId.current) return;
+
+      setSearchResults(
+        type === 'album'
+          ? data.albums?.items || []
+          : data.tracks?.items || []
+      );
+    } catch (error) {
+      console.log('Lists Spotify search error:', error);
+
       if (requestId === searchRequestId.current) {
         setSearchResults([]);
-        setSearchError('Could not search Spotify. Check your connection and try again.');
+        setSearchError('Could not search music. Please try again.');
       }
     } finally {
-      if (requestId === searchRequestId.current) setSearching(false);
+      if (requestId === searchRequestId.current) {
+        setSearching(false);
+      }
     }
   }
 

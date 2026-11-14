@@ -1,6 +1,6 @@
 
 import { useAppTheme } from '@/context/ThemeContext';
-import { getValidSpotifyToken } from '@/utils/spotify';
+import { supabase } from '@/utils/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -37,45 +37,46 @@ export default function ArtistPage() {
         throw new Error('Artist ID is missing.');
       }
 
-      const token = await getValidSpotifyToken();
-
-      if (!token) {
-        throw new Error('Sign in to browse artists.');
-      }
-
-      const headers = {
-        Authorization: `Bearer ${token}`,
-      };
-
-      const [artistRes, albumsRes] = await Promise.all([
-        fetch(`https://api.spotify.com/v1/artists/${artistId}`, {
-          headers,
+      const [artistResult, albumsResult] = await Promise.all([
+        supabase.functions.invoke('spotify-search', {
+          body: {
+            action: 'artist',
+            id: artistId,
+          },
         }),
-        fetch(
-          `https://api.spotify.com/v1/artists/${artistId}/albums?limit=10&include_groups=album,single`,
-          { headers }
-        ),
+        supabase.functions.invoke('spotify-search', {
+          body: {
+            action: 'artist-albums',
+            id: artistId,
+          },
+        }),
       ]);
 
-      if (!artistRes.ok) {
-        throw new Error(
-          `Could not load artist (${artistRes.status}).`
-        );
+      if (artistResult.error) {
+        throw artistResult.error;
       }
 
-      if (!albumsRes.ok) {
-        throw new Error(
-          `Could not load artist's albums (${albumsRes.status}).`
-        );
+      if (albumsResult.error) {
+        throw albumsResult.error;
       }
 
-      const [artistData, albumsData] = await Promise.all([
-        artistRes.json(),
-        albumsRes.json(),
-      ]);
+      if (artistResult.data?.error) {
+        throw new Error(artistResult.data.error);
+      }
+
+      if (albumsResult.data?.error) {
+        throw new Error(albumsResult.data.error);
+      }
+
+      const artistData = artistResult.data;
+      const albumsData = albumsResult.data;
+
+      if (!artistData?.id) {
+        throw new Error('Artist not found.');
+      }
 
       setArtist(artistData);
-      setAlbums(albumsData.items || []);
+      setAlbums(albumsData?.items || []);
 
       const followedData = await AsyncStorage.getItem(
         'followed_artists'
@@ -91,6 +92,8 @@ export default function ArtistPage() {
         )
       );
     } catch (loadError) {
+      console.log('Artist loading error:', loadError);
+
       setError(
         loadError instanceof Error
           ? loadError.message

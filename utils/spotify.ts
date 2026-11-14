@@ -1,4 +1,3 @@
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
@@ -150,9 +149,10 @@ export function refreshSpotifyToken() {
 
 export async function getValidSpotifyToken() {
   const accessToken = await AsyncStorage.getItem('spotify_token');
+  const refreshToken = await AsyncStorage.getItem('spotify_refresh_token');
 
   if (!accessToken) {
-    return null;
+    return refreshToken ? refreshSpotifyToken() : null;
   }
 
   const expiresAt = Number(
@@ -160,10 +160,6 @@ export async function getValidSpotifyToken() {
   );
 
   if (!expiresAt) {
-    const refreshToken = await AsyncStorage.getItem(
-      'spotify_refresh_token'
-    );
-
     return refreshToken ? refreshSpotifyToken() : accessToken;
   }
 
@@ -171,13 +167,24 @@ export async function getValidSpotifyToken() {
     return accessToken;
   }
 
-  return refreshSpotifyToken();
+  return refreshToken ? refreshSpotifyToken() : null;
+}
+// On the web, use the local address while developing and the Netlify address in production.
+// Spotify only accepts the loopback IP (127.0.0.1), not "localhost".
+function getWebRedirectUri() {
+  if (typeof window !== 'undefined') {
+    const { hostname, port } = window.location;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return `http://127.0.0.1:${port || '8081'}/`;
+    }
+  }
+  return 'https://steady-lily-6b6e9e.netlify.app/';
 }
 
 export function useSpotifyAuth() {
   const redirectUri =
     Platform.OS === 'web'
-      ? 'https://steady-lily-6b6e9e.netlify.app/'
+      ? getWebRedirectUri()
       : AuthSession.makeRedirectUri({
           scheme: 'myapp',
           path: 'redirect',
@@ -206,6 +213,28 @@ export function useSpotifyAuth() {
   };
 }
 
+export async function exchangeSpotifyCode(
+  code: string,
+  codeVerifier: string,
+  redirectUri: string
+) {
+  const response = await AuthSession.exchangeCodeAsync(
+    {
+      clientId: SPOTIFY_CLIENT_ID,
+      code,
+      redirectUri,
+      extraParams: {
+        code_verifier: codeVerifier,
+      },
+    },
+    discovery
+  );
+
+  const token = await persistSpotifyTokenResponse(response);
+  notifySpotifySessionChanged();
+
+  return token;
+}
 export const getTopTracks = async (token: string) => {
   const res = await fetch(
     'https://api.spotify.com/v1/me/top/tracks?limit=20',
@@ -231,4 +260,3 @@ export const getRecentlyPlayed = async (token: string) => {
 
   return res.json();
 };
-

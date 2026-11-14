@@ -1,414 +1,1416 @@
 import { useAppTheme } from '@/context/ThemeContext';
-import { activateSpotifyAccount, getActiveSpotifyAccountId } from '@/utils/accountStorage';
-import { getCurrentSpotifyProfile, type SpotifyProfile } from '@/utils/currentUser';
-import {
-    clearSpotifySession,
-    getValidSpotifyToken,
-    notifySpotifySessionChanged,
-    persistSpotifyTokenResponse,
-    refreshSpotifyToken,
-    SPOTIFY_CLIENT_ID,
-    useSpotifyAuth
-} from '@/utils/spotify';
+import { supabase } from '@/utils/supabase';
+import { subscribeToSpotifySession } from '@/utils/spotify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createClient } from '@supabase/supabase-js';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-const supabase = createClient(
- 'https://jvxsfjxcydpdlvwrxmor.supabase.co',
- 'sb_publishable_tH6PoxGwVF9JyUvsMw0mUg_cFiFzeCm'
-);
+function getMonthKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
 
-async function saveUserToSupabase(profile: SpotifyProfile): Promise<string | null> {
-  if (!('display_name' in profile) && !('images' in profile)) {
-    return AsyncStorage.getItem('supabase_user_id');
-  }
+function getMonthLabel() {
+  return new Date().toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  });
+}
 
-  try {
-    const { data, error } = await supabase
-      .from('users')
-      .upsert({
-        spotify_id: profile.id,
-        username: profile.display_name,
-        avatar_url: profile.images?.[0]?.url,
-      }, { onConflict: 'spotify_id' })
-      .select('id')
-      .single();
-    if (error) throw error;
-    if (data?.id) {
-      await AsyncStorage.setItem('supabase_user_id', data.id);
-      return data.id;
-    }
-  } catch (error) {
-    console.log('Failed to restore Supabase user', error);
-  }
-
-  return AsyncStorage.getItem('supabase_user_id');
+function countWords(value: string) {
+  return value.trim().split(/\s+/).filter(Boolean).length;
 }
 
 export default function Home() {
- const router = useRouter();
- const { backgroundColor, accentColor } = useAppTheme();
- const { request, response, promptAsync, redirectUri } = useSpotifyAuth();
- const [token, setToken] = useState<string | null>(null);
- const [restoringSession, setRestoringSession] = useState(true);
- const [authError, setAuthError] = useState('');
- const [newReleases, setNewReleases] = useState<any[]>([]);
- const [releasesLoading, setReleasesLoading] = useState(true);
- const [releaseError, setReleaseError] = useState('');
- const [newFromFriends, setNewFromFriends] = useState<any[]>([]);
- const [popularWithFriends, setPopularWithFriends] = useState<any[]>([]);
- const [currentUserId, setCurrentUserId] = useState<string | null>(null);
- const [friendFeedLoading, setFriendFeedLoading] = useState(true);
- const [friendFeedError, setFriendFeedError] = useState('');
- const currentYear = new Date().getFullYear();
+  const router = useRouter();
+  const { backgroundColor, accentColor } = useAppTheme();
 
- useFocusEffect(
-   useCallback(() => {
-     let active = true;
+  const [displayName, setDisplayName] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
 
-     async function restoreSession() {
-       setRestoringSession(true);
-       let lastValidToken: string | null = null;
-       try {
-         const storedToken = await AsyncStorage.getItem('spotify_token');
-         if (!storedToken) {
-           if (active) {
-             setToken(null);
-             setCurrentUserId(null);
-           }
-           return;
-         }
+  const [newFromFriends, setNewFromFriends] = useState<any[]>([]);
+  const [popularWithFriends, setPopularWithFriends] = useState<any[]>([]);
+  const [friendFeedLoading, setFriendFeedLoading] = useState(true);
+  const [friendFeedError, setFriendFeedError] = useState('');
 
-         const validToken = await getValidSpotifyToken();
-         lastValidToken = validToken;
-         if (!validToken) {
-           if (active) {
-             setToken(null);
-             setCurrentUserId(null);
-           }
-           return;
-         }
+  // Monthly Favs
+  const [monthlyFavs, setMonthlyFavs] = useState<any[]>([]);
+  const [friendsMonthlyFavs, setFriendsMonthlyFavs] = useState<any[]>([]);
+  const [friendsMonthlyLoading, setFriendsMonthlyLoading] = useState(true);
+  const [friendsMonthlyError, setFriendsMonthlyError] = useState('');
 
-         const profile = await getCurrentSpotifyProfile();
-         if (!profile) {
-           if (active) setToken(validToken);
-           return;
-         }
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [detailVisible, setDetailVisible] = useState(false);
+  const [activeFavIndex, setActiveFavIndex] = useState(0);
 
-         await activateSpotifyAccount(profile.id, profile.id);
-         await AsyncStorage.setItem('spotify_user_id', profile.id);
-         const userId = await saveUserToSupabase(profile);
-         const refreshedToken = await getValidSpotifyToken();
+  // Spotify song search
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchingTracks, setSearchingTracks] = useState(false);
+  const [selectedTrack, setSelectedTrack] = useState<any>(null);
+  const [comment, setComment] = useState('');
+  const [savingFavorite, setSavingFavorite] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [sessionVersion, setSessionVersion] = useState(0);
 
-         if (active) {
-           setToken(refreshedToken || validToken);
-           setCurrentUserId(userId);
-         }
-       } catch (error) {
-         console.log('Failed to restore Spotify session', error);
-         if (active && lastValidToken) setToken(lastValidToken);
-       } finally {
-         if (active) setRestoringSession(false);
-       }
-     }
+  // Re-load everything when the Spotify account changes (new login / switch).
+  useEffect(() => {
+    return subscribeToSpotifySession(() => {
+      setSessionVersion((v) => v + 1);
+    });
+  }, []);
 
-     restoreSession();
-     return () => {
-       active = false;
-     };
-   }, [])
- );
+  // Load own favorites, profile and authenticated user
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
 
- const exchangeToken = useCallback(async (code: string, verifier: string) => {
-   setAuthError('');
-   try {
-     const previousUserId = await getActiveSpotifyAccountId()
-       || await AsyncStorage.getItem('spotify_user_id');
-     const res = await fetch('https://accounts.spotify.com/api/token', {
-       method: 'POST',
-       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-       body: new URLSearchParams({
-         grant_type: 'authorization_code',
-         code,
-         redirect_uri: redirectUri,
-         client_id: SPOTIFY_CLIENT_ID,
-         code_verifier: verifier,
-       }).toString(),
-     });
-     if (!res.ok) throw new Error(`Spotify token exchange failed: ${res.status}`);
+      async function loadData() {
+        try {
+          const [rawFavorite, profileRaw, userId] = await Promise.all([
+            AsyncStorage.getItem(`monthly_fav_${getMonthKey()}`),
+            AsyncStorage.getItem('profile'),
+            AsyncStorage.getItem('supabase_user_id'),
+          ]);
 
-     const data = await res.json();
-     const profile = await getCurrentSpotifyProfile(data.access_token);
-     if (!profile) throw new Error('Unable to verify Spotify account');
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
 
-     await clearSpotifySession();
-     await activateSpotifyAccount(profile.id, previousUserId || undefined);
-     await persistSpotifyTokenResponse(data);
-     await AsyncStorage.setItem('spotify_user_id', profile.id);
-     await AsyncStorage.setItem('spotify_token_owner_id', profile.id);
+          if (!active) return;
 
-     const userId = await saveUserToSupabase(profile);
-     setToken(data.access_token);
-     setCurrentUserId(userId);
-     setRestoringSession(false);
-     notifySpotifySessionChanged();
-   } catch (error) {
-     console.log('Spotify sign-in failed', error);
-     setAuthError('Spotify sign-in failed. Please try again.');
-     setRestoringSession(false);
-   }
- }, [redirectUri]);
+          if (rawFavorite) {
+            const parsed = JSON.parse(rawFavorite);
 
- useEffect(() => {
-   if (response?.type === 'success') {
-     setRestoringSession(true);
-     setAuthError('');
-     const { code } = response.params;
-     const verifier = request?.codeVerifier;
-     if (verifier) exchangeToken(code, verifier);
-   } else if (response?.type === 'error') {
-     setAuthError(response.error?.message || 'Spotify sign-in was not completed.');
-   }
- }, [exchangeToken, request, response]);
+            const favorites = Array.isArray(parsed)
+              ? parsed
+              : parsed
+                ? [parsed]
+                : [];
 
- const logout = useCallback(async () => {
-   await clearSpotifySession();
-   setToken(null);
-   setNewReleases([]);
-   setNewFromFriends([]);
-   setPopularWithFriends([]);
-   setCurrentUserId(null);
- }, []);
+            setMonthlyFavs(favorites.slice(0, 3));
+          } else {
+            setMonthlyFavs([]);
+          }
 
- useEffect(() => {
-   let active = true;
-   async function loadReleases() {
-     if (!token) {
-       setReleasesLoading(false);
-       return;
-     }
-     setReleasesLoading(true);
-     setReleaseError('');
-     try {
-       let accessToken = await getValidSpotifyToken();
-       if (!accessToken) {
-         if (!(await AsyncStorage.getItem('spotify_token'))) await logout();
-         throw new Error('Spotify session could not be refreshed.');
-       }
-       let response = await fetch(`https://api.spotify.com/v1/search?q=year:${currentYear}&type=album&limit=10`, {
-         headers: { Authorization: `Bearer ${accessToken}` },
-       });
-       if (response.status === 401) {
-         accessToken = await refreshSpotifyToken() || '';
-         if (!accessToken) {
-           if (!(await AsyncStorage.getItem('spotify_token'))) await logout();
-           throw new Error('Spotify session expired.');
-         }
-         response = await fetch(`https://api.spotify.com/v1/search?q=year:${currentYear}&type=album&limit=10`, {
-           headers: { Authorization: `Bearer ${accessToken}` },
-         });
-       }
-       if (!response.ok) throw new Error(`Spotify releases failed (${response.status})`);
-       const data = await response.json();
-       if (active) setNewReleases(data.albums?.items || []);
-     } catch {
-       if (active) setReleaseError('Could not load new releases. Check your connection and try again.');
-     } finally {
-       if (active) setReleasesLoading(false);
-     }
-   }
-   loadReleases();
-   return () => { active = false; };
- }, [currentYear, logout, token]);
+          setCurrentUserId(userId);
+          setAuthUserId(user?.id || null);
 
- const loadFriendsActivity = useCallback(async (userId: string) => {
-   setFriendFeedLoading(true);
-   setFriendFeedError('');
-   try {
-     const { data: friendships, error: friendshipsError } = await supabase
-       .from('friendships')
-       .select('friend_id')
-       .eq('user_id', userId);
-     if (friendshipsError) throw friendshipsError;
+          if (profileRaw) {
+            const profile = JSON.parse(profileRaw);
+            setDisplayName(profile.username || '');
+          } else if (user?.user_metadata?.username) {
+            setDisplayName(user.user_metadata.username);
+          } else {
+            setDisplayName('');
+          }
 
-     if (!friendships?.length) {
-       setNewFromFriends([]);
-       setPopularWithFriends([]);
-       return;
-     }
-     const friendIds = friendships.map(f => f.friend_id);
+          await loadPublicMonthlyFavs(user?.id || null);
+        } catch (error) {
+          console.log('Failed to load Monthly Favs data', error);
+        }
+      }
 
-     const { data: recentRatings, error: recentError } = await supabase
-       .from('ratings')
-       .select('*, users(username, avatar_url)')
-       .in('user_id', friendIds)
-       .order('created_at', { ascending: false })
-       .limit(10);
-     if (recentError) throw recentError;
-     setNewFromFriends(recentRatings || []);
+      loadData();
 
-     const { data: allRatings, error: ratingsError } = await supabase
-       .from('ratings')
-       .select('item_id, item_name, artist_name, cover_url, rating')
-       .in('user_id', friendIds);
-     if (ratingsError) throw ratingsError;
+      return () => {
+        active = false;
+      };
+    }, [sessionVersion])
+  );
 
-     const counts: Record<string, any> = {};
-     (allRatings || []).forEach(rating => {
-       if (!counts[rating.item_id]) counts[rating.item_id] = { ...rating, count: 0 };
-       counts[rating.item_id].count++;
-     });
-     setPopularWithFriends(Object.values(counts).sort((a: any, b: any) => b.count - a.count).slice(0, 10));
-   } catch (error) {
-     console.log('Friends feed failed', error);
-     setNewFromFriends([]);
-     setPopularWithFriends([]);
-     setFriendFeedError('Friends activity is temporarily unavailable.');
-   } finally {
-     setFriendFeedLoading(false);
-   }
- }, []);
+  // Load public Monthly Favs from everyone
+  const loadPublicMonthlyFavs = useCallback(async (userId: string | null) => {
+    setFriendsMonthlyLoading(true);
+    setFriendsMonthlyError('');
 
- useEffect(() => {
-   if (currentUserId) {
-     loadFriendsActivity(currentUserId);
-   } else {
-     setFriendFeedLoading(false);
-   }
- }, [currentUserId, loadFriendsActivity]);
+    try {
+      let query = supabase
+        .from('monthly_favorites')
+        .select(
+          'id,user_id,username,month_key,slot_index,track_id,track_name,artist_name,cover_url,spotify_url,comment,picked_at'
+        )
+        .eq('month_key', getMonthKey())
+        .order('picked_at', { ascending: false });
 
- if (restoringSession) {
-   return (
-     <View style={[styles.loginContainer, { backgroundColor }]}>
-       <ActivityIndicator color={accentColor} />
-     </View>
-   );
- }
+      // The section shows other users' favorites, not your own.
+      if (userId) {
+        query = query.neq('user_id', userId);
+      }
 
- if (!token) {
-   return (
-     <View style={[styles.loginContainer, { backgroundColor }]}>
-       <Text style={styles.title}>🎵 MusicBoxd</Text>
-       {!!authError && <Text accessibilityRole="alert" style={styles.authError}>{authError}</Text>}
-       <TouchableOpacity style={[styles.loginBtn, { backgroundColor: accentColor }]} onPress={() => { setAuthError(''); promptAsync(); }} accessibilityRole="button" accessibilityLabel="Sign in with Spotify">
-         <Text style={styles.loginText}>Spotify-ით შესვლა</Text>
-       </TouchableOpacity>
-     </View>
-   );
- }
+      const { data, error } = await query;
 
- return (
-  <ScrollView style={[styles.container, { backgroundColor }]} contentContainerStyle={styles.content}>
-     <View style={styles.header}>
-       <Text style={styles.pageTitle}>For You</Text>
-       
-     </View>
+      if (error) throw error;
 
-     <Text style={styles.heading}>New Releases</Text>
-     {releasesLoading ? (
-       <ActivityIndicator color={accentColor} style={styles.sectionLoading} />
-     ) : releaseError ? (
-       <Text accessibilityRole="alert" style={styles.sectionError}>{releaseError}</Text>
-     ) : newReleases.length === 0 ? (
-       <Text style={styles.sectionEmpty}>No new releases found right now.</Text>
-     ) : <FlatList
-       horizontal
-       data={newReleases}
-       keyExtractor={(i) => i.id}
-       showsHorizontalScrollIndicator={false}
-       renderItem={({ item }) => (
-         <TouchableOpacity style={styles.card} onPress={() => router.push(`/album/${item.id}` as any)}>
-           <Image source={{ uri: item.images?.[0]?.url }} style={styles.cover} />
-           <Text style={styles.trackName} numberOfLines={1}>{item.name}</Text>
-           <Text style={styles.artistName} numberOfLines={1}>{item.artists?.[0]?.name}</Text>
-         </TouchableOpacity>
-       )}
-     />}
+      setFriendsMonthlyFavs(data || []);
+    } catch (error) {
+      console.log('Public Monthly Favs failed:', error);
+      setFriendsMonthlyFavs([]);
+      setFriendsMonthlyError(
+        'Monthly favorites are temporarily unavailable.'
+      );
+    } finally {
+      setFriendsMonthlyLoading(false);
+    }
+  }, []);
 
-     <Text style={styles.heading}>New from Friends</Text>
-     {friendFeedLoading ? (
-       <ActivityIndicator color={accentColor} style={styles.sectionLoading} />
-     ) : friendFeedError ? (
-       <Text accessibilityRole="alert" style={styles.sectionError}>{friendFeedError}</Text>
-     ) : newFromFriends.length === 0 ? (
-       <View style={styles.emptySection}>
-         <Text style={styles.emptyText}>Your friends’ music activity will appear here.</Text>
-         <TouchableOpacity onPress={() => router.push('/find-people' as any)} accessibilityRole="button">
-           <Text style={[styles.discoverLink, { color: accentColor }]}>Find people</Text>
-         </TouchableOpacity>
-       </View>
-     ) : (
-       <FlatList
-         horizontal
-         data={newFromFriends}
-         keyExtractor={(i) => i.id}
-         showsHorizontalScrollIndicator={false}
-         renderItem={({ item }) => (
-           <View style={styles.card}>
-             <Image source={{ uri: item.cover_url }} style={styles.cover} />
-             <Text style={styles.trackName} numberOfLines={1}>{item.item_name}</Text>
-             <Text style={styles.artistName} numberOfLines={1}>{item.artist_name}</Text>
-             <Text style={styles.ratingText}>⭐ {item.rating}</Text>
-             <Text style={styles.friendName}>{item.users?.username}</Text>
-           </View>
-         )}
-       />
-     )}
+  // Load friends activity
+  const loadFriendsActivity = useCallback(async (userId: string) => {
+    setFriendFeedLoading(true);
+    setFriendFeedError('');
 
-     <Text style={styles.heading}>Popular with Friends</Text>
-     {friendFeedLoading ? (
-       <ActivityIndicator color={accentColor} style={styles.sectionLoading} />
-     ) : friendFeedError ? (
-       <Text accessibilityRole="alert" style={styles.sectionError}>{friendFeedError}</Text>
-     ) : popularWithFriends.length === 0 ? (
-       <View style={styles.emptySection}>
-         <Text style={styles.emptyText}>Popular picks from friends will appear here.</Text>
-       </View>
-     ) : (
-       <FlatList
-         horizontal
-         data={popularWithFriends}
-         keyExtractor={(item: any) => item.item_id}
-         showsHorizontalScrollIndicator={false}
-         renderItem={({ item }: any) => (
-           <View style={styles.card}>
-             <Image source={{ uri: item.cover_url }} style={styles.cover} />
-             <Text style={styles.trackName} numberOfLines={1}>{item.item_name}</Text>
-             <Text style={styles.artistName} numberOfLines={1}>{item.artist_name}</Text>
-             <Text style={styles.ratingText}>👥 {item.count}</Text>
-           </View>
-         )}
-       />
-     )}
-   </ScrollView>
- );
+    try {
+      const { data: friendships, error: friendshipsError } = await supabase
+        .from('friendships')
+        .select('friend_id')
+        .eq('user_id', userId);
+
+      if (friendshipsError) throw friendshipsError;
+
+      if (!friendships?.length) {
+        setNewFromFriends([]);
+        setPopularWithFriends([]);
+        return;
+      }
+
+      const friendIds = friendships.map((friend) => friend.friend_id);
+
+      const { data: recentRatings, error: recentError } = await supabase
+        .from('ratings')
+        .select('*, users(username, avatar_url)')
+        .in('user_id', friendIds)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (recentError) throw recentError;
+
+      setNewFromFriends(recentRatings || []);
+
+      const { data: allRatings, error: ratingsError } = await supabase
+        .from('ratings')
+        .select('item_id, item_name, artist_name, cover_url, rating')
+        .in('user_id', friendIds);
+
+      if (ratingsError) throw ratingsError;
+
+      const counts: Record<string, any> = {};
+
+      (allRatings || []).forEach((rating) => {
+        if (!counts[rating.item_id]) {
+          counts[rating.item_id] = {
+            ...rating,
+            count: 0,
+          };
+        }
+
+        counts[rating.item_id].count++;
+      });
+
+      setPopularWithFriends(
+        Object.values(counts)
+          .sort((a: any, b: any) => b.count - a.count)
+          .slice(0, 10)
+      );
+    } catch (error) {
+      console.log('Friends feed failed', error);
+      setNewFromFriends([]);
+      setPopularWithFriends([]);
+      setFriendFeedError('Friends activity is temporarily unavailable.');
+    } finally {
+      setFriendFeedLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (currentUserId) {
+      loadFriendsActivity(currentUserId);
+    } else {
+      setFriendFeedLoading(false);
+    }
+  }, [currentUserId, loadFriendsActivity]);
+
+  // Spotify track search
+  useEffect(() => {
+    if (
+      !pickerVisible ||
+      selectedTrack ||
+      searchQuery.trim().length < 2
+    ) {
+      setSearchResults([]);
+      setSearchingTracks(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const timer = setTimeout(async () => {
+      setSearchingTracks(true);
+      setFormError('');
+
+      try {
+        const { data, error } = await supabase.functions.invoke(
+          'spotify-search',
+          {
+            body: {
+              action: 'search',
+              query: searchQuery.trim(),
+              type: 'track',
+            },
+          }
+        );
+
+        if (error) throw error;
+
+        if (!cancelled) {
+          setSearchResults(data?.tracks?.items ?? []);
+        }
+      } catch (error) {
+        console.log('Spotify track search failed:', error);
+
+        if (!cancelled) {
+          setSearchResults([]);
+          setFormError('Search failed. Please try again.');
+        }
+      } finally {
+        if (!cancelled) {
+          setSearchingTracks(false);
+        }
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery, pickerVisible, selectedTrack]);
+
+  function openPicker(index: number) {
+    setActiveFavIndex(index);
+    setSearchQuery('');
+    setSearchResults([]);
+    setSelectedTrack(null);
+    setComment('');
+    setFormError('');
+    setPickerVisible(true);
+  }
+
+  function closePicker() {
+    setPickerVisible(false);
+    setFormError('');
+    setSelectedTrack(null);
+  }
+
+  // Save selected song locally and, if logged in, publicly
+  async function saveFavorite() {
+    if (!selectedTrack) {
+      setFormError('Please select a song first.');
+      return;
+    }
+
+    const favorite = {
+      id: selectedTrack.id,
+      name: selectedTrack.name,
+      artist:
+        selectedTrack.artists
+          ?.map((artist: any) => artist.name)
+          .join(', ') || 'Unknown artist',
+      cover: selectedTrack.album?.images?.[0]?.url || '',
+      spotifyUrl: selectedTrack.external_urls?.spotify || '',
+      comment: comment.trim(),
+      pickedAt: new Date().toISOString(),
+    };
+
+    setSavingFavorite(true);
+    setFormError('');
+
+    try {
+      const updatedFavorites = [...monthlyFavs];
+      updatedFavorites[activeFavIndex] = favorite;
+
+      // Keep the three positions stable.
+      const finalFavorites = updatedFavorites.slice(0, 3);
+
+      await AsyncStorage.setItem(
+        `monthly_fav_${getMonthKey()}`,
+        JSON.stringify(finalFavorites)
+      );
+
+      setMonthlyFavs(finalFavorites);
+
+      // Public sync requires a real authenticated Supabase account.
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) throw userError;
+
+      if (user) {
+        const username =
+          displayName ||
+          user.user_metadata?.username ||
+          'Music lover';
+
+        const { error: saveError } = await supabase
+          .from('monthly_favorites')
+          .upsert(
+            {
+              user_id: user.id,
+              username,
+              month_key: getMonthKey(),
+              slot_index: activeFavIndex,
+              track_id: favorite.id,
+              track_name: favorite.name,
+              artist_name: favorite.artist,
+              cover_url: favorite.cover,
+              spotify_url: favorite.spotifyUrl,
+              comment: favorite.comment,
+              picked_at: favorite.pickedAt,
+            },
+            {
+              onConflict: 'user_id,month_key,slot_index',
+            }
+          );
+
+        if (saveError) {
+          console.log('Public favorite sync failed:', saveError);
+          setFormError(
+            'Saved on this device, but could not publish. Please try again after signing in.'
+          );
+          return;
+        }
+
+        setAuthUserId(user.id);
+        await loadPublicMonthlyFavs(user.id);
+      }
+
+      setPickerVisible(false);
+      setSelectedTrack(null);
+      setSearchQuery('');
+      setSearchResults([]);
+      setComment('');
+    } catch (error) {
+      console.log('Failed to save monthly favorite', error);
+      setFormError('Could not save your favorite. Please try again.');
+    } finally {
+      setSavingFavorite(false);
+    }
+  }
+
+  function changeFavorite() {
+    setDetailVisible(false);
+    openPicker(activeFavIndex);
+  }
+
+  async function removeFavorite() {
+    try {
+      const updatedFavorites = [...monthlyFavs];
+      updatedFavorites[activeFavIndex] = null;
+
+      await AsyncStorage.setItem(
+        `monthly_fav_${getMonthKey()}`,
+        JSON.stringify(updatedFavorites)
+      );
+
+      setMonthlyFavs(updatedFavorites);
+      setDetailVisible(false);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const { error } = await supabase
+          .from('monthly_favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('month_key', getMonthKey())
+          .eq('slot_index', activeFavIndex);
+
+        if (error) {
+          console.log('Could not delete public favorite:', error);
+        } else {
+          await loadPublicMonthlyFavs(user.id);
+        }
+      }
+    } catch (error) {
+      console.log('Failed to remove favorite', error);
+    }
+  }
+
+  const activeFavorite = monthlyFavs[activeFavIndex];
+
+  return (
+    <>
+      <ScrollView
+        style={[styles.container, { backgroundColor }]}
+        contentContainerStyle={styles.content}
+      >
+        <View style={styles.header}>
+          <Text style={styles.pageTitle}>For You</Text>
+        </View>
+
+        {/* MY MONTHLY FAVS */}
+        <View style={styles.headingRow}>
+          <Text style={styles.headingInline}>Monthly Favs</Text>
+          <Text style={styles.monthLabel}>{getMonthLabel()}</Text>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.favoritesRow}
+        >
+          {[0, 1, 2].map((index) => {
+            const favorite = monthlyFavs[index];
+
+            return (
+              <View key={index} style={styles.favItem}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    if (favorite) {
+                      setActiveFavIndex(index);
+                      setDetailVisible(true);
+                    } else {
+                      openPicker(index);
+                    }
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    favorite
+                      ? `Open monthly favorite ${index + 1}`
+                      : `Add monthly favorite ${index + 1}`
+                  }
+                >
+                  {favorite?.cover ? (
+                    <Image
+                      source={{ uri: favorite.cover }}
+                      style={styles.favCover}
+                    />
+                  ) : favorite ? (
+                    <View style={[styles.favCover, styles.noCover]}>
+                      <Text style={styles.noCoverText}>♫</Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.favCover, styles.favPlus]}>
+                      <Text style={styles.favPlusText}>+</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                {favorite ? (
+                  <>
+                    <Text style={styles.favUser} numberOfLines={1}>
+                      {displayName || 'You'}
+                    </Text>
+
+                    <Text style={styles.favSongName} numberOfLines={1}>
+                      {favorite.name}
+                    </Text>
+
+                    {!!favorite.comment && (
+                      <Text style={styles.monthlyComment} numberOfLines={2}>
+                        {favorite.comment}
+                      </Text>
+                    )}
+                  </>
+                ) : (
+                  <Text style={styles.addSongLabel}>Add song</Text>
+                )}
+              </View>
+            );
+          })}
+        </ScrollView>
+
+        {/* FRIENDS' MONTHLY FAVS */}
+        <View style={styles.headingRow}>
+          <Text style={styles.headingInline}>Friends’ Monthly Favs</Text>
+          <Text style={styles.monthLabel}>{getMonthLabel()}</Text>
+        </View>
+
+        {friendsMonthlyLoading ? (
+          <ActivityIndicator
+            color={accentColor}
+            style={styles.sectionLoading}
+          />
+        ) : friendsMonthlyError ? (
+          <Text style={styles.sectionError}>
+            {friendsMonthlyError}
+          </Text>
+        ) : friendsMonthlyFavs.length === 0 ? (
+          <View style={styles.emptySection}>
+            <Text style={styles.emptyText}>
+              Other users’ monthly favorites will appear here.
+            </Text>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.favoritesRow}
+          >
+            {friendsMonthlyFavs.map((favorite) => (
+              <View key={favorite.id} style={styles.favItem}>
+                {favorite.cover_url ? (
+                  <Image
+                    source={{ uri: favorite.cover_url }}
+                    style={styles.favCover}
+                  />
+                ) : (
+                  <View style={[styles.favCover, styles.noCover]}>
+                    <Text style={styles.noCoverText}>♫</Text>
+                  </View>
+                )}
+
+                <Text style={styles.favUser} numberOfLines={1}>
+                  {favorite.username || 'Music lover'}
+                </Text>
+
+                <Text style={styles.favSongName} numberOfLines={1}>
+                  {favorite.track_name}
+                </Text>
+
+                <Text style={styles.favSongName} numberOfLines={1}>
+                  {favorite.artist_name}
+                </Text>
+
+                {!!favorite.comment && (
+                  <Text style={styles.monthlyComment} numberOfLines={2}>
+                    {favorite.comment}
+                  </Text>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* NEW FROM FRIENDS */}
+        <Text style={styles.heading}>New from Friends</Text>
+
+        {friendFeedLoading ? (
+          <ActivityIndicator
+            color={accentColor}
+            style={styles.sectionLoading}
+          />
+        ) : friendFeedError ? (
+          <Text style={styles.sectionError}>
+            {friendFeedError}
+          </Text>
+        ) : newFromFriends.length === 0 ? (
+          <View style={styles.emptySection}>
+            <Text style={styles.emptyText}>
+              Your friends’ music activity will appear here.
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => router.push('/find-people' as any)}
+              accessibilityRole="button"
+            >
+              <Text
+                style={[
+                  styles.discoverLink,
+                  { color: accentColor },
+                ]}
+              >
+                Find people
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <FlatList
+            horizontal
+            data={newFromFriends}
+            keyExtractor={(item) => item.id}
+            showsHorizontalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                {item.cover_url ? (
+                  <Image
+                    source={{ uri: item.cover_url }}
+                    style={styles.cover}
+                  />
+                ) : (
+                  <View style={[styles.cover, styles.noCover]}>
+                    <Text style={styles.noCoverText}>♫</Text>
+                  </View>
+                )}
+
+                <Text style={styles.trackName} numberOfLines={1}>
+                  {item.item_name}
+                </Text>
+
+                <Text style={styles.artistName} numberOfLines={1}>
+                  {item.artist_name}
+                </Text>
+
+                <Text style={styles.ratingText}>
+                  ⭐ {item.rating}
+                </Text>
+
+                <Text style={styles.friendName}>
+                  {item.users?.username}
+                </Text>
+              </View>
+            )}
+          />
+        )}
+
+        {/* POPULAR WITH FRIENDS */}
+        <Text style={styles.heading}>Popular with Friends</Text>
+
+        {friendFeedLoading ? (
+          <ActivityIndicator
+            color={accentColor}
+            style={styles.sectionLoading}
+          />
+        ) : friendFeedError ? (
+          <Text style={styles.sectionError}>
+            {friendFeedError}
+          </Text>
+        ) : popularWithFriends.length === 0 ? (
+          <View style={styles.emptySection}>
+            <Text style={styles.emptyText}>
+              Popular picks from friends will appear here.
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            horizontal
+            data={popularWithFriends}
+            keyExtractor={(item: any) => item.item_id}
+            showsHorizontalScrollIndicator={false}
+            renderItem={({ item }: any) => (
+              <View style={styles.card}>
+                {item.cover_url ? (
+                  <Image
+                    source={{ uri: item.cover_url }}
+                    style={styles.cover}
+                  />
+                ) : (
+                  <View style={[styles.cover, styles.noCover]}>
+                    <Text style={styles.noCoverText}>♫</Text>
+                  </View>
+                )}
+
+                <Text style={styles.trackName} numberOfLines={1}>
+                  {item.item_name}
+                </Text>
+
+                <Text style={styles.artistName} numberOfLines={1}>
+                  {item.artist_name}
+                </Text>
+
+                <Text style={styles.ratingText}>
+                  👥 {item.count}
+                </Text>
+              </View>
+            )}
+          />
+        )}
+      </ScrollView>
+
+      {/* MONTHLY FAVORITE PICKER */}
+      <Modal
+        visible={pickerVisible}
+        animationType="slide"
+        onRequestClose={closePicker}
+      >
+        <View style={[styles.pickerScreen, { backgroundColor }]}>
+          <View style={styles.pickerHeader}>
+            <TouchableOpacity
+              onPress={closePicker}
+              style={styles.pickerSide}
+            >
+              <Text style={styles.pickerCancel}>Cancel</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.pickerTitle}>
+              Monthly favorite {activeFavIndex + 1}/3
+            </Text>
+
+            <View style={styles.pickerSide} />
+          </View>
+
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.formContent}
+          >
+            <TextInput
+              style={styles.pickerInput}
+              placeholder="Search songs..."
+              placeholderTextColor="#777"
+              value={searchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                setSelectedTrack(null);
+                setFormError('');
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            {searchingTracks && (
+              <ActivityIndicator
+                color={accentColor}
+                style={{ marginVertical: 20 }}
+              />
+            )}
+
+            {!selectedTrack &&
+              searchQuery.trim().length >= 2 &&
+              !searchingTracks &&
+              searchResults.length === 0 &&
+              !formError && (
+                <Text style={styles.statusText}>
+                  No songs found.
+                </Text>
+              )}
+
+            {!!formError && (
+              <Text style={styles.formError}>
+                {formError}
+              </Text>
+            )}
+
+            {!selectedTrack &&
+              searchResults.map((track) => (
+                <TouchableOpacity
+                  key={track.id}
+                  style={styles.searchResult}
+                  onPress={() => {
+                    setSelectedTrack(track);
+                    setSearchResults([]);
+                    setFormError('');
+                  }}
+                >
+                  {track.album?.images?.[0]?.url ? (
+                    <Image
+                      source={{
+                        uri: track.album.images[0].url,
+                      }}
+                      style={styles.searchCover}
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.searchCover,
+                        styles.noCover,
+                      ]}
+                    >
+                      <Text style={styles.noCoverText}>♫</Text>
+                    </View>
+                  )}
+
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={styles.searchSongName}
+                      numberOfLines={1}
+                    >
+                      {track.name}
+                    </Text>
+
+                    <Text
+                      style={styles.searchArtistName}
+                      numberOfLines={1}
+                    >
+                      {track.artists
+                        ?.map((artist: any) => artist.name)
+                        .join(', ')}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.addTrackButton}>+</Text>
+                </TouchableOpacity>
+              ))}
+
+            {selectedTrack && (
+              <>
+                <Text style={styles.fieldLabel}>
+                  Selected song
+                </Text>
+
+                <View style={styles.selectedTrack}>
+                  {selectedTrack.album?.images?.[0]?.url ? (
+                    <Image
+                      source={{
+                        uri: selectedTrack.album.images[0].url,
+                      }}
+                      style={styles.searchCover}
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.searchCover,
+                        styles.noCover,
+                      ]}
+                    >
+                      <Text style={styles.noCoverText}>♫</Text>
+                    </View>
+                  )}
+
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={styles.searchSongName}
+                      numberOfLines={1}
+                    >
+                      {selectedTrack.name}
+                    </Text>
+
+                    <Text
+                      style={styles.searchArtistName}
+                      numberOfLines={1}
+                    >
+                      {selectedTrack.artists
+                        ?.map((artist: any) => artist.name)
+                        .join(', ')}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedTrack(null);
+                      setSearchQuery('');
+                      setComment('');
+                      setFormError('');
+                    }}
+                  >
+                    <Text style={styles.changeTrackText}>
+                      Change
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.fieldLabel}>
+                  Your comment
+                </Text>
+
+                <TextInput
+                  style={styles.commentInput}
+                  placeholder="Describe this song in 7 words..."
+                  placeholderTextColor="#777"
+                  value={comment}
+                  onChangeText={(text) => {
+                    if (countWords(text) <= 7) {
+                      setComment(text);
+                    }
+                  }}
+                  multiline
+                  maxLength={150}
+                  textAlignVertical="top"
+                />
+
+                <Text
+                  style={[
+                    styles.characterCount,
+                    countWords(comment) === 7 && {
+                      color: accentColor,
+                    },
+                  ]}
+                >
+                  {countWords(comment)}/7 words
+                </Text>
+              </>
+            )}
+
+            {!!formError && selectedTrack && (
+              <Text style={styles.formError}>
+                {formError}
+              </Text>
+            )}
+
+            {selectedTrack && (
+              <TouchableOpacity
+                style={[
+                  styles.saveButton,
+                  { backgroundColor: accentColor },
+                  savingFavorite && styles.disabledButton,
+                ]}
+                onPress={saveFavorite}
+                disabled={savingFavorite}
+                accessibilityRole="button"
+              >
+                {savingFavorite ? (
+                  <ActivityIndicator color="#000" />
+                ) : (
+                  <Text style={styles.saveButtonText}>
+                    Save Favorite
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* FAVORITE DETAILS */}
+      <Modal
+        visible={detailVisible && !!activeFavorite}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDetailVisible(false)}
+      >
+        <Pressable
+          style={styles.overlay}
+          onPress={() => setDetailVisible(false)}
+        />
+
+        <View style={styles.sheet}>
+          {activeFavorite && (
+            <>
+              {activeFavorite.cover ? (
+                <Image
+                  source={{ uri: activeFavorite.cover }}
+                  style={styles.sheetCover}
+                />
+              ) : (
+                <View style={[styles.sheetCover, styles.noCover]}>
+                  <Text style={styles.noCoverText}>♫</Text>
+                </View>
+              )}
+
+              <Text style={styles.sheetTitle} numberOfLines={2}>
+                {activeFavorite.name}
+              </Text>
+
+              <Text style={styles.sheetArtist} numberOfLines={1}>
+                {activeFavorite.artist}
+              </Text>
+
+              {!!activeFavorite.comment && (
+                <View style={styles.commentDisplay}>
+                  <Text style={styles.commentDisplayLabel}>
+                    YOUR COMMENT
+                  </Text>
+
+                  <Text style={styles.commentDisplayText}>
+                    {activeFavorite.comment}
+                  </Text>
+                </View>
+              )}
+
+              {!!activeFavorite.spotifyUrl && (
+                <TouchableOpacity
+                  style={styles.spotifyLink}
+                  onPress={() => {
+                    router.push({
+                      pathname: '/modal' as any,
+                      params: { url: activeFavorite.spotifyUrl },
+                    });
+                  }}
+                >
+                  <Text style={styles.spotifyLinkText}>
+                    Spotify
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.sheetBtn}
+                onPress={changeFavorite}
+              >
+                <Text style={styles.sheetBtnText}>
+                  Change favorite
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.removeButton}
+                onPress={removeFavorite}
+              >
+                <Text style={styles.removeButtonText}>
+                  Remove favorite
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </Modal>
+    </>
+  );
 }
 
 const styles = StyleSheet.create({
- container: { flex: 1, paddingTop: 60, width: '100%', maxWidth: 1000, alignSelf: 'center' },
- content: { paddingBottom: 32 },
- loginContainer: { flex: 1, backgroundColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center' },
- title: { color: 'white', fontSize: 32, fontWeight: 'bold', marginBottom: 40 },
- loginBtn: { backgroundColor: '#1DB954', paddingHorizontal: 40, paddingVertical: 14, borderRadius: 30 },
- loginText: { color: 'black', fontSize: 16 },
- header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8 },
- pageTitle: { color: 'white', fontSize: 24, fontWeight: 'bold' },
- logoutText: { color: '#888', fontSize: 14 },
- heading: { color: 'white', fontSize: 20, fontWeight: 'bold', margin: 16, marginBottom: 8 },
- card: { width: 140, marginLeft: 16, marginBottom: 8 },
- cover: { width: 140, height: 140, borderRadius: 8 },
- trackName: { color: 'white', marginTop: 6, fontSize: 13, fontWeight: '600' },
- artistName: { color: '#888', fontSize: 12 },
- ratingText: { color: '#1DB954', fontSize: 12, marginTop: 2 },
- friendName: { color: '#555', fontSize: 11 },
- emptySection: { marginHorizontal: 16, marginBottom: 16, padding: 20, backgroundColor: '#1a1a1a', borderRadius: 8 },
- emptyText: { color: '#555', fontSize: 14, textAlign: 'center' },
- authError: { color: '#ff8b8b', fontSize: 14, marginBottom: 18, paddingHorizontal: 24, textAlign: 'center' },
- sectionLoading: { marginVertical: 18 },
- sectionError: { color: '#ff8b8b', marginHorizontal: 16, marginVertical: 12 },
- sectionEmpty: { color: '#888', marginHorizontal: 16, marginBottom: 18 },
- discoverLink: { marginTop: 12, textAlign: 'center', fontWeight: '700' },
+  container: {
+    flex: 1,
+    paddingTop: 60,
+    width: '100%',
+    maxWidth: 1000,
+    alignSelf: 'center',
+  },
+  content: {
+    paddingBottom: 32,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  pageTitle: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  heading: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+    margin: 16,
+    marginBottom: 8,
+  },
+  headingRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  headingInline: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  monthLabel: {
+    color: '#888',
+    fontSize: 13,
+  },
+  favoritesRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 12,
+    marginBottom: 8,
+  },
+  favItem: {
+    width: 140,
+    marginBottom: 8,
+  },
+  favCover: {
+    width: 140,
+    height: 140,
+    borderRadius: 9,
+    backgroundColor: '#1a1a1a',
+  },
+  favPlus: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(29,185,84,0.12)',
+    borderWidth: 1.5,
+    borderColor: '#1DB954',
+  },
+  favPlusText: {
+    color: '#1DB954',
+    fontSize: 42,
+    fontWeight: '300',
+  },
+  favUser: {
+    color: 'white',
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  favSongName: {
+    color: '#aaa',
+    fontSize: 11,
+    marginTop: 3,
+  },
+  addSongLabel: {
+    color: '#777',
+    fontSize: 12,
+    marginTop: 7,
+    textAlign: 'center',
+  },
+  monthlyComment: {
+    color: '#aaa',
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  noCover: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#242424',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  noCoverText: {
+    color: '#888',
+    fontSize: 42,
+  },
+  card: {
+    width: 140,
+    marginLeft: 16,
+    marginBottom: 8,
+  },
+  cover: {
+    width: 140,
+    height: 140,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+  },
+  trackName: {
+    color: 'white',
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  artistName: {
+    color: '#888',
+    fontSize: 12,
+  },
+  ratingText: {
+    color: '#1DB954',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  friendName: {
+    color: '#555',
+    fontSize: 11,
+  },
+  emptySection: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 20,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+  },
+  emptyText: {
+    color: '#777',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  sectionLoading: {
+    marginVertical: 18,
+  },
+  sectionError: {
+    color: '#ff8b8b',
+    marginHorizontal: 16,
+    marginVertical: 12,
+  },
+  discoverLink: {
+    marginTop: 12,
+    textAlign: 'center',
+    fontWeight: '700',
+  },
+  pickerScreen: {
+    flex: 1,
+    paddingTop: 60,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 24,
+  },
+  pickerSide: {
+    width: 70,
+  },
+  pickerCancel: {
+    color: '#aaa',
+    fontSize: 16,
+  },
+  pickerTitle: {
+    color: 'white',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
+  formContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+  },
+  pickerInput: {
+    backgroundColor: '#2a2a2a',
+    color: 'white',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+    fontSize: 15,
+  },
+  statusText: {
+    color: '#888',
+    fontSize: 14,
+    textAlign: 'center',
+    marginVertical: 20,
+  },
+  searchResult: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#292929',
+  },
+  searchCover: {
+    width: 54,
+    height: 54,
+    borderRadius: 6,
+    backgroundColor: '#242424',
+  },
+  searchSongName: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  searchArtistName: {
+    color: '#888',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  addTrackButton: {
+    color: '#1DB954',
+    fontSize: 26,
+    paddingHorizontal: 8,
+  },
+  selectedTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#202020',
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  changeTrackText: {
+    color: '#1DB954',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  fieldLabel: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  commentInput: {
+    minHeight: 90,
+    backgroundColor: '#2a2a2a',
+    color: 'white',
+    borderRadius: 10,
+    padding: 14,
+    fontSize: 15,
+    marginBottom: 4,
+  },
+  characterCount: {
+    color: '#777',
+    fontSize: 11,
+    textAlign: 'right',
+  },
+  formError: {
+    color: '#ff8b8b',
+    fontSize: 13,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  saveButton: {
+    borderRadius: 24,
+    paddingVertical: 15,
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  sheet: {
+    backgroundColor: '#1c1c1e',
+    padding: 24,
+    paddingBottom: 36,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    alignItems: 'center',
+  },
+  sheetCover: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 16,
+    backgroundColor: '#242424',
+  },
+  sheetTitle: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  sheetArtist: {
+    color: '#888',
+    fontSize: 15,
+    marginTop: 4,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  commentDisplay: {
+    alignSelf: 'stretch',
+    backgroundColor: '#252525',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
+  },
+  commentDisplayLabel: {
+    color: '#888',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  commentDisplayText: {
+    color: 'white',
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  spotifyLink: {
+    marginBottom: 14,
+  },
+  spotifyLinkText: {
+    color: '#1DB954',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  sheetBtn: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 24,
+    paddingVertical: 13,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  sheetBtnText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  removeButton: {
+    paddingVertical: 12,
+  },
+  removeButtonText: {
+    color: '#ff7777',
+    fontSize: 14,
+  },
 });

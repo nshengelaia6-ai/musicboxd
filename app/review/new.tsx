@@ -1,7 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Image, PanResponder, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+const STAR_SIZE = 36;
+const STAR_GAP = 6;
+const STAR_SLOT = STAR_SIZE + STAR_GAP;
+const STARS_WIDTH = STAR_SIZE * 5 + STAR_GAP * 4;
+
+// Converts a finger position (px from the left edge of the stars) into a rating in 0.5 steps.
+function ratingFromX(x: number) {
+  const clamped = Math.max(0, Math.min(x, STARS_WIDTH));
+  const value = Math.ceil((clamped / STAR_SLOT) * 2) / 2;
+  return Math.max(0.5, Math.min(5, value));
+}
 
 export default function ReviewPage() {
   const { albumName, albumArtist, albumCover, albumId, currentRating, itemType, parentAlbumId } = useLocalSearchParams();
@@ -11,9 +23,29 @@ export default function ReviewPage() {
   const [loaded, setLoaded] = useState(false);
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-  const starWidth = 36;
   const resolvedType = (itemType as string) || 'album';
   const resolvedParentAlbumId = (parentAlbumId as string) || (albumId as string);
+
+  // A review can be saved with a rating, with text, or with both.
+  const hasReviewText = review.trim().length > 0;
+  const canSave = rating > 0 || hasReviewText;
+
+  // Touch + drag across the stars changes the rating.
+  const startX = useRef(0);
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: (evt) => {
+        startX.current = evt.nativeEvent.locationX;
+        setRating(ratingFromX(startX.current));
+      },
+      onPanResponderMove: (_evt, gesture) => {
+        setRating(ratingFromX(startX.current + gesture.dx));
+      },
+    })
+  ).current;
 
   useEffect(() => {
     async function loadExisting() {
@@ -34,35 +66,31 @@ export default function ReviewPage() {
 
   function renderStars() {
     return (
-      <View style={styles.starsRow}>
-        {[1, 2, 3, 4, 5].map((s) => {
-          const filled = rating >= s;
-          const half = !filled && rating >= s - 0.5;
-          return (
-            <View key={s} style={{ width: starWidth, height: starWidth }}>
-              <Text style={styles.starEmpty}>★</Text>
-              {(filled || half) && (
-                <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', width: filled ? starWidth : starWidth / 2 }]}>
-                  <Text style={styles.starFilled}>★</Text>
-                </View>
-              )}
-              <Pressable
-                style={[StyleSheet.absoluteFillObject, { left: 0, width: starWidth / 2 }]}
-                onPress={() => setRating(s - 0.5)}
-              />
-              <Pressable
-                style={[StyleSheet.absoluteFillObject, { left: starWidth / 2, width: starWidth / 2 }]}
-                onPress={() => setRating(s)}
-              />
-            </View>
-          );
-        })}
+      <View style={{ width: STARS_WIDTH, height: STAR_SIZE }}>
+        <View style={styles.starsRow}>
+          {[1, 2, 3, 4, 5].map((s) => {
+            const filled = rating >= s;
+            const half = !filled && rating >= s - 0.5;
+            return (
+              <View key={s} style={{ width: STAR_SIZE, height: STAR_SIZE }}>
+                <Text style={styles.starEmpty}>★</Text>
+                {(filled || half) && (
+                  <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', width: filled ? STAR_SIZE : STAR_SIZE / 2 }]}>
+                    <Text style={styles.starFilled}>★</Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+        {/* Invisible layer on top that catches taps and finger swipes */}
+        <View style={StyleSheet.absoluteFillObject} {...panResponder.panHandlers} />
       </View>
     );
   }
 
   async function handleSave() {
-    if (rating === 0) return;
+    if (!canSave) return;
 
     const userId = await AsyncStorage.getItem('user_id');
 
@@ -76,7 +104,6 @@ export default function ReviewPage() {
           ...reviews[existingIndex],
           rating,
           review,
-          date: new Date().toISOString(),
           itemType: resolvedType,
           parentAlbumId: resolvedParentAlbumId,
         };
@@ -102,7 +129,8 @@ export default function ReviewPage() {
       const listenedIndex = listenedList.findIndex((i: any) => i.id === albumId);
 
       if (listenedIndex !== -1) {
-        listenedList[listenedIndex].rating = rating;
+        // Do not wipe an existing rating when saving a text-only review.
+        if (rating > 0) listenedList[listenedIndex].rating = rating;
         listenedList[listenedIndex].type = resolvedType;
         if (resolvedType === 'track') {
           listenedList[listenedIndex].albumId = resolvedParentAlbumId;
@@ -120,6 +148,9 @@ export default function ReviewPage() {
       }
       await AsyncStorage.setItem('listened', JSON.stringify(listenedList));
 
+      // The album page reads this to show the "Review saved" toast.
+      await AsyncStorage.setItem('review_saved_notification', JSON.stringify({ time: Date.now() }));
+
       router.back();
     } catch (e) {
       console.error('შენახვა ვერ მოხერხდა', e);
@@ -135,8 +166,8 @@ export default function ReviewPage() {
         <Text style={styles.title}>
           {loaded && rating > 0 ? 'Edit Review' : 'I Listened...'}
         </Text>
-        <TouchableOpacity onPress={handleSave}>
-          <Text style={[styles.save, rating === 0 && { opacity: 0.4 }]}>Save</Text>
+        <TouchableOpacity onPress={handleSave} disabled={!canSave}>
+          <Text style={[styles.save, !canSave && { opacity: 0.4 }]}>Save</Text>
         </TouchableOpacity>
       </View>
 
@@ -185,7 +216,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#4a6080' },
   label: { color: '#ccc', fontSize: 16 },
   date: { color: '#fff', fontSize: 15 },
-  starsRow: { flexDirection: 'row', gap: 6 },
+  starsRow: { flexDirection: 'row', gap: STAR_GAP },
   starEmpty: { fontSize: 32, color: '#555' },
   starFilled: { fontSize: 32, color: '#ffb6c1' },
   reviewInput: { color: '#fff', fontSize: 15, padding: 16, minHeight: 200, textAlignVertical: 'top' },
