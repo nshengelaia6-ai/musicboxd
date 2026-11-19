@@ -595,7 +595,16 @@ export default function Home() {
         contentContainerStyle={styles.content}
       >
         <View style={styles.header}>
-          <Text style={styles.pageTitle}>For You</Text>
+          <Text style={styles.pageTitle}>Musicboxd</Text>
+        </View>
+        <View style={styles.homeNav}>
+          <Text style={[styles.homeNavText, styles.homeNavActive]}>Songs</Text>
+          <TouchableOpacity onPress={() => router.push('/friends-reviews' as any)}>
+            <Text style={styles.homeNavText}>Reviews</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/friends-lists' as any)}>
+            <Text style={styles.homeNavText}>Lists</Text>
+          </TouchableOpacity>
         </View>
 
         {/* MY MONTHLY FAVS */}
@@ -1208,8 +1217,28 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 27,
+    fontWeight: '800',
+    letterSpacing: -0.7,
+  },
+  homeNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    marginBottom: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: '#292929',
+  },
+  homeNavText: {
+    color: '#888',
+    fontSize: 15,
+    fontWeight: '700',
+    paddingVertical: 8,
+  },
+  homeNavActive: {
+    color: '#fff',
   },
   heading: {
     color: 'white',
