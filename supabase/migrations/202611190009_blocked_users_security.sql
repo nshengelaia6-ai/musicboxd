@@ -6,6 +6,16 @@ create table if not exists public.blocked_users (
   constraint blocked_users_not_self check (blocker_id <> blocked_id)
 );
 
+-- Remove malformed/self and duplicate legacy rows before adding strict constraints.
+delete from public.blocked_users
+where blocker_id = blocked_id;
+
+delete from public.blocked_users older
+using public.blocked_users newer
+where older.blocker_id = newer.blocker_id
+  and older.blocked_id = newer.blocked_id
+  and older.ctid > newer.ctid;
+
 create unique index if not exists blocked_users_blocker_blocked_uidx
   on public.blocked_users (blocker_id, blocked_id);
 create index if not exists blocked_users_blocked_blocker_idx
