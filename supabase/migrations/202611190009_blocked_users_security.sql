@@ -13,6 +13,35 @@ create index if not exists blocked_users_blocked_blocker_idx
 
 alter table public.blocked_users enable row level security;
 
+-- Remove any legacy permissive policies before installing the strict policy set.
+do $
+declare
+  existing_policy record;
+begin
+  for existing_policy in
+    select policyname
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'blocked_users'
+  loop
+    execute format('drop policy %I on public.blocked_users', existing_policy.policyname);
+  end loop;
+end;
+$;
+
+do $
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.blocked_users'::regclass
+      and conname = 'blocked_users_not_self'
+  ) then
+    alter table public.blocked_users
+      add constraint blocked_users_not_self check (blocker_id <> blocked_id);
+  end if;
+end;
+$;
+
 drop policy if exists "Users can view blocks involving themselves" on public.blocked_users;
 create policy "Users can view blocks involving themselves"
   on public.blocked_users for select to authenticated
