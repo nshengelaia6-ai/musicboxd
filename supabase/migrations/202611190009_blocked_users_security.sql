@@ -24,7 +24,7 @@ create index if not exists blocked_users_blocked_blocker_idx
 alter table public.blocked_users enable row level security;
 
 -- Remove any legacy permissive policies before installing the strict policy set.
-do $
+do $block$
 declare
   existing_policy record;
 begin
@@ -37,7 +37,7 @@ begin
     execute format('drop policy %I on public.blocked_users', existing_policy.policyname);
   end loop;
 end;
-$;
+$block$;
 
 do $
 begin
@@ -50,7 +50,7 @@ begin
       add constraint blocked_users_not_self check (blocker_id <> blocked_id);
   end if;
 end;
-$;
+$block$;
 
 drop policy if exists "Users can view blocks involving themselves" on public.blocked_users;
 drop policy if exists "Users can view their own blocks" on public.blocked_users;
