@@ -46,7 +46,6 @@ export default function AlbumPage() {
   const [albumReviews, setAlbumReviews] = useState<any[]>([]);
   const [albumReviewPeople, setAlbumReviewPeople] = useState<Record<string, any>>({});
   const [albumReviewCount, setAlbumReviewCount] = useState(0);
-  const [albumAverageRating, setAlbumAverageRating] = useState(0);
   const [trackReviews, setTrackReviews] = useState<any[]>([]);
   const [trackReviewPeople, setTrackReviewPeople] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
@@ -178,25 +177,14 @@ export default function AlbumPage() {
       }
 
       try {
-        const [{ data: recentReviews, error: recentReviewsError, count: totalReviews }, { data: ratingRows, error: ratingRowsError }] = await Promise.all([
-          supabase.from('music_reviews')
-            .select('id,user_id,rating,review_text,created_at,updated_at', { count: 'exact' })
-            .eq('item_type', 'album')
-            .eq('item_id', String(data.id))
-            .order('updated_at', { ascending: false })
-            .limit(3),
-          supabase.from('music_reviews')
-            .select('rating')
-            .eq('item_type', 'album')
-            .eq('item_id', String(data.id)),
-        ]);
+        const { data: recentReviews, error: recentReviewsError, count: totalReviews } = await supabase.from('music_reviews')
+          .select('id,user_id,rating,review_text,created_at,updated_at', { count: 'exact' })
+          .eq('item_type', 'album')
+          .eq('item_id', String(data.id))
+          .order('updated_at', { ascending: false })
+          .limit(3);
         if (recentReviewsError) throw recentReviewsError;
-        if (ratingRowsError) throw ratingRowsError;
-        const ratedReviews = (ratingRows || []).filter((row: any) => Number(row.rating) > 0);
         setAlbumReviewCount(totalReviews || 0);
-        setAlbumAverageRating(ratedReviews.length
-          ? ratedReviews.reduce((sum: number, row: any) => sum + Number(row.rating), 0) / ratedReviews.length
-          : 0);
         const reviewerIds = [...new Set((recentReviews || []).map((review: any) => review.user_id))];
         const { data: reviewerProfiles, error: reviewerProfilesError } = reviewerIds.length
           ? await supabase.from('users').select('id,username,avatar_url').in('id', reviewerIds)
@@ -211,7 +199,6 @@ export default function AlbumPage() {
         setAlbumReviews([]);
         setAlbumReviewPeople({});
         setAlbumReviewCount(0);
-        setAlbumAverageRating(0);
       }
 
       const listenedData = await AsyncStorage.getItem('listened');
@@ -562,46 +549,6 @@ export default function AlbumPage() {
         )}
 
         {album && (
-          <View style={styles.reviewsSection}>
-            <View style={styles.sectionHeader}>
-              <View>
-                <Text style={styles.sectionTitle}>Reviews</Text>
-                <Text style={styles.sectionSub}>What people are saying about this album</Text>
-              </View>
-              <TouchableOpacity onPress={() => openReviews('album', album.id, album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', album.id)}>
-                <Text style={[styles.seeAll, { color: accentColor }]}>See all ›</Text>
-              </TouchableOpacity>
-            </View>
-            {albumReviews.length === 0 ? (
-              <View style={styles.emptyReviews}>
-                <Text style={styles.emptyTitle}>No reviews yet</Text>
-                <Text style={styles.emptyText}>Be the first to write about this album.</Text>
-                <TouchableOpacity onPress={() => router.push({ pathname: '/review/new', params: {
-                  albumId: album.id, albumName: album.name, albumArtist: album.artists?.[0]?.name,
-                  albumCover: album.images?.[0]?.url, itemType: 'album', parentAlbumId: album.id,
-                } } as any)}>
-                  <Text style={[styles.emptyLink, { color: accentColor }]}>Write the first review ›</Text>
-                </TouchableOpacity>
-              </View>
-            ) : albumReviews.map((review: any) => {
-              const person = albumReviewPeople[review.user_id];
-              return (
-                <TouchableOpacity key={review.id} style={styles.reviewCard} onPress={() => openReviews('album', album.id, album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', album.id)}>
-                  <View style={styles.reviewerRow}>
-                    {person?.avatar_url ? <Image source={{ uri: person.avatar_url }} style={styles.avatar} /> : <View style={styles.avatarPlaceholder}><Text style={styles.avatarLetter}>{(person?.username || 'L').slice(0, 1).toUpperCase()}</Text></View>}
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.username}>@{person?.username || 'listener'}</Text>
-                      <Text style={styles.date}>{new Date(review.updated_at || review.created_at).toLocaleDateString()}</Text>
-                    </View>
-                  </View>
-                  {!!review.review_text && <Text style={styles.reviewText} numberOfLines={4}>{review.review_text}</Text>}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-
-        {album && (
           <View style={styles.tracklistHeader}>
             <Text style={styles.sectionTitle}>Tracklist</Text>
             <Text style={styles.sectionSub}>{album.total_tracks} tracks</Text>
@@ -658,6 +605,48 @@ export default function AlbumPage() {
             );
           })}
         </View>
+
+        {album && (
+          <View style={styles.reviewsSection}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>Reviews</Text>
+                <Text style={styles.sectionSub}>{albumReviewCount} reviews</Text>
+              </View>
+              <TouchableOpacity onPress={() => openReviews('album', album.id, album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', album.id)}>
+                <Text style={[styles.seeAll, { color: accentColor }]}>See all ›</Text>
+              </TouchableOpacity>
+            </View>
+            {albumReviews.length === 0 ? (
+              <View style={styles.emptyReviews}>
+                <Text style={styles.emptyTitle}>No reviews yet</Text>
+                <Text style={styles.emptyText}>Be the first to write about this album.</Text>
+                <TouchableOpacity onPress={() => router.push({ pathname: '/review/new', params: {
+                  albumId: album.id, albumName: album.name, albumArtist: album.artists?.[0]?.name,
+                  albumCover: album.images?.[0]?.url, itemType: 'album', parentAlbumId: album.id,
+                } } as any)}>
+                  <Text style={[styles.emptyLink, { color: accentColor }]}>Write the first review ›</Text>
+                </TouchableOpacity>
+              </View>
+            ) : albumReviews.map((review: any) => {
+              const person = albumReviewPeople[review.user_id];
+              return (
+                <TouchableOpacity key={review.id} style={styles.reviewCard} onPress={() => openReviews('album', album.id, album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', album.id)}>
+                  <View style={styles.reviewerRow}>
+                    {person?.avatar_url ? <Image source={{ uri: person.avatar_url }} style={styles.avatar} /> : <View style={styles.avatarPlaceholder}><Text style={styles.avatarLetter}>{(person?.username || 'L').slice(0, 1).toUpperCase()}</Text></View>}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.username}>@{person?.username || 'listener'}</Text>
+                      <Text style={styles.date}>{new Date(review.updated_at || review.created_at).toLocaleDateString()}</Text>
+                    </View>
+                  </View>
+                  {!!review.review_text && <Text style={styles.reviewText} numberOfLines={4}>{review.review_text}</Text>}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+
       </ScrollView>
 
       {showReviewSaved && (
