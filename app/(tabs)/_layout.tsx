@@ -2,6 +2,7 @@
 import { activateSpotifyAccount } from '@/utils/accountStorage';
 import { supabase } from '@/utils/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Redirect, Tabs } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
@@ -19,6 +20,8 @@ export default function TabLayout() {
 
     async function initialize() {
       try {
+        // Remove the legacy development-only bypass flag; it is never honored.
+        await AsyncStorage.removeItem('musicboxd_test_mode');
         const sessionResult = await supabase.auth.getSession();
         const session = sessionResult.data.session;
 
@@ -53,6 +56,7 @@ export default function TabLayout() {
               if (active) setLoggedIn(false);
             });
         } else {
+          void AsyncStorage.removeItem('supabase_user_id');
           if (active) setLoggedIn(false);
         }
       }
