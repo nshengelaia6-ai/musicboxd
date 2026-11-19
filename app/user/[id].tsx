@@ -314,13 +314,6 @@ return (
       {/* PROFILE HEADER */}
 
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerBtnLeft}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.back}>‹</Text>
-        </TouchableOpacity>
-
         {profile.avatar_url ? (
           <Image
             source={{ uri: profile.avatar_url }}
