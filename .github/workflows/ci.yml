@@ -1,0 +1,46 @@
+name: Musicboxd CI
+
+on:
+  push:
+    branches:
+      - feature/musicboxd-top-navigation
+  pull_request:
+    branches:
+      - feature/musicboxd-top-navigation
+  workflow_dispatch:
+
+jobs:
+  app-checks:
+    name: Expo, TypeScript and ESLint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: ESLint
+        run: npm run lint
+      - name: Expo Doctor
+        run: npx expo-doctor
+
+  edge-functions:
+    name: Supabase Edge Function type checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Check Shared service
+        run: deno check supabase/functions/swift-service/index.ts
+      - name: Check account deletion service
+        run: deno check --config supabase/functions/delete-account/deno.json supabase/functions/delete-account/index.ts
