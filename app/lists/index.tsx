@@ -59,6 +59,10 @@ export default function Lists() {
           } else {
             const localRaw = await AsyncStorage.getItem('lists');
             const localLists = localRaw ? JSON.parse(localRaw) : [];
+            if (!authData.user) {
+              if (active) setLists(Array.isArray(localLists) ? localLists : []);
+              return;
+            }
             const { data: cloudRows, error: cloudError } = await supabase
               .from('music_lists').select('id').order('updated_at', { ascending: false });
             if (cloudError) throw cloudError;
