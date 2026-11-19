@@ -1,6 +1,7 @@
 
 import { useAppTheme } from '@/context/ThemeContext';
 import { shareMusicItem } from '@/utils/sharing';
+import { recordActivity } from '@/utils/activity';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/utils/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -566,6 +567,15 @@ export default function Search() {
           'liked',
           JSON.stringify(liked)
         );
+
+        await recordActivity('liked', String(selected.id), {
+          id: String(selected.id),
+          name: selected.name,
+          artist: selected.artists?.map((artist: any) => artist.name).join(', ') || '',
+          cover: selected.album?.images?.[0]?.url,
+          albumId: selected.album?.id || null,
+          type: 'track',
+        });
       }
 
       setFeedback('Added to Liked Songs.');
