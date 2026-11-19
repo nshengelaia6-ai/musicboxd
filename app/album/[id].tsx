@@ -45,6 +45,8 @@ export default function AlbumPage() {
   const [tracks, setTracks] = useState<any[]>([]);
   const [albumReviews, setAlbumReviews] = useState<any[]>([]);
   const [albumReviewPeople, setAlbumReviewPeople] = useState<Record<string, any>>({});
+  const [albumReviewCount, setAlbumReviewCount] = useState(0);
+  const [albumAverageRating, setAlbumAverageRating] = useState(0);
   const [trackReviews, setTrackReviews] = useState<any[]>([]);
   const [trackReviewPeople, setTrackReviewPeople] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
@@ -161,14 +163,25 @@ export default function AlbumPage() {
       setTracks(data.tracks?.items || []);
 
       try {
-        const { data: recentReviews, error: recentReviewsError } = await supabase
-          .from('music_reviews')
-          .select('id,user_id,rating,review_text,created_at,updated_at')
-          .eq('item_type', 'album')
-          .eq('item_id', String(data.id))
-          .order('updated_at', { ascending: false })
-          .limit(3);
+        const [{ data: recentReviews, error: recentReviewsError, count: totalReviews }, { data: ratingRows, error: ratingRowsError }] = await Promise.all([
+          supabase.from('music_reviews')
+            .select('id,user_id,rating,review_text,created_at,updated_at', { count: 'exact' })
+            .eq('item_type', 'album')
+            .eq('item_id', String(data.id))
+            .order('updated_at', { ascending: false })
+            .limit(3),
+          supabase.from('music_reviews')
+            .select('rating')
+            .eq('item_type', 'album')
+            .eq('item_id', String(data.id)),
+        ]);
         if (recentReviewsError) throw recentReviewsError;
+        if (ratingRowsError) throw ratingRowsError;
+        const ratedReviews = (ratingRows || []).filter((row: any) => Number(row.rating) > 0);
+        setAlbumReviewCount(totalReviews || 0);
+        setAlbumAverageRating(ratedReviews.length
+          ? ratedReviews.reduce((sum: number, row: any) => sum + Number(row.rating), 0) / ratedReviews.length
+          : 0);
         const reviewerIds = [...new Set((recentReviews || []).map((review: any) => review.user_id))];
         const { data: reviewerProfiles, error: reviewerProfilesError } = reviewerIds.length
           ? await supabase.from('users').select('id,username,avatar_url').in('id', reviewerIds)
@@ -182,6 +195,8 @@ export default function AlbumPage() {
         console.warn('Could not load album reviews:', reviewLoadError);
         setAlbumReviews([]);
         setAlbumReviewPeople({});
+        setAlbumReviewCount(0);
+        setAlbumAverageRating(0);
       }
 
       const listenedData = await AsyncStorage.getItem('listened');
@@ -435,6 +450,33 @@ export default function AlbumPage() {
     }
   }
 
+  async function toggleAlbumCollection(kind: 'liked' | 'listened' | 'wantToListen') {
+    if (!album) return;
+    const key = kind;
+    const stored = await AsyncStorage.getItem(key);
+    const items = stored ? JSON.parse(stored) : [];
+    const exists = items.some((item: any) => String(item.id) === String(album.id) && (item.type || 'album') === 'album');
+    const next = !exists;
+    const item = {
+      id: String(album.id),
+      name: album.name,
+      artist: album.artists?.map((artist: any) => artist.name).join(', ') || '',
+      cover: album.images?.[0]?.url || '',
+      type: 'album',
+      date: new Date().toISOString(),
+    };
+    const updated = next
+      ? [item, ...items]
+      : items.filter((entry: any) => !(String(entry.id) === String(album.id) && (entry.type || 'album') === 'album'));
+    await AsyncStorage.setItem(key, JSON.stringify(updated));
+    if (kind === 'liked') setLiked(next);
+    if (kind === 'listened') setListened(next);
+    if (kind === 'wantToListen') setWantToListen(next);
+    if (next) {
+      await recordActivity(kind === 'liked' ? 'liked' : kind === 'listened' ? 'listened' : 'wants_to_listen', String(album.id), item);
+    }
+  }
+
   async function updateTrackRating(newRating: number) {
     setTrackRating(newRating);
     setTrackListened(true);
@@ -499,66 +541,123 @@ export default function AlbumPage() {
         contentContainerStyle={{ paddingBottom: 60 }}
       >
         {album && (
-          <View
-            style={styles.header}
-            onLayout={e => {
-              headerHeight.current = e.nativeEvent.layout.height;
-            }}
-          >
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backBtn}
+          <>
+            <View style={styles.topBar}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.topBarSide}>
+                <Text style={styles.backText}>{BACK}</Text>
+              </TouchableOpacity>
+              <Text style={styles.topBarTitle}>MUSICBOXD</Text>
+              <TouchableOpacity
+                onPress={() => { setSelectedTrack(null); setMenuVisible(true); }}
+                style={styles.topBarSide}
+              >
+                <Text style={styles.dots}>{DOTS}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View
+              style={styles.hero}
+              onLayout={e => { headerHeight.current = e.nativeEvent.layout.height; }}
             >
-              <Text style={styles.backText}>{BACK}</Text>
-            </TouchableOpacity>
+              {album.images?.[0]?.url ? (
+                <Image source={{ uri: album.images[0].url }} style={styles.cover} />
+              ) : (
+                <View style={[styles.cover, styles.coverPlaceholder]} />
+              )}
+              <View style={styles.heroInfo}>
+                <Text style={styles.typeLabel}>{String(album.album_type || 'ALBUM').toUpperCase()}</Text>
+                <Text style={styles.albumName}>{album.name}</Text>
+                <Text style={styles.artistName}>{album.artists?.map((artist: any) => artist.name).join(', ')}</Text>
+                <Text style={styles.meta}>
+                  {album.release_date?.slice(0, 4)}  ·  {album.total_tracks} tracks
+                </Text>
+              </View>
+            </View>
 
-            {album.images?.[0]?.url ? (
-              <Image
-                source={{ uri: album.images[0].url }}
-                style={styles.cover}
-              />
-            ) : (
-              <View style={[styles.cover, styles.coverPlaceholder]} />
-            )}
+            <View style={styles.ratingPanel}>
+              <Text style={styles.ratingNumber}>{albumAverageRating ? albumAverageRating.toFixed(1) : '—'}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.ratingTitle}>COMMUNITY RATING</Text>
+                <Text style={styles.ratingSub}>{albumReviewCount ? 'Average listener rating' : 'No ratings yet'}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => openReviews('album', album.id, album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', album.id)}
+                style={styles.reviewCount}
+              >
+                <Text style={styles.reviewCountNumber}>{albumReviewCount}</Text>
+                <Text style={styles.reviewCountLabel}>REVIEWS</Text>
+              </TouchableOpacity>
+            </View>
 
-            <Text style={styles.albumName}>{album.name}</Text>
-            <Text style={styles.meta}>
-              {album.artists?.[0]?.name}
-            </Text>
-            <Text style={styles.meta}>
-              {`${album.album_type} ${BULLET} ${album.release_date} ${BULLET} ${album.total_tracks} tracks`}
-            </Text>
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={[styles.primaryAction, { backgroundColor: accentColor }]}
+                onPress={() => router.push({ pathname: '/review/new', params: {
+                  albumId: album.id, albumName: album.name, albumArtist: album.artists?.[0]?.name,
+                  albumCover: album.images?.[0]?.url, itemType: 'album', parentAlbumId: album.id,
+                  currentRating: String(rating),
+                } } as any)}
+              >
+                <Text style={styles.primaryActionText}>＋  Review</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.action, listened && styles.actionActive]} onPress={() => void toggleAlbumCollection('listened')}>
+                <Text style={styles.actionIcon}>◉</Text><Text style={styles.actionText}>{listened ? 'Listened' : 'Log'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.action, liked && styles.actionActive]} onPress={() => void toggleAlbumCollection('liked')}>
+                <Text style={[styles.actionIcon, liked && { color: accentColor }]}>{liked ? HEART_FILLED : HEART_EMPTY}</Text><Text style={styles.actionText}>Like</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.action, wantToListen && styles.actionActive]} onPress={() => void toggleAlbumCollection('wantToListen')}>
+                <Text style={styles.actionIcon}>＋</Text><Text style={styles.actionText}>Watchlist</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
-            <TouchableOpacity
-              onPress={() => {
-                setSelectedTrack(null);
-                setMenuVisible(true);
-              }}
-              style={styles.dotsBtn}
-            >
-              <Text style={styles.dots}>{DOTS}</Text>
-            </TouchableOpacity>
+        {album && (
+          <View style={styles.reviewsSection}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>Reviews</Text>
+                <Text style={styles.sectionSub}>What people are saying about this album</Text>
+              </View>
+              <TouchableOpacity onPress={() => openReviews('album', album.id, album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', album.id)}>
+                <Text style={[styles.seeAll, { color: accentColor }]}>See all ›</Text>
+              </TouchableOpacity>
+            </View>
+            {albumReviews.length === 0 ? (
+              <View style={styles.emptyReviews}>
+                <Text style={styles.emptyTitle}>No reviews yet</Text>
+                <Text style={styles.emptyText}>Be the first to write about this album.</Text>
+                <TouchableOpacity onPress={() => router.push({ pathname: '/review/new', params: {
+                  albumId: album.id, albumName: album.name, albumArtist: album.artists?.[0]?.name,
+                  albumCover: album.images?.[0]?.url, itemType: 'album', parentAlbumId: album.id,
+                } } as any)}>
+                  <Text style={[styles.emptyLink, { color: accentColor }]}>Write the first review ›</Text>
+                </TouchableOpacity>
+              </View>
+            ) : albumReviews.map((review: any) => {
+              const person = albumReviewPeople[review.user_id];
+              return (
+                <TouchableOpacity key={review.id} style={styles.reviewCard} onPress={() => openReviews('album', album.id, album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', album.id)}>
+                  <View style={styles.reviewerRow}>
+                    {person?.avatar_url ? <Image source={{ uri: person.avatar_url }} style={styles.avatar} /> : <View style={styles.avatarPlaceholder}><Text style={styles.avatarLetter}>{(person?.username || 'L').slice(0, 1).toUpperCase()}</Text></View>}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.username}>@{person?.username || 'listener'}</Text>
+                      <Text style={styles.date}>{new Date(review.updated_at || review.created_at).toLocaleDateString()}</Text>
+                    </View>
+                    <Text style={[styles.stars, { color: accentColor }]}>{'★'.repeat(Math.floor(Number(review.rating) || 0))}{Number(review.rating) % 1 ? '½' : ''}</Text>
+                  </View>
+                  {!!review.review_text && <Text style={styles.reviewText} numberOfLines={4}>{review.review_text}</Text>}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
 
         {album && (
-          <View style={{ paddingHorizontal: 18, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#252525' }}>
-            <TouchableOpacity
-              onPress={() => openReviews('album', album.id, album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', album.id)}
-              style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: albumReviews.length ? 12 : 0 }}
-            >
-              <View>
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Reviews</Text>
-                <Text style={{ color: '#888', fontSize: 12, marginTop: 4 }}>{albumReviews.length ? 'Recent listener reviews' : 'Be the first to review this album'}</Text>
-              </View>
-              <Text style={{ color: accentColor, fontSize: 14, fontWeight: '700' }}>See all ›</Text>
-            </TouchableOpacity>
-            {albumReviews.map((review: any) => (
-              <View key={review.id} style={{ paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#252525' }}>
-                <Text style={{ color: '#ddd', fontSize: 13, fontWeight: '600' }}>@{albumReviewPeople[review.user_id]?.username || 'listener'}  ·  {'★'.repeat(Math.floor(Number(review.rating) || 0))}{Number(review.rating) % 1 ? '½' : ''}</Text>
-                {!!review.review_text && <Text style={{ color: '#aaa', fontSize: 13, lineHeight: 19, marginTop: 5 }} numberOfLines={3}>{review.review_text}</Text>}
-              </View>
-            ))}
+          <View style={styles.tracklistHeader}>
+            <Text style={styles.sectionTitle}>Tracklist</Text>
+            <Text style={styles.sectionSub}>{album.total_tracks} tracks</Text>
           </View>
         )}
 
@@ -1355,26 +1454,52 @@ export default function AlbumPage() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   container: { flex: 1 },
-  header: { alignItems: 'center', padding: 24, paddingTop: 60 },
-  cover: { width: 200, height: 200, borderRadius: 8, marginBottom: 16 },
-  coverPlaceholder: { backgroundColor: '#2a2a2a' },
-  albumName: {
-    color: 'white',
-    fontSize: 22,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  meta: { color: '#888', fontSize: 14, marginTop: 4, textAlign: 'center' },
-  backBtn: {
-    position: 'absolute',
-    top: 60,
-    left: 20,
-    padding: 8,
-    zIndex: 10,
-  },
-  backText: { color: 'white', fontSize: 36, lineHeight: 36 },
-  dotsBtn: { position: 'absolute', top: 60, right: 20, padding: 8 },
-  dots: { color: 'white', fontSize: 24 },
+  topBar: { paddingTop: 56, paddingHorizontal: 18, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#2C3440' },
+  topBarSide: { width: 34, alignItems: 'flex-start' },
+  topBarTitle: { color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 2 },
+  cover: { width: 156, height: 156, borderRadius: 5, backgroundColor: '#2C3440' },
+  coverPlaceholder: { backgroundColor: '#2C3440' },
+  hero: { flexDirection: 'row', alignItems: 'center', gap: 18, paddingHorizontal: 18, paddingTop: 24, paddingBottom: 22 },
+  heroInfo: { flex: 1, alignItems: 'flex-start' },
+  albumName: { color: '#fff', fontSize: 23, lineHeight: 28, fontWeight: '800', marginTop: 7 },
+  artistName: { color: '#D5DADF', fontSize: 14, marginTop: 7 },
+  meta: { color: '#9BA7B2', fontSize: 12, marginTop: 9 },
+  typeLabel: { color: '#9BA7B2', fontSize: 10, fontWeight: '800', letterSpacing: 1.7 },
+  backText: { color: '#fff', fontSize: 32, lineHeight: 34 },
+  dots: { color: '#fff', fontSize: 22 },
+  ratingPanel: { marginHorizontal: 18, padding: 15, backgroundColor: '#2C3440', borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 13 },
+  ratingNumber: { color: '#fff', fontSize: 29, fontWeight: '800' },
+  ratingTitle: { color: '#E5E9EC', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  ratingSub: { color: '#9BA7B2', fontSize: 11, marginTop: 4 },
+  reviewCount: { alignItems: 'center', paddingLeft: 13, borderLeftWidth: 1, borderLeftColor: '#48525E' },
+  reviewCountNumber: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  reviewCountLabel: { color: '#9BA7B2', fontSize: 9, letterSpacing: 1, marginTop: 2 },
+  actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 19, gap: 7 },
+  primaryAction: { paddingHorizontal: 12, paddingVertical: 12, borderRadius: 6 },
+  primaryActionText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  action: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 6, backgroundColor: '#2C3440' },
+  actionActive: { backgroundColor: '#3A4653' },
+  actionIcon: { color: '#D5DADF', fontSize: 17, marginBottom: 3 },
+  actionText: { color: '#D5DADF', fontSize: 9, fontWeight: '600' },
+  reviewsSection: { marginTop: 6 },
+  sectionHeader: { paddingHorizontal: 18, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#2C3440' },
+  sectionTitle: { color: '#fff', fontSize: 19, fontWeight: '800' },
+  sectionSub: { color: '#9BA7B2', fontSize: 11, marginTop: 4 },
+  seeAll: { fontSize: 13, fontWeight: '700' },
+  emptyReviews: { alignItems: 'center', paddingVertical: 28, paddingHorizontal: 20 },
+  emptyTitle: { color: '#E5E9EC', fontSize: 15, fontWeight: '700' },
+  emptyText: { color: '#9BA7B2', fontSize: 12, marginTop: 7, textAlign: 'center' },
+  emptyLink: { fontSize: 13, fontWeight: '700', marginTop: 13 },
+  reviewCard: { paddingHorizontal: 18, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#2C3440' },
+  reviewerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3A4653' },
+  avatarPlaceholder: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3A4653', alignItems: 'center', justifyContent: 'center' },
+  avatarLetter: { color: '#fff', fontWeight: '700' },
+  username: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  date: { color: '#9BA7B2', fontSize: 10, marginTop: 3 },
+  stars: { fontSize: 14, fontWeight: '700' },
+  reviewText: { color: '#E5E9EC', fontSize: 14, lineHeight: 21, marginTop: 11 },
+  tracklistHeader: { paddingHorizontal: 18, paddingVertical: 16, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#2C3440' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
