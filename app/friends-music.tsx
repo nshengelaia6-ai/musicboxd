@@ -79,7 +79,7 @@ export default function FriendsMusicScreen() {
           .from('user_activity')
           .select('id,user_id,activity_type,item_key,data,created_at')
           .in('user_id', friendIds)
-          .eq('activity_type', 'listened')
+          .in('activity_type', ['listened', 'reviewed'])
           .order('created_at', { ascending: false })
           .limit(100),
 
@@ -98,8 +98,18 @@ export default function FriendsMusicScreen() {
           (activity.data?.name || activity.item_key)
       );
 
+      // Keep only the newest event for each friend/track pair.
+      const seenFriendTracks = new Set<string>();
+      const uniqueTrackActivities = trackActivities.filter((activity: any) => {
+        const trackId = activity.item_key || activity.data?.id;
+        const key = `${activity.user_id}:${trackId}`;
+        if (!trackId || seenFriendTracks.has(key)) return false;
+        seenFriendTracks.add(key);
+        return true;
+      });
+
       if (!isPopular) {
-        const recentTracks = trackActivities.map((activity: any) => {
+        const recentTracks = uniqueTrackActivities.map((activity: any) => {
           const friend = (users || []).find(
             (item: any) => item.id === activity.user_id
           );
@@ -111,6 +121,7 @@ export default function FriendsMusicScreen() {
             artist_name:
               activity.data?.artist_name ||
               activity.data?.artistName ||
+              activity.data?.artist ||
               '',
             cover_url:
               activity.data?.cover ||
@@ -125,7 +136,7 @@ export default function FriendsMusicScreen() {
       } else {
         const counts: Record<string, any> = {};
 
-        trackActivities.forEach((activity: any) => {
+        uniqueTrackActivities.forEach((activity: any) => {
           const trackId = activity.item_key || activity.data?.id;
           if (!trackId) return;
 
