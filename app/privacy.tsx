@@ -20,7 +20,7 @@ export default function PrivacyScreen() {
 
         <Text style={styles.brand}>musicboxd</Text>
         <Text style={styles.title}>Privacy Policy</Text>
-        <Text style={styles.updated}>Last updated: November 2026</Text>
+        <Text style={styles.updated}>Last updated: November 19, 2026</Text>
 
         <Text style={styles.paragraph}>
           Your privacy matters to us. This Privacy Policy explains
@@ -30,22 +30,33 @@ export default function PrivacyScreen() {
 
         <Text style={styles.heading}>1. Information we collect</Text>
         <Text style={styles.paragraph}>
-          When you create an account, we may collect your email
-          address, username, password authentication data, and
-          optional date of birth.
+          When you create an account, we process your email address,
+          username, and password authentication data. If you choose
+          to provide a date of birth during sign-up, it is also
+          processed. Your password is handled by Supabase
+          Authentication; Musicboxd does not need to display or
+          store your plain-text password.
         </Text>
         <Text style={styles.paragraph}>
-          When you use musicboxd, information may also be stored
-          about your profile, follows, shared songs, ratings,
-          album reviews, and monthly favorites.
+          When you use Musicboxd, we may process profile details
+          (including your bio and avatar), follows and followers,
+          shared songs and related interactions, ratings, album
+          reviews, listening activity, lists, and favorites. Some
+          information is stored in the app on your device and some
+          is stored in our Supabase database. The app may also store
+          Spotify connection credentials or tokens on your device
+          to provide Spotify features.
         </Text>
 
         <Text style={styles.heading}>2. Spotify connection</Text>
         <Text style={styles.paragraph}>
-          If you choose to connect Spotify, musicboxd may access
-          Spotify account information and music-related data
-          permitted by the permissions you approve. Spotify
-          connection is optional.
+          Spotify connection is optional. If you connect Spotify,
+          Musicboxd may process the Spotify account identifier,
+          profile information, and music-related information made
+          available by the permissions you approve. The exact data
+          available depends on the permissions granted and the
+          Spotify features you use. Do not connect Spotify if you
+          do not want Musicboxd to process that information.
         </Text>
         <Text style={styles.paragraph}>
           Spotify handles its own data according to its Privacy
@@ -55,72 +66,105 @@ export default function PrivacyScreen() {
 
         <Text style={styles.heading}>3. How we use information</Text>
         <Text style={styles.paragraph}>
-          We use information to create and manage accounts,
-          provide app features, display profiles and music
-          activity, enable social interactions, maintain security,
-          and improve the service.
+          We use information to authenticate users, maintain
+          profiles, provide music and social features, display
+          information you choose to share, synchronize app activity,
+          protect the service, troubleshoot errors, and maintain
+          the app. We do not need your account password in readable
+          form to provide these features.
         </Text>
 
         <Text style={styles.heading}>4. Data storage</Text>
         <Text style={styles.paragraph}>
-          musicboxd uses Supabase for authentication and app data
-          storage. Information is processed and stored through
-          the services needed to operate the platform.
+          Musicboxd uses Supabase for account authentication,
+          database storage, and file storage. Some app information
+          and Spotify connection data may also be stored locally
+          on your device. Data handled by Spotify is also subject
+          to Spotify's systems and policies. The services and
+          infrastructure used to operate Musicboxd may process
+          information in locations outside your country.
         </Text>
 
         <Text style={styles.heading}>5. Sharing and visibility</Text>
         <Text style={styles.paragraph}>
-          Some information and activity may be visible to other
-          users depending on the features you use, including
-          your profile, reviews, ratings, follows, and shared
-          music activity. Please consider this before posting
-          information to your profile.
+          Profile information and social or music activity may be
+          visible to other Musicboxd users through public profile,
+          review, follow, shared-song, and activity features.
+          Information you submit to a social feature should be
+          treated as potentially visible to other users. Do not
+          include sensitive personal information in your profile,
+          reviews, or shared content. Musicboxd does not currently
+          offer a complete set of per-field privacy controls.
         </Text>
 
         <Text style={styles.heading}>6. Third-party services</Text>
         <Text style={styles.paragraph}>
-          musicboxd may rely on third-party providers such as
-          Supabase and Spotify. These providers process data
-          under their own terms and privacy policies.
+          Musicboxd relies on third-party providers, including
+          Supabase for authentication, database, and file services,
+          and Spotify when you connect your Spotify account.
+          These providers process information under their own
+          terms and privacy policies. Musicboxd does not control
+          their independent services.
         </Text>
 
         <Text style={styles.heading}>7. Data retention and deletion</Text>
         <Text style={styles.paragraph}>
-          We retain information for as long as needed to provide
-          the service and for legitimate operational or legal
-          purposes. You may request account deletion through
-          the available account deletion feature. Deletion of
-          information may be subject to applicable legal or
-          technical requirements.
+          We retain account and app information while it is needed
+          to operate your account and provide the service. You can
+          start permanent account deletion from Privacy & Settings.
+          The deletion process removes your Musicboxd account and
+          associated application records and avatar files. Some
+          information may remain temporarily in backups, logs, or
+          third-party systems, or where retention is required by
+          law. Local app data is cleared from the device used for
+          deletion; data on other devices may need to be cleared
+          separately.
         </Text>
 
-        <Text style={styles.heading}>8. Security</Text>
+        <Text style={styles.heading}>8. Your choices and requests</Text>
         <Text style={styles.paragraph}>
-          We take reasonable steps to protect account and app
-          information. However, no method of electronic storage
-          or transmission can be guaranteed to be completely
-          secure.
+          You can edit profile information in the app, choose
+          whether to connect Spotify, and stop using connected
+          Spotify features. You can request permanent deletion
+          through Privacy & Settings. Depending on your location,
+          you may also have rights to access, correct, or request
+          deletion of personal information, subject to applicable
+          law. The app does not currently provide a downloadable
+          data-export tool or granular privacy controls for every
+          type of activity.
         </Text>
 
-        <Text style={styles.heading}>9. Children's privacy</Text>
+        <Text style={styles.heading}>9. Security</Text>
+        <Text style={styles.paragraph}>
+          We use authentication, access controls, and service
+          security features intended to protect account and app
+          information. No method of storage or transmission is
+          completely secure, and we cannot guarantee absolute
+          security. Keep your password private and sign out on
+          devices you do not control.
+        </Text>
+
+        <Text style={styles.heading}>10. Children's privacy</Text>
         <Text style={styles.paragraph}>
           musicboxd is not intended for children who are below
           the minimum age required to use the service under
           applicable law.
         </Text>
 
-        <Text style={styles.heading}>10. Changes to this Policy</Text>
+        <Text style={styles.heading}>11. Changes to this Policy</Text>
         <Text style={styles.paragraph}>
           We may update this Privacy Policy as musicboxd evolves.
           Any changes will be published on this page with an
           updated date.
         </Text>
 
-        <Text style={styles.heading}>11. Contact</Text>
+        <Text style={styles.heading}>12. Contact</Text>
         <Text style={styles.paragraph}>
-          If you have questions about this Privacy Policy or
-          your personal information, please contact the
-          musicboxd team.
+          For questions about this policy or a privacy request,
+          contact the Musicboxd team through the official support
+          channel provided with the service. A direct privacy
+          contact address should be published here before
+          Musicboxd is made publicly available.
         </Text>
 
         <View style={styles.footer}>
