@@ -629,7 +629,7 @@ if (Array.isArray(sourceAlbums)) {
 
         {favoriteAlbums.some((album) => album != null) && (
           <>
-            <Text style={styles.sectionTitle}>FAVORITE ALBUMS</Text>
+            <Text style={styles.sectionTitle}>TOP 4 ALBUMS</Text>
 
             <View style={styles.slotsRow}>
               {favoriteAlbums.map((album, i) => (
@@ -820,7 +820,7 @@ if (Array.isArray(sourceAlbums)) {
               onSubmitEditing={() => Keyboard.dismiss()}
             />
 
-            <Text style={styles.settingsLabel}>Favorite Albums</Text>
+            <Text style={styles.settingsLabel}>Top 4 Albums</Text>
 
             <View style={styles.settingsSlotsRow}>
               {draftFavoriteAlbums.map((album, i) => (
