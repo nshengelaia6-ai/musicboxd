@@ -56,7 +56,7 @@ export default function PrivacyScreen() {
           form to provide these features.
         </Text>
 
-        <Text style={styles.heading}>4. Data storage</Text>
+        <Text style={styles.heading}>3. Data storage</Text>
         <Text style={styles.paragraph}>
           Musicboxd uses Supabase for account authentication,
           database storage, and file storage. Some app information may
@@ -66,7 +66,7 @@ export default function PrivacyScreen() {
           information in locations outside your country.
         </Text>
 
-        <Text style={styles.heading}>5. Sharing and visibility</Text>
+        <Text style={styles.heading}>4. Sharing and visibility</Text>
         <Text style={styles.paragraph}>
           Profile information and social or music activity may be
           visible to other Musicboxd users through public profile,
@@ -78,7 +78,7 @@ export default function PrivacyScreen() {
           offer a complete set of per-field privacy controls.
         </Text>
 
-        <Text style={styles.heading}>6. Third-party services</Text>
+        <Text style={styles.heading}>5. Third-party services</Text>
         <Text style={styles.paragraph}>
           Musicboxd relies on third-party providers, including
           Supabase for authentication, database, and file services,
@@ -88,7 +88,7 @@ export default function PrivacyScreen() {
           their independent services.
         </Text>
 
-        <Text style={styles.heading}>7. Data retention and deletion</Text>
+        <Text style={styles.heading}>6. Data retention and deletion</Text>
         <Text style={styles.paragraph}>
           We retain account and app information while it is needed
           to operate your account and provide the service. You can
@@ -102,7 +102,7 @@ export default function PrivacyScreen() {
           separately.
         </Text>
 
-        <Text style={styles.heading}>8. Your choices and requests</Text>
+        <Text style={styles.heading}>7. Your choices and requests</Text>
         <Text style={styles.paragraph}>
           You can edit profile information in the app and request
           permanent deletion
@@ -114,7 +114,7 @@ export default function PrivacyScreen() {
           type of activity.
         </Text>
 
-        <Text style={styles.heading}>9. Security</Text>
+        <Text style={styles.heading}>8. Security</Text>
         <Text style={styles.paragraph}>
           We use authentication, access controls, and service
           security features intended to protect account and app
@@ -124,21 +124,21 @@ export default function PrivacyScreen() {
           devices you do not control.
         </Text>
 
-        <Text style={styles.heading}>10. Children&apos;s privacy</Text>
+        <Text style={styles.heading}>9. Children&apos;s privacy</Text>
         <Text style={styles.paragraph}>
           musicboxd is not intended for children who are below
           the minimum age required to use the service under
           applicable law.
         </Text>
 
-        <Text style={styles.heading}>11. Changes to this Policy</Text>
+        <Text style={styles.heading}>10. Changes to this Policy</Text>
         <Text style={styles.paragraph}>
           We may update this Privacy Policy as musicboxd evolves.
           Any changes will be published on this page with an
           updated date.
         </Text>
 
-        <Text style={styles.heading}>12. Contact</Text>
+        <Text style={styles.heading}>11. Contact</Text>
         <Text style={styles.paragraph}>
           For questions about this policy or a privacy request,
           contact the Musicboxd team through the official support
