@@ -29,9 +29,8 @@ create policy "Participants can remove a relationship"
   on public.friendships for delete to authenticated
   using (user_id = auth.uid() or friend_id = auth.uid());
 
-create policy "Blocked users cannot follow each other"
-  on public.friendships as restrictive for all to authenticated
-  using (not public.are_users_blocked(user_id, friend_id))
+create policy "Blocked users cannot create follow relationships"
+  on public.friendships as restrictive for insert to authenticated
   with check (not public.are_users_blocked(user_id, friend_id));
 
 revoke all on public.friendships from anon;
