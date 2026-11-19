@@ -828,7 +828,7 @@ if (Array.isArray(sourceAlbums)) {
                           lineHeight: 11,
                         }}
                       >
-                        Ã—
+                        {'\u00D7'}
                       </Text>
                     </TouchableOpacity>
                   )}
