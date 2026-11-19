@@ -48,6 +48,7 @@ export default function AlbumPage() {
   const [albumReviewPeople, setAlbumReviewPeople] = useState<Record<string, any>>({});
   const [albumReviewCount, setAlbumReviewCount] = useState(0);
   const [albumRatingAverage, setAlbumRatingAverage] = useState(0);
+  const [albumRatingCount, setAlbumRatingCount] = useState(0);
   const [albumRatingDistribution, setAlbumRatingDistribution] = useState<{ rating: number; count: number }[]>([]);
   const [trackReviews, setTrackReviews] = useState<any[]>([]);
   const [trackReviewPeople, setTrackReviewPeople] = useState<Record<string, any>>({});
@@ -204,7 +205,7 @@ export default function AlbumPage() {
           ? ratingValues.reduce((sum: number, value: number) => sum + value, 0) / ratingValues.length
           : 0;
         setAlbumRatingAverage(average);
-        setAlbumReviewCount(ratingValues.length);
+        setAlbumRatingCount(ratingValues.length);
         setAlbumRatingDistribution(
           Array.from({ length: 10 }, (_, index) => {
             const value = 5 - index * 0.5;
@@ -230,6 +231,7 @@ export default function AlbumPage() {
         setAlbumReviewPeople({});
         setAlbumReviewCount(0);
         setAlbumRatingAverage(0);
+        setAlbumRatingCount(0);
         setAlbumRatingDistribution([]);
       }
 
@@ -558,7 +560,7 @@ export default function AlbumPage() {
                 <Text style={styles.ratingAverage}>
                   {albumRatingAverage > 0 ? albumRatingAverage.toFixed(2) : '—'}
                 </Text>
-                <Text style={styles.ratingTotal}>{albumRatingDistribution.reduce((sum, item) => sum + item.count, 0)} ratings</Text>
+                <Text style={styles.ratingTotal}>{albumRatingCount} ratings</Text>
               </View>
             </View>
             {albumRatingDistribution.some(item => item.count > 0) && (
