@@ -230,7 +230,7 @@ export default function Home() {
       return () => {
         active = false;
       };
-    }, [sessionVersion, loadPublicMonthlyFavs])
+    }, [loadPublicMonthlyFavs])
   );
 
   // Load friends activity from user_activity
