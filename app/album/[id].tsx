@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Image,
   ImageBackground,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -498,11 +499,21 @@ export default function AlbumPage() {
             </ImageBackground>
 
             <View style={styles.albumDescription}>
-              <Text style={styles.descriptionText}>
-                {artist?.genres?.length
-                  ? `A ${String(album.album_type || 'album')} by ${album.artists?.map((item: any) => item.name).join(', ')}, shaped by ${artist.genres.slice(0, 2).join(' and ')}.`
-                  : `A ${String(album.album_type || 'album')} by ${album.artists?.map((item: any) => item.name).join(', ') || 'this artist'}.`}
-              </Text>
+              <View style={styles.listenRow}>
+                <TouchableOpacity
+                  style={styles.listenButton}
+                  onPress={() => Linking.openURL(album.external_urls?.spotify || `https://open.spotify.com/album/${album.id}`)}
+                  accessibilityRole="link"
+                  accessibilityLabel="Listen on Spotify"
+                >
+                  <Text style={styles.listenButtonText}>▶ LISTEN</Text>
+                </TouchableOpacity>
+                <Text style={styles.durationText}>
+                  {tracks.length
+                    ? `${Math.floor(tracks.reduce((total: number, track: any) => total + (Number(track.duration_ms) || 0), 0) / 60000)} min`
+                    : ''}
+                </Text>
+              </View>
             </View>
           </>
         )}
@@ -1350,6 +1361,10 @@ const styles = StyleSheet.create({
   artistName: { color: '#D5DADF', fontSize: 17, marginTop: 7 },
   meta: { color: '#D5DADF', fontSize: 13, marginTop: 9 },
   albumDescription: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 4 },
+  listenRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  listenButton: { backgroundColor: '#1DB954', paddingHorizontal: 17, paddingVertical: 9, borderRadius: 22 },
+  listenButtonText: { color: '#07150B', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+  durationText: { color: '#AEB8C2', fontSize: 13, fontWeight: '600' },
   descriptionText: { color: '#AEB8C2', fontSize: 14, lineHeight: 21 },
   typeLabel: { color: '#9BA7B2', fontSize: 10, fontWeight: '800', letterSpacing: 1.7 },
   backText: { color: '#fff', fontSize: 32, lineHeight: 34 },
