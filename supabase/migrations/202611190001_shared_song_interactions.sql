@@ -4,7 +4,7 @@ alter table public.shared_songs
 
 create table if not exists public.shared_song_likes (
   id uuid primary key default gen_random_uuid(),
-  shared_song_id uuid not null references public.shared_songs(id) on delete cascade,
+  shared_song_id bigint not null references public.shared_songs(id) on delete cascade,
   user_id uuid not null references public.users(id) on delete cascade,
   created_at timestamptz not null default now(),
   unique (shared_song_id, user_id)
@@ -12,7 +12,7 @@ create table if not exists public.shared_song_likes (
 
 create table if not exists public.shared_song_replies (
   id uuid primary key default gen_random_uuid(),
-  shared_song_id uuid not null references public.shared_songs(id) on delete cascade,
+  shared_song_id bigint not null references public.shared_songs(id) on delete cascade,
   user_id uuid not null references public.users(id) on delete cascade,
   message text not null check (char_length(message) between 1 and 500),
   created_at timestamptz not null default now()
