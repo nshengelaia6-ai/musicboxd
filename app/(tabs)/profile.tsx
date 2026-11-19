@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Image,
   Keyboard,
   Modal,
@@ -284,84 +285,35 @@ if (Array.isArray(sourceAlbums)) {
   setDraftFavoriteAlbums(albums.slice(0, 4));
 }
 
-      // Sync profile sections to Supabase for public profiles.
+      // Public profile items are synced by the individual feature flows.
+      // Do not rebuild them from device-local caches when opening Profile.
       if (user) {
         try {
-          const sectionKeys = [
-            { section: 'songs', key: 'listened' },
-            { section: 'diary', key: 'diary_entries' },
-            { section: 'reviews', key: 'reviews' },
-            { section: 'lists', key: 'lists' },
-            { section: 'wanttolisten', key: 'wantToListen' },
-            { section: 'likes', key: 'liked' },
-            { section: 'artists', key: 'followed_artists' },
-          ];
-
-          const publicRows = new Map<string, any>();
-
-          for (const config of sectionKeys) {
-            const raw = await AsyncStorage.getItem(config.key);
-            const items = raw ? JSON.parse(raw) : [];
-
-            if (Array.isArray(items)) {
-              items.forEach((item: any, index: number) => {
-                if (config.section === 'lists' && item?.privacy !== 'public') return;
-                const itemKey = String(item?.id ?? item?.albumId ?? item?.trackId ?? index);
-                publicRows.set(`${config.section}:${itemKey}`, {
-                  user_id: user.id,
-                  section: config.section,
-                  item_key: itemKey,
-                  data: item,
-                  updated_at: new Date().toISOString(),
-                });
-              });
-            }
+          // Keep the legacy backend profile keyed by Spotify ID.
+          const spotifyId = await getCurrentUserId();
+          if (spotifyId) {
+            await fetch(`${API_BASE}/users`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: spotifyId,
+                username: finalUsername,
+                avatar: p.avatar || null,
+                bio: finalBio,
+              }),
+            });
           }
 
-          const { error: clearError } = await supabase
-            .from('public_profile_items')
-            .delete()
-            .eq('user_id', user.id);
-
-          if (clearError) throw clearError;
-
-          const rows = Array.from(publicRows.values());
-
-          if (rows.length > 0) {
-            const { error: syncError } = await supabase
-              .from('public_profile_items')
-              .insert(rows);
-
-            if (syncError) throw syncError;
-          }
-        } catch (syncError) {
-          console.error('Public profile sync failed:', syncError);
-        }
-      }
-      const myId = await getCurrentUserId();
-
-      if (myId) {
-        try {
-          await fetch(`${API_BASE}/users`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: myId,
-              username: finalUsername,
-              avatar: p.avatar || null,
-              bio: finalBio,
-            }),
-          });
-
+          // Friendships are keyed by Supabase Auth UUID, never Spotify ID.
           const [followingResult, followersResult] = await Promise.all([
             supabase
               .from('friendships')
               .select('friend_id', { count: 'exact', head: true })
-              .eq('user_id', myId),
+              .eq('user_id', user.id),
             supabase
               .from('friendships')
               .select('user_id', { count: 'exact', head: true })
-              .eq('friend_id', myId),
+              .eq('friend_id', user.id),
           ]);
 
           if (followingResult.error) throw followingResult.error;
@@ -395,11 +347,11 @@ if (Array.isArray(sourceAlbums)) {
     setShowShare(false);
 
     try {
-      const userId = await getCurrentUserId();
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      if (!user) throw new Error('Please sign in to share your profile.');
 
-      const profileUrl = userId
-        ? `https://open.spotify.com/user/${userId}`
-        : undefined;
+      const profileUrl = `myapp://user/${user.id}`;
 
       await Share.share({
         title: `${username} on Musicboxd`,
@@ -417,28 +369,33 @@ if (Array.isArray(sourceAlbums)) {
     const cleanUsername = editUsername.trim();
 
     if (!cleanUsername) {
-      console.log('Username cannot be empty');
+      Alert.alert('Username required', 'Please enter a username.');
       return;
     }
 
     try {
-      // Update the username in Supabase Authentication.
-      const { error: updateError } = await supabase.auth.updateUser({
-        data: {
-          username: cleanUsername,
-        },
-      });
-
-      if (updateError) {
-        throw updateError;
-      }
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error('User not found');
 
       const savedAlbums = [...draftFavoriteAlbums];
 
-      setUsername(cleanUsername);
-      setBio(editBio);
-      setAvatar(editAvatar);
-      setFavoriteAlbums(savedAlbums);
+      const { error: authUpdateError } = await supabase.auth.updateUser({
+        data: { username: cleanUsername },
+      });
+      if (authUpdateError) throw authUpdateError;
+
+      const { error: profileError } = await supabase
+        .from('users')
+        .update({
+          username: cleanUsername,
+          bio: editBio,
+          avatar_url: editAvatar,
+          favorite_albums: savedAlbums,
+        })
+        .eq('id', user.id);
+
+      if (profileError) throw profileError;
 
       await AsyncStorage.setItem(
         'profile',
@@ -453,98 +410,39 @@ if (Array.isArray(sourceAlbums)) {
       await AsyncStorage.removeItem('pendingFavoriteAlbums');
       await AsyncStorage.removeItem('returnToSettings');
 
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
-      if (!user) throw new Error('User not found');
-
-      const { error: profileError } = await supabase
-        .from('users')
-        .update({
-          username: cleanUsername,
-          bio: editBio,
-          avatar_url: editAvatar,
-          favorite_albums: savedAlbums,
-        })
-        .eq('id', user.id);
-
-      if (profileError) throw profileError;
-
+      setUsername(cleanUsername);
+      setBio(editBio);
+      setAvatar(editAvatar);
+      setFavoriteAlbums(savedAlbums);
       setShowSettings(false);
 
+      // The legacy backend user record is keyed by Spotify ID, not Supabase Auth ID.
       try {
-        // Sync profile sections to Supabase for public profiles.
-      if (user) {
-        try {
-          const sectionKeys = [
-            { section: 'songs', key: 'listened' },
-            { section: 'diary', key: 'diary_entries' },
-            { section: 'reviews', key: 'reviews' },
-            { section: 'lists', key: 'lists' },
-            { section: 'wanttolisten', key: 'wantToListen' },
-            { section: 'likes', key: 'liked' },
-            { section: 'artists', key: 'followed_artists' },
-          ];
-
-          const publicRows = new Map<string, any>();
-
-          for (const config of sectionKeys) {
-            const raw = await AsyncStorage.getItem(config.key);
-            const items = raw ? JSON.parse(raw) : [];
-
-            if (Array.isArray(items)) {
-              items.forEach((item: any, index: number) => {
-                if (config.section === 'lists' && item?.privacy !== 'public') return;
-                const itemKey = String(item?.id ?? item?.albumId ?? item?.trackId ?? index);
-                publicRows.set(`${config.section}:${itemKey}`, {
-                  user_id: user.id,
-                  section: config.section,
-                  item_key: itemKey,
-                  data: item,
-                  updated_at: new Date().toISOString(),
-                });
-              });
-            }
-          }
-
-          const { error: clearError } = await supabase
-            .from('public_profile_items')
-            .delete()
-            .eq('user_id', user.id);
-
-          if (clearError) throw clearError;
-
-          const rows = Array.from(publicRows.values());
-
-          if (rows.length > 0) {
-            const { error: syncError } = await supabase
-              .from('public_profile_items')
-              .insert(rows);
-
-            if (syncError) throw syncError;
-          }
-        } catch (syncError) {
-          console.error('Public profile sync failed:', syncError);
-        }
-      }
-      const myId = await getCurrentUserId();
-
-        if (myId) {
-          await fetch(`${API_BASE}/users`, {
+        const spotifyId = await getCurrentUserId();
+        if (spotifyId) {
+          const response = await fetch(`${API_BASE}/users`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              id: myId,
+              id: spotifyId,
               username: cleanUsername,
               avatar: editAvatar,
               bio: editBio,
             }),
           });
+          if (!response.ok) {
+            console.warn('Legacy backend profile sync failed:', response.status);
+          }
         }
-      } catch (error) {
-        console.log('Failed to update user on backend', error);
+      } catch (backendError) {
+        console.warn('Legacy backend profile sync failed:', backendError);
       }
     } catch (error) {
       console.error('Could not save profile:', error);
+      Alert.alert(
+        'Could not save profile',
+        error instanceof Error ? error.message : 'Please try again.'
+      );
     }
   }
 
@@ -923,9 +821,22 @@ if (Array.isArray(sourceAlbums)) {
               style={styles.sheetOption}
               onPress={() => {
                 setShowSettings(false);
+                router.push('/privacy-settings' as any);
+              }}
+            >
+              <Text style={styles.sheetOptionText}>Privacy & Settings</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.sheetOption}
+              onPress={() => {
+                setShowSettings(false);
                 router.push('/customize' as any);
               }}
             >
+              <Text style={styles.sheetOptionText}>Customize</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.sheetOption}
               disabled={!spotifyRequest || spotifyConnecting}
@@ -935,12 +846,12 @@ if (Array.isArray(sourceAlbums)) {
 
                 try {
                   await promptSpotify();
-                  setSpotifyConnecting(false);
                 } catch (error) {
-                  setSpotifyConnecting(false);
                   setSpotifyAuthError(
                     error instanceof Error ? error.message : 'Spotify login failed.'
                   );
+                } finally {
+                  setSpotifyConnecting(false);
                 }
               }}
             >
@@ -948,7 +859,7 @@ if (Array.isArray(sourceAlbums)) {
                 {spotifyConnecting
                   ? 'Connecting to Spotify...'
                   : spotifyConnected
-                    ? 'Spotify Connected âœ“'
+                    ? 'Spotify Connected ✓'
                     : 'Connect Spotify'}
               </Text>
             </TouchableOpacity>
@@ -958,8 +869,6 @@ if (Array.isArray(sourceAlbums)) {
                 {spotifyAuthError}
               </Text>
             ) : null}
-              <Text style={styles.sheetOptionText}>Customize</Text>
-            </TouchableOpacity>
 
             <TouchableOpacity
               style={[
