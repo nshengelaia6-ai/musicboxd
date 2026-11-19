@@ -122,7 +122,7 @@ export default function PrivacySettings() {
 
       setNewEmail('');
       setShowEmailForm(false);
-      setMessage('Confirmation email sent. Check your inbox.');
+      setMessage('Email change requested. Check your inbox and follow the confirmation instructions. Your email may remain unchanged until confirmation is complete.');
     } catch {
       setMessage('Something went wrong. Please try again.');
     } finally {
@@ -391,6 +391,8 @@ export default function PrivacySettings() {
               placeholder="Current password"
               placeholderTextColor="#777"
               secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
               value={currentPassword}
               onChangeText={setCurrentPassword}
             />
@@ -400,6 +402,8 @@ export default function PrivacySettings() {
               placeholder="New password"
               placeholderTextColor="#777"
               secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
               value={newPassword}
               onChangeText={setNewPassword}
             />
@@ -409,6 +413,8 @@ export default function PrivacySettings() {
               placeholder="Confirm new password"
               placeholderTextColor="#777"
               secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
             />
@@ -474,6 +480,7 @@ export default function PrivacySettings() {
               value={deletePassword}
               onChangeText={setDeletePassword}
               autoCapitalize="none"
+              autoCorrect={false}
             />
 
             <TouchableOpacity
