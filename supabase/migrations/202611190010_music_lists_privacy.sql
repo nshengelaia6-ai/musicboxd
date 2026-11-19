@@ -42,7 +42,7 @@ as $
 $;
 
 revoke all on function public.are_mutual_friends(uuid, uuid) from public;
-grant execute on function public.are_mutual_friends(uuid, uuid) to authenticated;
+grant execute on function public.are_mutual_friends(uuid, uuid) to anon, authenticated;
 
 drop policy if exists "Owners can manage their music lists" on public.music_lists;
 create policy "Owners can manage their music lists"
