@@ -728,7 +728,17 @@ if (Array.isArray(sourceAlbums)) {
                     ]}
                   >
                     <Text style={styles.activityBadgeText}>
-                      {item.review ? '\u270E' : '\u2605'}
+                      {item.activityType === 'reviewed'
+                        ? '\u270E'
+                        : item.activityType === 'liked'
+                          ? '\u2665'
+                          : item.activityType === 'wants_to_listen'
+                            ? '\u2661'
+                            : item.activityType === 'created_list'
+                              ? '\u2261'
+                              : item.activityType === 'followed_artist'
+                                ? '+'
+                                : '\u266B'}
                     </Text>
                   </View>
 
