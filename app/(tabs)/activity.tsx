@@ -76,21 +76,6 @@ function subtitleOf(item: any) {
   return '';
 }
 
-function coverOf(item: any): string | null {
-  const value =
-    item?.cover ||
-    item?.cover_url ||
-    item?.image ||
-    item?.imageUrl ||
-    item?.image_url ||
-    item?.artwork ||
-    item?.albumCover ||
-    item?.album?.images?.[0]?.url;
-  if (typeof value === 'string') return value;
-  if (Array.isArray(value)) return value[0]?.url || null;
-  return value?.url || null;
-}
-
 async function loadActivityPages(userIds: string[]) {
   if (!userIds.length) return [] as ActivityEntry[];
   const all: ActivityEntry[] = [];
