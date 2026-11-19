@@ -144,7 +144,7 @@ export default function Activity() {
 
       const [followingResult, incomingResult] = await Promise.all([
         supabase.from('friendships').select('friend_id').eq('user_id', myId),
-        supabase.from('friendships').select('user_id').eq('friend_id', myId),
+        supabase.from('friendships').select('user_id,created_at').eq('friend_id', myId),
       ]);
       if (followingResult.error) throw followingResult.error;
       if (incomingResult.error) throw incomingResult.error;
@@ -214,11 +214,17 @@ export default function Activity() {
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       ));
       setFriendItems(friendsActivities);
+      const incomingRows = new Map(
+        (incomingResult.data || []).map((row: any) => [row.user_id, row])
+      );
       setIncomingItems(incomingIds.map((id) => ({
         id,
         username: profileMap[id]?.username || 'User',
         avatar: profileMap[id]?.avatar || null,
-      })));
+        created_at: incomingRows.get(id)?.created_at || '',
+      })).sort((left, right) =>
+        new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+      ));
     } catch (loadError) {
       console.error('Activity loading failed:', loadError);
       setError('Could not load activity. Please try again.');
@@ -311,7 +317,9 @@ export default function Activity() {
             <Text style={styles.username}>{item.username}</Text>
             {' '}started following you
           </Text>
-          <Text style={styles.time}>View profile</Text>
+          <Text style={styles.time}>
+            {item.created_at ? timeAgo(item.created_at) : 'View profile'}
+          </Text>
         </View>
       </TouchableOpacity>
     );
