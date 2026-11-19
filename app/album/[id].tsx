@@ -501,17 +501,12 @@ export default function AlbumPage() {
                 <Text style={styles.descriptionText}>{artist.genres.slice(0, 3).join('  ·  ')}</Text>
               </View>
             )}
-            <View style={styles.actions}>
-              <TouchableOpacity style={[styles.action, styles.reviewAction, { borderColor: accentColor }]} onPress={() => router.push({ pathname: '/review/new', params: {
-                albumId: album.id, albumName: album.name, albumArtist: album.artists?.[0]?.name,
-                albumCover: album.images?.[0]?.url, itemType: 'album', parentAlbumId: album.id, currentRating: String(rating),
-              } } as any)}>
-                <Text style={[styles.actionIcon, { color: accentColor }]}>＋</Text><Text style={[styles.actionText, { color: '#fff' }]}>Review</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.action, listened && styles.actionActive]} onPress={() => void toggleAlbumCollection('listened')}><Text style={styles.actionIcon}>◉</Text><Text style={styles.actionText}>Log</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.action, liked && styles.actionActive]} onPress={() => void toggleAlbumCollection('liked')}><Text style={[styles.actionIcon, liked && { color: accentColor }]}>{liked ? HEART_FILLED : HEART_EMPTY}</Text><Text style={styles.actionText}>Like</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.action, wantToListen && styles.actionActive]} onPress={() => void toggleAlbumCollection('wantToListen')}><Text style={styles.actionIcon}>＋</Text><Text style={styles.actionText}>Watchlist</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.action} onPress={() => void shareMusicItem({ id: album.id, type: 'album', name: album.name, artist: album.artists?.[0]?.name, cover: album.images?.[0]?.url })}><Text style={styles.actionIcon}>↗</Text><Text style={styles.actionText}>Share</Text></TouchableOpacity>
+            <View style={styles.albumDescription}>
+              <Text style={styles.descriptionText}>
+                {artist?.genres?.length
+                  ? `A ${String(album.album_type || 'album')} by ${album.artists?.map((item: any) => item.name).join(', ')}, shaped by ${artist.genres.slice(0, 2).join(' and ')}.`
+                  : `A ${String(album.album_type || 'album')} by ${album.artists?.map((item: any) => item.name).join(', ') || 'this artist'}.`}
+              </Text>
             </View>
           </>
         )}
