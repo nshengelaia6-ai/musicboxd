@@ -4,6 +4,7 @@ import { API_BASE } from '@/utils/api';
 import { getCurrentUserId, getCurrentSpotifyProfile } from '@/utils/currentUser';
 import { clearSpotifySession, useSpotifyAuth, exchangeSpotifyCode } from '@/utils/spotify';
 import { supabase } from '@/utils/supabase';
+import { flushPendingActivities } from '@/utils/activity';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -236,14 +237,20 @@ export default function Profile() {
       }
 
       const profileData = await AsyncStorage.getItem('profile');
-      const p = profileData ? JSON.parse(profileData) : {};
+      let p: any = {};
+      try {
+        p = profileData ? JSON.parse(profileData) : {};
+      } catch {
+        p = {};
+      }
 
-      // Read the cloud profile so avatar and bio stay consistent across devices.
-      let cloudProfile: { bio?: string | null; avatar_url?: string | null; favorite_albums?: any[] | null } | null = null;
+      // Read the cloud profile so username, avatar, bio and favorite albums
+      // stay consistent across devices.
+      let cloudProfile: { username?: string | null; bio?: string | null; avatar_url?: string | null; favorite_albums?: any[] | null } | null = null;
       if (user) {
         const { data, error } = await supabase
           .from('users')
-          .select('bio, avatar_url, favorite_albums')
+          .select('username, bio, avatar_url, favorite_albums')
           .eq('id', user.id)
           .maybeSingle();
         if (error) {
@@ -251,6 +258,12 @@ export default function Profile() {
         } else {
           cloudProfile = data;
         }
+      }
+
+      // Retry queued activity events whenever the profile opens, so the profile
+      // does not depend on visiting the Activity tab to finish synchronization.
+      if (user) {
+        await flushPendingActivities();
       }
 
       // Load the full cloud activity feed for this profile, with legacy local reviews as fallback.
@@ -266,17 +279,29 @@ export default function Profile() {
         if (activityError) {
           console.warn('Could not load cloud profile activity:', activityError);
         } else if (activityRows) {
-          const cloudItems = activityRows.map((entry: any) => ({
-            id: entry.id,
-            albumId: String(entry.item_key),
-            albumName: entry.data?.name || entry.data?.title || entry.item_key,
-            albumArtist: entry.data?.artist || entry.data?.artist_name || '',
-            albumCover: entry.data?.cover || entry.data?.albumCover || '',
-            rating: entry.data?.rating || 0,
-            review: entry.data?.review || '',
-            activityType: entry.activity_type,
-            date: entry.created_at,
-          }));
+          const cloudItems = activityRows.map((entry: any) => {
+            const data = entry.data || {};
+            const artists = Array.isArray(data.artists)
+              ? data.artists.map((artist: any) => artist?.name || artist).filter(Boolean).join(', ')
+              : data.artists;
+            return {
+              id: entry.id,
+              albumId: String(data.id || entry.item_key),
+              albumName:
+                data.name || data.title || data.albumName || data.track_name ||
+                data.item_name || data.artistName || String(entry.item_key),
+              albumArtist: data.artist || data.artist_name || data.artistName || artists || '',
+              albumCover:
+                data.cover || data.cover_url || data.image || data.imageUrl ||
+                data.image_url || data.artwork || data.albumCover ||
+                data.album?.images?.[0]?.url || '',
+              rating: Number(data.rating) || 0,
+              review: data.review || data.comment || data.notes || data.description || '',
+              activityType: entry.activity_type,
+              date: entry.created_at,
+              itemType: data.type || (entry.activity_type === 'followed_artist' ? 'artist' : entry.activity_type === 'created_list' ? 'list' : 'album'),
+            };
+          });
           const cloudReviewKeys = new Set(
             cloudItems
               .filter((item: any) => item.activityType === 'reviewed')
@@ -295,7 +320,7 @@ export default function Profile() {
       setReviews(recentItems);
 
       // Supabase profile data takes priority over device-local cached values.
-      const finalUsername = authUsername || p.username || '';
+      const finalUsername = cloudProfile?.username?.trim() || authUsername || p.username || '';
       const finalBio = cloudProfile?.bio ?? p.bio ?? '';
       const finalAvatar = cloudProfile?.avatar_url ?? p.avatar ?? null;
 
@@ -312,8 +337,14 @@ export default function Profile() {
   'pendingFavoriteAlbums'
 );
 
-const sourceAlbums = pendingAlbumsData
-  ? JSON.parse(pendingAlbumsData)
+let pendingAlbums: any = null;
+try {
+  pendingAlbums = pendingAlbumsData ? JSON.parse(pendingAlbumsData) : null;
+} catch {
+  pendingAlbums = null;
+}
+const sourceAlbums = Array.isArray(pendingAlbums)
+  ? pendingAlbums
   : cloudProfile?.favorite_albums ?? p.favoriteAlbums;
 
 if (Array.isArray(sourceAlbums)) {
@@ -441,6 +472,7 @@ if (Array.isArray(sourceAlbums)) {
 
       // Upsert guarantees a profile row exists even for older accounts that
       // were created before the public.users row was provisioned.
+      const previousAvatarUrl = avatar;
       const { data: savedProfile, error: profileError } = await supabase
         .from('users')
         .upsert({
@@ -456,6 +488,25 @@ if (Array.isArray(sourceAlbums)) {
       if (profileError) throw profileError;
       if (!savedProfile?.id) {
         throw new Error('Profile could not be saved. Please try again.');
+      }
+
+      // Remove the previous object only after the new profile URL is safely saved.
+      if (pendingAvatar && previousAvatarUrl && previousAvatarUrl !== avatarUrl) {
+        try {
+          const marker = '/avatars/';
+          const markerIndex = previousAvatarUrl.indexOf(marker);
+          if (markerIndex >= 0) {
+            const oldPath = decodeURIComponent(previousAvatarUrl.slice(markerIndex + marker.length).split('?')[0]);
+            if (oldPath.startsWith(`${user.id}/`)) {
+              const { error: removeOldAvatarError } = await supabase.storage
+                .from('avatars')
+                .remove([oldPath]);
+              if (removeOldAvatarError) console.warn('Could not remove previous avatar:', removeOldAvatarError);
+            }
+          }
+        } catch (cleanupError) {
+          console.warn('Could not remove previous avatar:', cleanupError);
+        }
       }
 
       const { error: authUpdateError } = await supabase.auth.updateUser({
