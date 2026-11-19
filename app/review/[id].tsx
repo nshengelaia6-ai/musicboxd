@@ -1,6 +1,7 @@
 import { useAppTheme } from '@/context/ThemeContext';
 import { getValidSpotifyToken } from '@/utils/spotify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -174,7 +175,21 @@ export default function ReviewDetail() {
     try {
       const data = await AsyncStorage.getItem('reviews');
       const reviews = data ? JSON.parse(data) : [];
+      const reviewToDelete = reviews.find((review: any) => String(review.id) === String(id));
       await AsyncStorage.setItem('reviews', JSON.stringify(reviews.filter((review: any) => String(review.id) !== String(id))));
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && reviewToDelete?.albumId) {
+        const [{ error: profileDeleteError }, { error: activityDeleteError }] = await Promise.all([
+          supabase.from('public_profile_items').delete()
+            .eq('user_id', user.id).eq('section', 'reviews').eq('item_key', String(reviewToDelete.albumId)),
+          supabase.from('user_activity').delete()
+            .eq('user_id', user.id).eq('activity_type', 'reviewed').eq('item_key', String(reviewToDelete.albumId)),
+        ]);
+        if (profileDeleteError) throw profileDeleteError;
+        if (activityDeleteError) throw activityDeleteError;
+      }
+
       setShowDeleteConfirm(false);
       router.back();
     } catch {
