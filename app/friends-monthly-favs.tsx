@@ -47,19 +47,35 @@ export default function FriendsMonthlyFavsScreen() {
 
       if (authError) throw authError;
 
-      let query = supabase
+      if (!user) {
+        setFavorites([]);
+        return;
+      }
+
+      const { data: friendships, error: friendshipsError } = await supabase
+        .from('friendships')
+        .select('friend_id')
+        .eq('user_id', user.id);
+
+      if (friendshipsError) throw friendshipsError;
+
+      const friendIds = [
+        ...new Set((friendships || []).map((row: any) => row.friend_id).filter(Boolean)),
+      ];
+
+      if (friendIds.length === 0) {
+        setFavorites([]);
+        return;
+      }
+
+      const { data, error: queryError } = await supabase
         .from('monthly_favorites')
         .select(
           'id,user_id,username,month_key,slot_index,track_id,track_name,artist_name,cover_url,spotify_url,comment,picked_at'
         )
         .eq('month_key', getMonthKey())
+        .in('user_id', friendIds)
         .order('picked_at', { ascending: false });
-
-      if (user) {
-        query = query.neq('user_id', user.id);
-      }
-
-      const { data, error: queryError } = await query;
 
       if (queryError) throw queryError;
 
