@@ -721,13 +721,13 @@ if (Array.isArray(sourceAlbums)) {
                     />
                   )}
 
-                  <View
-                    style={[
-                      styles.activityBadge,
-                      { backgroundColor: accentColor },
-                    ]}
-                  >
-                    <Text style={styles.activityBadgeText}>
+                  <View style={styles.activityMeta}>
+                    <Text
+                      style={[styles.activityRating, { color: '#9BA7B2' }]}
+                    >
+                      {'\u2605'.repeat(Math.floor(item.rating || 0))}
+                    </Text>
+                    <Text style={[styles.activityBadgeText, { color: accentColor }]}>
                       {item.activityType === 'reviewed'
                         ? '\u270E'
                         : item.activityType === 'liked'
@@ -741,12 +741,6 @@ if (Array.isArray(sourceAlbums)) {
                                 : '\u266B'}
                     </Text>
                   </View>
-
-                  <Text
-                    style={[styles.activityRating, { color: '#9BA7B2' }]}
-                  >
-                    {'\u2605'.repeat(Math.floor(item.rating || 0))}
-                  </Text>
 
                   <Text style={styles.activityAlbum} numberOfLines={1}>
                     {item.albumName}
@@ -1143,18 +1137,16 @@ const styles = StyleSheet.create({
     height: 110,
     borderRadius: 8,
   },
-  activityBadge: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    borderRadius: 10,
-    width: 20,
-    height: 20,
+  activityMeta: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 5,
+    minHeight: 16,
+    marginTop: 4,
   },
-  activityBadgeText: { fontSize: 11, color: '#000' },
-  activityRating: { fontSize: 11, marginTop: 4 },
+  activityBadgeText: { fontSize: 12, fontWeight: '600' },
+  activityRating: { fontSize: 11 },
   activityAlbum: {
     color: '#fff',
     fontSize: 11,
