@@ -134,26 +134,41 @@ export default function Home() {
     }, [sessionVersion])
   );
 
-  // Load public Monthly Favs from everyone
+  // Load Monthly Favs shared by friends only.
   const loadPublicMonthlyFavs = useCallback(async (userId: string | null) => {
     setFriendsMonthlyLoading(true);
     setFriendsMonthlyError('');
 
     try {
-      let query = supabase
+      if (!userId) {
+        setFriendsMonthlyFavs([]);
+        return;
+      }
+
+      const { data: friendships, error: friendshipsError } = await supabase
+        .from('friendships')
+        .select('friend_id')
+        .eq('user_id', userId);
+
+      if (friendshipsError) throw friendshipsError;
+
+      const friendIds = [
+        ...new Set((friendships || []).map((row: any) => row.friend_id).filter(Boolean)),
+      ];
+
+      if (friendIds.length === 0) {
+        setFriendsMonthlyFavs([]);
+        return;
+      }
+
+      const { data, error } = await supabase
         .from('monthly_favorites')
         .select(
           'id,user_id,username,month_key,slot_index,track_id,track_name,artist_name,cover_url,spotify_url,comment,picked_at'
         )
         .eq('month_key', getMonthKey())
+        .in('user_id', friendIds)
         .order('picked_at', { ascending: false });
-
-      // The section shows other users' favorites, not your own.
-      if (userId) {
-        query = query.neq('user_id', userId);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -204,7 +219,7 @@ export default function Home() {
           .from('user_activity')
           .select('id,user_id,activity_type,item_key,data,created_at')
           .in('user_id', friendIds)
-          .eq('activity_type', 'listened')
+          .in('activity_type', ['listened', 'reviewed'])
           .order('created_at', { ascending: false })
           .limit(100),
 
@@ -223,7 +238,18 @@ export default function Home() {
           (activity.data?.name || activity.item_key)
       );
 
-      const recentTracks = trackActivities.map((activity: any) => {
+      // A newly reviewed track can also create a listened event.
+      // Keep only the newest event for each friend/track pair.
+      const seenFriendTracks = new Set<string>();
+      const uniqueTrackActivities = trackActivities.filter((activity: any) => {
+        const trackId = activity.item_key || activity.data?.id;
+        const key = `${activity.user_id}:${trackId}`;
+        if (!trackId || seenFriendTracks.has(key)) return false;
+        seenFriendTracks.add(key);
+        return true;
+      });
+
+      const recentTracks = uniqueTrackActivities.map((activity: any) => {
         const user = (users || []).find(
           (item: any) => item.id === activity.user_id
         );
@@ -235,6 +261,7 @@ export default function Home() {
           artist_name:
             activity.data?.artist_name ||
             activity.data?.artistName ||
+            activity.data?.artist ||
             '',
           cover_url:
             activity.data?.cover ||
@@ -252,7 +279,7 @@ export default function Home() {
 
       const counts: Record<string, any> = {};
 
-      trackActivities.forEach((activity: any) => {
+      uniqueTrackActivities.forEach((activity: any) => {
         const trackId = activity.item_key || activity.data?.id;
 
         if (!trackId) return;
@@ -648,7 +675,7 @@ export default function Home() {
                     />
                   ) : favorite ? (
                     <View style={[styles.favCover, styles.noCover]}>
-                      <Text style={styles.noCoverText}>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â«</Text>
+                      <Text style={styles.noCoverText}>♪</Text>
                     </View>
                   ) : (
                     <View style={[styles.favCover, styles.favPlus]}>
@@ -700,7 +727,7 @@ export default function Home() {
         ) : friendsMonthlyFavs.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              Other usersÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ monthly favorites will appear here.
+              Your friends' monthly favorites will appear here.
             </Text>
           </View>
         ) : (
@@ -718,7 +745,7 @@ export default function Home() {
                   />
                 ) : (
                   <View style={[styles.favCover, styles.noCover]}>
-                    <Text style={styles.noCoverText}>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â«</Text>
+                    <Text style={styles.noCoverText}>♪</Text>
                   </View>
                 )}
 
@@ -767,7 +794,7 @@ export default function Home() {
         ) : newFromFriends.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              Your friendsÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ music activity will appear here.
+              Your friends' music activity will appear here.
             </Text>
 
             <TouchableOpacity
@@ -799,7 +826,7 @@ export default function Home() {
                   />
                 ) : (
                   <View style={[styles.cover, styles.noCover]}>
-                    <Text style={styles.noCoverText}>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â«</Text>
+                    <Text style={styles.noCoverText}>♪</Text>
                   </View>
                 )}
 
@@ -860,7 +887,7 @@ export default function Home() {
                   />
                 ) : (
                   <View style={[styles.cover, styles.noCover]}>
-                    <Text style={styles.noCoverText}>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â«</Text>
+                    <Text style={styles.noCoverText}>♪</Text>
                   </View>
                 )}
 
@@ -967,7 +994,7 @@ export default function Home() {
                         styles.noCover,
                       ]}
                     >
-                      <Text style={styles.noCoverText}>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â«</Text>
+                      <Text style={styles.noCoverText}>♪</Text>
                     </View>
                   )}
 
@@ -1014,7 +1041,7 @@ export default function Home() {
                         styles.noCover,
                       ]}
                     >
-                      <Text style={styles.noCoverText}>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â«</Text>
+                      <Text style={styles.noCoverText}>♪</Text>
                     </View>
                   )}
 
@@ -1134,7 +1161,7 @@ export default function Home() {
                 />
               ) : (
                 <View style={[styles.sheetCover, styles.noCover]}>
-                  <Text style={styles.noCoverText}>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â«</Text>
+                  <Text style={styles.noCoverText}>♪</Text>
                 </View>
               )}
 
