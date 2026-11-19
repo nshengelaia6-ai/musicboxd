@@ -61,10 +61,9 @@ export default function FriendsReviews() {
         <Text style={styles.brand}>Musicboxd</Text>
       </View>
       <View style={styles.nav}>
-        <TouchableOpacity onPress={() => router.replace('/(tabs)' as any)}><Text style={styles.navText}>Songs</Text></TouchableOpacity>
-        <View style={[styles.activeLine, { backgroundColor: accentColor }]} />
-        <Text style={[styles.navText, styles.activeText]}>Reviews</Text>
-        <TouchableOpacity onPress={() => router.replace('/friends-lists' as any)}><Text style={styles.navText}>Lists</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.navTab} onPress={() => router.replace('/(tabs)' as any)}><Text style={styles.navText}>Songs</Text></TouchableOpacity>
+        <View style={[styles.navTab, styles.navTabActive, { borderBottomColor: accentColor }]}><Text style={[styles.navText, styles.activeText, { color: accentColor }]}>Reviews</Text></View>
+        <TouchableOpacity style={styles.navTab} onPress={() => router.replace('/friends-lists' as any)}><Text style={styles.navText}>Lists</Text></TouchableOpacity>
       </View>
       {loading ? <ActivityIndicator color={accentColor} style={{ marginTop: 36 }} /> :
         error ? <Text style={styles.empty}>{error}</Text> :
@@ -94,12 +93,13 @@ export default function FriendsReviews() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  brandHeader: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 14 },
-  brand: { color: '#fff', fontSize: 27, fontWeight: '800', letterSpacing: -0.7 },
-  nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#292929' },
-  navText: { color: '#888', fontSize: 15, fontWeight: '700', paddingVertical: 8 },
+  brandHeader: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 12, alignItems: 'center', justifyContent: 'center' },
+  brand: { color: '#fff', fontSize: 25, fontWeight: '800', letterSpacing: -0.6, textAlign: 'center' },
+  nav: { flexDirection: 'row', alignItems: 'stretch', borderBottomWidth: 1, borderBottomColor: '#292929' },
+  navTab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent', marginBottom: -1 },
+  navTabActive: { borderBottomWidth: 2 },
+  navText: { color: '#888', fontSize: 14, fontWeight: '700', letterSpacing: 0.2 },
   activeText: { color: '#fff' },
-  activeLine: { position: 'absolute', bottom: 0, left: '39%', width: '22%', height: 2 },
   content: { padding: 16, paddingBottom: 32 },
   card: { flexDirection: 'row', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#252525' },
   cover: { width: 76, height: 76, borderRadius: 6, backgroundColor: '#252525' },
