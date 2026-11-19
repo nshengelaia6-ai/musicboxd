@@ -235,20 +235,16 @@ export default function Home() {
         return;
       }
 
-      const [
-        { data: activities, error: activitiesError },
-        { data: users, error: usersError },
-      ] = await Promise.all([
+      const [activities, usersResult] = await Promise.all([
         loadFriendActivityRows(friendIds),
-
         supabase
           .from('users')
           .select('id,username')
           .in('id', friendIds),
       ]);
 
-      if (activitiesError) throw activitiesError;
-      if (usersError) throw usersError;
+      if (usersResult.error) throw usersResult.error;
+      const users = usersResult.data;
 
       const trackActivities = (activities || []).filter(
         (activity: any) =>
