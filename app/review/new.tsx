@@ -107,6 +107,7 @@ export default function ReviewPage() {
           ...reviews[existingIndex],
           rating,
           review,
+          date: new Date().toISOString(),
           itemType: resolvedType,
           parentAlbumId: resolvedParentAlbumId,
         };
@@ -173,18 +174,58 @@ export default function ReviewPage() {
       }
       await AsyncStorage.setItem('listened', JSON.stringify(listenedList));
 
-      if (isNewReview) {
-        await recordActivity('reviewed', String(albumId), {
+      const savedReview = reviews.find((r: any) => r.albumId === albumId);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && savedReview) {
+        const reviewData = {
           id: String(albumId),
-          name: String(albumName ?? ''),
-          artist: String(albumArtist ?? ''),
-          cover: String(albumCover ?? ''),
+          name: String(albumName ?? savedReview.albumName ?? ''),
+          artist: String(albumArtist ?? savedReview.albumArtist ?? ''),
+          cover: String(albumCover ?? savedReview.albumCover ?? ''),
+          albumName: String(savedReview.albumName ?? albumName ?? ''),
+          albumArtist: String(savedReview.albumArtist ?? albumArtist ?? ''),
+          albumCover: String(savedReview.albumCover ?? albumCover ?? ''),
           type: resolvedType,
           albumId: resolvedType === 'track' ? resolvedParentAlbumId : undefined,
           rating,
           review,
-          date: reviews[0]?.date ?? new Date().toISOString(),
-        });
+          date: savedReview.date,
+        };
+
+        const { error: profileSyncError } = await supabase
+          .from('public_profile_items')
+          .upsert({
+            user_id: user.id,
+            section: 'reviews',
+            item_key: String(albumId),
+            data: savedReview,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,section,item_key' });
+        if (profileSyncError) console.error('Review profile sync failed:', profileSyncError);
+
+        if (isNewReview) {
+          await recordActivity('reviewed', String(albumId), reviewData);
+        } else {
+          const { data: activityRows, error: activityLookupError } = await supabase
+            .from('user_activity')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('activity_type', 'reviewed')
+            .eq('item_key', String(albumId))
+            .order('created_at', { ascending: false })
+            .limit(1);
+          if (activityLookupError) throw activityLookupError;
+
+          if (activityRows?.[0]?.id) {
+            const { error: activityUpdateError } = await supabase
+              .from('user_activity')
+              .update({ data: reviewData, created_at: new Date().toISOString() })
+              .eq('id', activityRows[0].id);
+            if (activityUpdateError) throw activityUpdateError;
+          } else {
+            await recordActivity('reviewed', String(albumId), reviewData);
+          }
+        }
       }
 
       if (isNewListened) {
