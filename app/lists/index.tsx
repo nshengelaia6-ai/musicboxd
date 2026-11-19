@@ -323,13 +323,6 @@ export default function Lists() {
     return 'ðŸ”’  You (private list)';
   }
 
-  function privacyLabelFor(value?: string) {
-    if (value === 'public') return 'Public';
-    if (value === 'link') return 'Link access';
-    if (value === 'friends') return 'Friends';
-    return 'Private';
-  }
-
   function showPrivacySheet() {
     setShowPrivacyOptions(true);
   }
