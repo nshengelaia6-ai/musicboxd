@@ -521,22 +521,69 @@ export default function Search() {
     );
 
     if (!exists) {
-      currentLists[listIndex].albums = [
-        {
-          id: selected.id,
-          type: 'track',
-          name: selected.name,
-          artist: selected.artists?.[0]?.name,
-          cover: selected.album?.images?.[0]?.url,
-          albumId: selected.album?.id,
-        },
-        ...items,
-      ];
+      currentLists[listIndex] = {
+        ...currentLists[listIndex],
+        albums: [
+          {
+            id: selected.id,
+            type: 'track',
+            name: selected.name,
+            artist: selected.artists?.[0]?.name,
+            cover: selected.album?.images?.[0]?.url,
+            albumId: selected.album?.id,
+          },
+          ...items,
+        ],
+      };
 
       await AsyncStorage.setItem(
         'lists',
         JSON.stringify(currentLists)
       );
+
+      // Keep public lists in sync so friends see tracks added from Search.
+      const updatedList = currentLists[listIndex];
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        const itemKey = String(updatedList.id);
+
+        if (updatedList.privacy === 'public') {
+          const { error } = await supabase
+            .from('public_profile_items')
+            .upsert({
+              user_id: user.id,
+              section: 'lists',
+              item_key: itemKey,
+              data: {
+                id: itemKey,
+                name: updatedList.name,
+                description: updatedList.description || '',
+                privacy: updatedList.privacy,
+                itemCount: updatedList.albums.length,
+                albums: updatedList.albums,
+                type: 'list',
+                createdAt: updatedList.createdAt,
+              },
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id,section,item_key' });
+
+          if (error) {
+            console.error('Search list sync failed:', error);
+          }
+        } else {
+          const { error } = await supabase
+            .from('public_profile_items')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('section', 'lists')
+            .eq('item_key', itemKey);
+
+          if (error) {
+            console.error('Search private list cleanup failed:', error);
+          }
+        }
+      }
     }
 
     setLists(currentLists);
