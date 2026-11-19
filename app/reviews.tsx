@@ -1,83 +1,109 @@
 import { useAppTheme } from '@/context/ThemeContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { supabase } from '@/utils/supabase';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export default function Reviews() {
-  const router = useRouter();
-  const { backgroundColor } = useAppTheme();
-  const [reviews, setReviews] = useState<any[]>([]);
+type Review = { id:string; user_id:string; item_type:'album'|'track'; item_id:string; parent_album_id:string|null; item_name:string; artist_name:string; cover_url:string; rating:number; review_text:string; created_at:string; };
+type Person = { id:string; username:string|null; avatar_url:string|null };
+const filters = ['Recent','Friends'] as const;
 
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      AsyncStorage.getItem('reviews')
-        .then(data => {
-          const allReviews = data ? JSON.parse(data) : [];
-          if (active) setReviews(allReviews.filter((review: any) => review.review && review.review.trim() !== ''));
-        })
-        .catch(() => {
-          if (active) setReviews([]);
-        });
-      return () => { active = false; };
-    }, [])
-  );
-
-  return (
-    <View style={[styles.container, { backgroundColor }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>{'\u2039'}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Reviews</Text>
-        <View style={{ width: 30 }} />
-      </View>
-      {reviews.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>რევიუები არ არის</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={reviews}
-          keyExtractor={(item, index) => item.id ?? index.toString()}
-          contentContainerStyle={{ padding: 16 }}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => router.push(`/review/${item.id}` as any)}
-            >
-              {item.albumCover
-                ? <Image source={{ uri: item.albumCover }} style={styles.cover} />
-                : <View style={[styles.cover, { backgroundColor: '#2a2a2a' }]} />}
-              <View style={styles.info}>
-                <Text style={styles.albumName}>{item.albumName}</Text>
-                <Text style={styles.artist}>{item.albumArtist}</Text>
-                <Text style={[styles.rating, { color: '#9BA7B2' }]}>{'\u2605'.repeat(Math.floor(item.rating))}{item.rating % 1 ? '\u00BD' : ''}</Text>
-                {item.review ? <Text style={styles.review}>{item.review}</Text> : null}
-                <Text style={styles.date}>{new Date(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-        />
-      )}
-    </View>
-  );
+function Stars({rating}:{rating:number}) {
+  return <Text style={styles.stars}>{'★'.repeat(Math.floor(rating))}{rating % 1 ? '½' : ''}<Text style={styles.rating}> {Number(rating).toFixed(1)}/5</Text></Text>;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#141414' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 60, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#222' },
-  back: { color: '#fff', fontSize: 36, lineHeight: 40 },
-  title: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { color: '#888', fontSize: 16 },
-  card: { flexDirection: 'row', marginBottom: 20, gap: 12 },
-  cover: { width: 80, height: 80, borderRadius: 8 },
-  info: { flex: 1 },
-  albumName: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  artist: { color: '#888', fontSize: 13, marginTop: 2 },
-  rating: { color: '#ffb6c1', fontSize: 14, marginTop: 4 },
-  review: { color: '#ccc', fontSize: 13, marginTop: 6, lineHeight: 18 },
-  date: { color: '#555', fontSize: 11, marginTop: 6 },
+export default function Reviews() {
+  const router=useRouter();
+  const params=useLocalSearchParams<{itemType?:string;itemId?:string;itemName?:string;artistName?:string;coverUrl?:string;parentAlbumId?:string}>();
+  const {backgroundColor,accentColor}=useAppTheme();
+  const itemType=params.itemType==='track'?'track':'album';
+  const itemId=String(params.itemId||'');
+  const [filter,setFilter]=useState<'Recent'|'Friends'>('Recent');
+  const [reviews,setReviews]=useState<Review[]>([]);
+  const [people,setPeople]=useState<Record<string,Person>>({});
+  const [myId,setMyId]=useState('');
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+
+  const load=useCallback(async()=>{
+    setLoading(true); setError('');
+    try {
+      const {data:auth,error:authError}=await supabase.auth.getUser();
+      if(authError) throw authError;
+      const uid=auth.user?.id||''; setMyId(uid);
+      let request=supabase.from('music_reviews').select('id,user_id,item_type,item_id,parent_album_id,item_name,artist_name,cover_url,rating,review_text,created_at').eq('item_type',itemType).order('created_at',{ascending:false}).limit(100);
+      if(itemId) request=request.eq('item_id',itemId);
+      const {data,error:reviewError}=await request;
+      if(reviewError) throw reviewError;
+      let rows=(data||[]) as Review[];
+      if(filter==='Friends'){
+        if(!uid) rows=[];
+        else {
+          const {data:follows,error:followsError}=await supabase.from('friendships').select('friend_id').eq('user_id',uid);
+          if(followsError) throw followsError;
+          const ids=new Set((follows||[]).map((row:any)=>row.friend_id));
+          rows=rows.filter(row=>ids.has(row.user_id)||row.user_id===uid);
+        }
+      }
+      const userIds=[...new Set(rows.map(row=>row.user_id))];
+      const {data:profiles,error:profilesError}=userIds.length?await supabase.from('users').select('id,username,avatar_url').in('id',userIds):{data:[],error:null};
+      if(profilesError) throw profilesError;
+      const map:Record<string,Person>={}; (profiles||[]).forEach((p:any)=>map[p.id]=p);
+      setPeople(map); setReviews(rows);
+    } catch(e:any) { setError(e?.message||'Could not load reviews.'); }
+    finally { setLoading(false); }
+  },[filter,itemId,itemType]);
+
+  useFocusEffect(useCallback(()=>{void load();},[load]));
+
+  function writeReview(){
+    router.push({pathname:'/review/new',params:{albumId:itemId,albumName:params.itemName||'',albumArtist:params.artistName||'',albumCover:params.coverUrl||'',itemType,parentAlbumId:params.parentAlbumId||(itemType==='album'?itemId:'')}} as any);
+  }
+
+  return <View style={[styles.screen,{backgroundColor}]}>
+    <View style={styles.header}>
+      <TouchableOpacity onPress={()=>router.back()}><Text style={styles.back}>‹</Text></TouchableOpacity>
+      <Text style={styles.heading}>REVIEWS</Text>
+      <TouchableOpacity onPress={writeReview}><Text style={[styles.write,{color:accentColor}]}>＋ Review</Text></TouchableOpacity>
+    </View>
+    <View style={styles.itemHeader}>
+      {params.coverUrl?<Image source={{uri:params.coverUrl}} style={styles.cover}/>:<View style={styles.cover}/>}
+      <View style={{flex:1}}>
+        <Text style={styles.itemTitle}>{params.itemName||'Music reviews'}</Text>
+        <Text style={styles.artist}>{params.artistName||''}</Text>
+        <Text style={styles.count}>{reviews.length} {reviews.length===1?'review':'reviews'}</Text>
+      </View>
+    </View>
+    <View style={styles.filters}>{filters.map(value=><TouchableOpacity key={value} onPress={()=>setFilter(value)} style={[styles.filter,filter===value&&{borderBottomColor:accentColor}]}><Text style={[styles.filterText,filter===value&&{color:'#fff'}]}>{value}</Text></TouchableOpacity>)}</View>
+    {loading?<ActivityIndicator color={accentColor} style={{marginTop:40}}/>:
+      <ScrollView contentContainerStyle={styles.list}>
+        {!!error&&<Text style={styles.error}>{error}</Text>}
+        {!error&&reviews.length===0&&<Text style={styles.empty}>No reviews yet. Be the first to write one.</Text>}
+        {reviews.map(review=>{
+          const person=people[review.user_id]; const own=review.user_id===myId;
+          return <View key={review.id} style={styles.card}>
+            <View style={styles.personRow}>
+              <TouchableOpacity onPress={()=>router.push({pathname:'/user/[id]',params:{id:review.user_id}} as any)}>
+                {person?.avatar_url?<Image source={{uri:person.avatar_url}} style={styles.avatar}/>:<View style={styles.avatar}/>}
+              </TouchableOpacity>
+              <View style={{flex:1}}>
+                <TouchableOpacity onPress={()=>router.push({pathname:'/user/[id]',params:{id:review.user_id}} as any)}><Text style={styles.username}>@{person?.username||'listener'}</Text></TouchableOpacity>
+                <Text style={styles.date}>{new Date(review.created_at).toLocaleDateString()}</Text>
+              </View>
+              {own&&<TouchableOpacity onPress={()=>router.push({pathname:'/review/new',params:{albumId:review.item_id,albumName:review.item_name,albumArtist:review.artist_name,albumCover:review.cover_url,currentRating:String(review.rating),itemType:review.item_type,parentAlbumId:review.parent_album_id||''}} as any)}><Text style={[styles.edit,{color:accentColor}]}>Edit</Text></TouchableOpacity>}
+            </View>
+            <Stars rating={Number(review.rating)||0}/>
+            {!!review.review_text&&<Text style={styles.reviewText}>{review.review_text}</Text>}
+          </View>;
+        })}
+      </ScrollView>}
+  </View>;
+}
+
+const styles=StyleSheet.create({
+ screen:{flex:1},header:{paddingTop:58,paddingHorizontal:18,paddingBottom:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#252525'},
+ back:{color:'#fff',fontSize:32,width:36},heading:{color:'#fff',fontSize:16,fontWeight:'700',letterSpacing:1.5},write:{fontSize:14,fontWeight:'700'},
+ itemHeader:{flexDirection:'row',alignItems:'center',gap:14,padding:18},cover:{width:66,height:66,borderRadius:6,backgroundColor:'#292929'},itemTitle:{color:'#fff',fontSize:17,fontWeight:'700'},artist:{color:'#aaa',marginTop:3},count:{color:'#777',fontSize:12,marginTop:6},
+ filters:{flexDirection:'row',borderBottomWidth:1,borderBottomColor:'#252525',paddingHorizontal:18},filter:{paddingVertical:12,marginRight:24,borderBottomWidth:2,borderBottomColor:'transparent'},filterText:{color:'#888',fontSize:13,fontWeight:'600'},
+ list:{paddingHorizontal:18,paddingBottom:50},card:{paddingVertical:18,borderBottomWidth:1,borderBottomColor:'#252525'},personRow:{flexDirection:'row',alignItems:'center',gap:10},avatar:{width:38,height:38,borderRadius:19,backgroundColor:'#333'},username:{color:'#fff',fontWeight:'700',fontSize:14},date:{color:'#777',fontSize:11,marginTop:3},edit:{fontSize:13,fontWeight:'700'},stars:{color:'#00e054',fontSize:18,marginTop:12},rating:{color:'#888',fontSize:12},reviewText:{color:'#e5e5e5',fontSize:15,lineHeight:23,marginTop:12},empty:{color:'#888',textAlign:'center',marginTop:48,lineHeight:22},error:{color:'#ff7777',marginTop:20}
 });
