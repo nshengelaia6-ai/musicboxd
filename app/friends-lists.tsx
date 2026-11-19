@@ -1,8 +1,7 @@
 import { useAppTheme } from '@/context/ThemeContext';
 import { supabase } from '@/utils/supabase';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Stack } from 'expo-router';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function FriendsLists() {
