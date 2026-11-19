@@ -305,6 +305,7 @@ if (Array.isArray(sourceAlbums)) {
 
             if (Array.isArray(items)) {
               items.forEach((item: any, index: number) => {
+                if (config.section === 'lists' && item?.privacy !== 'public') return;
                 const itemKey = String(item?.id ?? item?.albumId ?? item?.trackId ?? index);
                 publicRows.set(`${config.section}:${itemKey}`, {
                   user_id: user.id,
