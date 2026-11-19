@@ -405,9 +405,10 @@ export default function Search() {
   }
 
   useEffect(() => {
+    const requestIdRef = requestId;
     return () => {
       if (searchDebounce.current) clearTimeout(searchDebounce.current);
-      ++requestId.current;
+      ++requestIdRef.current;
     };
   }, []);
 
