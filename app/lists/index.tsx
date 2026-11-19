@@ -46,15 +46,52 @@ export default function Lists() {
 
           if (remote) {
             const { data, error } = await supabase
-              .from('public_profile_items')
-              .select('data')
+              .from('music_lists')
+              .select('id, name, description, privacy, items, created_at, share_token')
               .eq('user_id', userId)
-              .eq('section', 'lists');
+              .order('updated_at', { ascending: false });
             if (error) throw error;
-            if (active) setLists((data || []).map((row: any) => row.data).filter((item: any) => item?.privacy === 'public'));
+            if (active) setLists((data || []).map((row: any) => ({
+              id: row.id, name: row.name, description: row.description, privacy: row.privacy,
+              albums: Array.isArray(row.items) ? row.items : [], createdAt: row.created_at,
+              shareToken: row.share_token,
+            })));
           } else {
-            const data = await AsyncStorage.getItem('lists');
-            if (active) setLists(data ? JSON.parse(data) : []);
+            const localRaw = await AsyncStorage.getItem('lists');
+            const localLists = localRaw ? JSON.parse(localRaw) : [];
+            const { data: cloudRows, error: cloudError } = await supabase
+              .from('music_lists').select('id').order('updated_at', { ascending: false });
+            if (cloudError) throw cloudError;
+            const cloudIds = new Set((cloudRows || []).map((row: any) => String(row.id)));
+            const legacyLists = Array.isArray(localLists) ? localLists : [];
+            const toMigrate = legacyLists.filter((item: any) => !cloudIds.has(String(item.id)));
+            if (toMigrate.length) {
+              const { error: migrateError } = await supabase.from('music_lists').upsert(
+                toMigrate.map((item: any) => ({
+                  id: String(item.id), user_id: authData.user?.id,
+                  name: String(item.name || 'Untitled list').slice(0, 100),
+                  description: String(item.description || '').slice(0, 1000),
+                  privacy: ['public', 'friends', 'link', 'private'].includes(item.privacy) ? item.privacy : 'public',
+                  items: Array.isArray(item.albums) ? item.albums : [],
+                  created_at: item.createdAt || new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                })),
+                { onConflict: 'id', ignoreDuplicates: true }
+              );
+              if (migrateError) throw migrateError;
+            }
+            const { data, error } = await supabase
+              .from('music_lists')
+              .select('id, name, description, privacy, items, created_at, share_token')
+              .order('updated_at', { ascending: false });
+            if (error) throw error;
+            const mapped = (data || []).map((row: any) => ({
+              id: row.id, name: row.name, description: row.description, privacy: row.privacy,
+              albums: Array.isArray(row.items) ? row.items : [], createdAt: row.created_at,
+              shareToken: row.share_token,
+            }));
+            await AsyncStorage.setItem('lists', JSON.stringify(mapped));
+            if (active) setLists(mapped);
           }
         } catch (error) {
           console.log('Could not load lists:', error);
@@ -195,6 +232,19 @@ export default function Lists() {
           createdAt: updatedList.createdAt,
         };
 
+        const { data: cloudList, error: cloudListError } = await supabase
+          .from('music_lists')
+          .upsert({
+            id: String(updatedList.id), user_id: user.id,
+            name: updatedList.name, description: updatedList.description,
+            privacy: updatedList.privacy, items: updatedList.albums,
+            created_at: updatedList.createdAt, updated_at: new Date().toISOString(),
+          }, { onConflict: 'id' })
+          .select('share_token')
+          .single();
+        if (cloudListError) throw cloudListError;
+        (updatedList as any).shareToken = cloudList?.share_token;
+
         if (updatedList.privacy === 'public') {
           const { error: profileSyncError } = await supabase
             .from('public_profile_items')
@@ -277,12 +327,14 @@ export default function Lists() {
             const { data: { user }, error: userError } = await supabase.auth.getUser();
             if (userError) throw userError;
             if (user) {
-              const [{ error: profileDeleteError }, { error: activityDeleteError }] = await Promise.all([
+              const [{ error: cloudDeleteError }, { error: profileDeleteError }, { error: activityDeleteError }] = await Promise.all([
+                supabase.from('music_lists').delete().eq('user_id', user.id).eq('id', String(selectedList.id)),
                 supabase.from('public_profile_items').delete()
                   .eq('user_id', user.id).eq('section', 'lists').eq('item_key', String(selectedList.id)),
                 supabase.from('user_activity').delete()
                   .eq('user_id', user.id).eq('activity_type', 'created_list').eq('item_key', String(selectedList.id)),
               ]);
+              if (cloudDeleteError) throw cloudDeleteError;
               if (profileDeleteError) throw profileDeleteError;
               if (activityDeleteError) throw activityDeleteError;
             }
@@ -303,26 +355,39 @@ export default function Lists() {
 
   async function shareSelectedList() {
     if (!selectedList) return;
-    const items = (selectedList.albums || []).map((item: any) => {
-      const url = `https://open.spotify.com/${item.type || 'album'}/${item.id}`;
-      return `${item.name}${item.artist ? ` by ${item.artist}` : ''}\n${url}`;
-    });
-    const message = [
-      selectedList.name,
-      selectedList.description,
-      ...items,
-    ].filter(Boolean).join('\n\n');
     try {
-      await Share.share({ title: selectedList.name, message });
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Please sign in again.');
+
+      let deepLink = `myapp://list/${encodeURIComponent(String(selectedList.id))}`;
+      if (selectedList.privacy === 'link') {
+        const { data, error } = await supabase
+          .from('music_lists').select('share_token')
+          .eq('id', String(selectedList.id)).eq('user_id', authData.user.id).single();
+        if (error) throw error;
+        deepLink += `?token=${encodeURIComponent(data.share_token)}`;
+      }
+
+      if (selectedList.privacy === 'private') {
+        Alert.alert('Private list', 'This list is private and cannot be shared.');
+      } else {
+        await Share.share({
+          title: selectedList.name,
+          message: `${selectedList.name}\\n${selectedList.description || ''}\\n${deepLink}`,
+        });
+      }
     } catch (error) {
-      console.log('Could not share list:', error);
+      console.error('Could not share list:', error);
+      Alert.alert('Could not share list', 'Please try again.');
+    } finally {
+      setShowListMenu(false);
     }
-    setShowListMenu(false);
   }
   function privacyLabel() {
     if (privacy === 'public') return 'Anyone (public list)';
     if (privacy === 'link') return 'Anyone with share link';
-    if (privacy === 'friends') return 'Friends with share link';
+    if (privacy === 'friends') return 'Friends (mutual follows)';
     return 'You (private list)';
   }
 
@@ -556,7 +621,7 @@ export default function Lists() {
           {([
             ['public', 'Anyone (public list)'],
             ['link', 'Anyone with share link'],
-            ['friends', 'Friends with share link'],
+            ['friends', 'Friends (mutual follows)'],
             ['private', 'You (private list)'],
           ] as const).map(([value, label]) => (
             <TouchableOpacity
