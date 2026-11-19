@@ -1,5 +1,6 @@
 
 import { activateSpotifyAccount } from '@/utils/accountStorage';
+import { clearSpotifySession } from '@/utils/spotify';
 import { supabase } from '@/utils/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Redirect, Tabs } from 'expo-router';
@@ -56,6 +57,9 @@ export default function TabLayout() {
             });
         } else {
           void AsyncStorage.removeItem('supabase_user_id');
+          void clearSpotifySession().catch((error) => {
+            console.warn('Could not clear Spotify session after sign-out:', error);
+          });
           if (active) setLoggedIn(false);
         }
       }
