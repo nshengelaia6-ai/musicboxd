@@ -60,7 +60,7 @@ export default function PrivacyScreen() {
         </Text>
         <Text style={styles.paragraph}>
           Spotify handles its own data according to its Privacy
-          Policy. You can manage or revoke musicboxd's access
+          Policy. You can manage or revoke musicboxd&apos;s access
           through your Spotify account settings.
         </Text>
 
@@ -80,7 +80,7 @@ export default function PrivacyScreen() {
           database storage, and file storage. Some app information
           and Spotify connection data may also be stored locally
           on your device. Data handled by Spotify is also subject
-          to Spotify's systems and policies. The services and
+          to Spotify&apos;s systems and policies. The services and
           infrastructure used to operate Musicboxd may process
           information in locations outside your country.
         </Text>
