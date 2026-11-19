@@ -59,7 +59,7 @@ export default function TermsScreen() {
           reviews, ratings, profile information, and shared music
           activity. You must have the necessary rights to submit
           that content. You must not post content that violates
-          another person's rights or applicable laws.
+          another person&apos;s rights or applicable laws.
         </Text>
 
         <Text style={styles.heading}>5. Third-party services</Text>
