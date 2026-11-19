@@ -16,6 +16,8 @@ type PendingActivity = {
   data: Record<string, any>;
 };
 
+let flushInProgress = false;
+
 function pendingKey(userId: string) {
   return `pending_activity_sync_${userId}`;
 }
@@ -37,6 +39,16 @@ async function readPending(userId: string): Promise<PendingActivity[]> {
  * Returns the number of rows still waiting to sync.
  */
 export async function flushPendingActivities(): Promise<number> {
+  if (flushInProgress) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user ? (await readPending(user.id)).length : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  flushInProgress = true;
   try {
     const {
       data: { user },
@@ -69,10 +81,14 @@ export async function flushPendingActivities(): Promise<number> {
     return remaining.length;
   } catch (error) {
     console.error('Could not sync pending activity:', error);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    return user ? (await readPending(user.id)).length : 0;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user ? (await readPending(user.id)).length : 0;
+    } catch {
+      return 0;
+    }
+  } finally {
+    flushInProgress = false;
   }
 }
 
