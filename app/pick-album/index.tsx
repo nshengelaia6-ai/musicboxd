@@ -2,7 +2,7 @@
 import { supabase } from '@/utils/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -20,12 +20,21 @@ export default function PickAlbum() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const searchRequestId = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      searchRequestId.current += 1;
+    };
+  }, []);
 
   const searchAlbums = async (text: string) => {
     setQuery(text);
+    const requestId = ++searchRequestId.current;
 
     if (text.trim().length < 2) {
       setResults([]);
+      setLoading(false);
       return;
     }
 
@@ -45,8 +54,7 @@ export default function PickAlbum() {
         }
       );
 
-      console.log('SUPABASE ERROR:', error);
-      console.log('SUPABASE DATA:', JSON.stringify(data, null, 2));
+      if (requestId !== searchRequestId.current) return;
 
       if (error) {
         console.error('Album search failed:', error);
@@ -61,15 +69,16 @@ export default function PickAlbum() {
       }
 
       const albums = data?.albums?.items ?? [];
-
-      console.log('ALBUM RESULTS:', albums.length);
-
       setResults(albums);
     } catch (error) {
-      console.error('Unexpected album search error:', error);
-      setResults([]);
+      if (requestId === searchRequestId.current) {
+        console.error('Unexpected album search error:', error);
+        setResults([]);
+      }
     } finally {
-      setLoading(false);
+      if (requestId === searchRequestId.current) {
+        setLoading(false);
+      }
     }
   };
 
