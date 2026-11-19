@@ -38,12 +38,7 @@ create policy "Authenticated users can read unblocked music reviews"
   on public.music_reviews for select to authenticated
   using (
     auth.uid() is not null
-    and not exists (
-      select 1
-      from public.blocked_users b
-      where (b.blocker_id = auth.uid() and b.blocked_id = music_reviews.user_id)
-         or (b.blocker_id = music_reviews.user_id and b.blocked_id = auth.uid())
-    )
+    and not public.are_users_blocked(music_reviews.user_id, auth.uid())
   );
 
 drop policy if exists "Users can create their own music reviews" on public.music_reviews;
