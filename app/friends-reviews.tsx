@@ -42,7 +42,7 @@ export default function FriendsReviews() {
 
         const userMap = new Map((usersResult.data || []).map((user: any) => [user.id, user]));
         const rows = (reviewsResult.data || [])
-          .filter((row: any) => row.data?.review || Number(row.data?.rating) > 0)
+          .filter((row: any) => row.data?.itemType === 'track' && (row.data?.review || Number(row.data?.rating) > 0))
           .map((row: any) => ({ ...row, profile: userMap.get(row.user_id) }));
         if (active) setItems(rows);
       } catch (e: any) {
