@@ -29,7 +29,7 @@ begin
     from pg_policies
     where schemaname = 'public'
       and tablename in ('shared_songs', 'shared_song_likes', 'shared_song_replies')
-      and cmd = 'SELECT'
+      and cmd in ('SELECT', 'ALL')
   loop
     execute format(
       'drop policy %I on %I.%I',
