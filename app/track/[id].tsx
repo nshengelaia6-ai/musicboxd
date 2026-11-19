@@ -59,8 +59,9 @@ export default function TrackPage() {
       if (ratingError) throw ratingError;
       const ratings = ratingRows || [];
       setReviewCount(count || 0);
-      setAverageRating(ratings.length
-        ? ratings.reduce((sum: number, row: any) => sum + Number(row.rating || 0), 0) / ratings.length
+      const ratedReviews = ratings.filter((row: any) => Number(row.rating) > 0);
+      setAverageRating(ratedReviews.length
+        ? ratedReviews.reduce((sum: number, row: any) => sum + Number(row.rating), 0) / ratedReviews.length
         : 0);
       const userIds = [...new Set((reviewRows || []).map((row: any) => row.user_id))];
       const { data: profiles, error: profilesError } = userIds.length
