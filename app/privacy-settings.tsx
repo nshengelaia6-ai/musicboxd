@@ -175,11 +175,7 @@ export default function PrivacySettings() {
       : 'Your account has been permanently deleted.';
 
     if (Platform.OS === 'web') {
-      window.alert(
-        localCleanupFailed
-          ? 'Account deleted. ' + successMessage
-          : 'Account deleted. ' + successMessage
-      );
+      window.alert('Account deleted. ' + successMessage);
 
       router.replace('/auth' as any);
       return;
