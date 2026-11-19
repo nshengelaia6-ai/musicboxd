@@ -213,6 +213,7 @@ export async function removeDeletedSpotifyAccountData(userId: string) {
       await clearSpotifySession();
       notifySpotifySessionChanged();
       await AsyncStorage.removeItem(accountDataKey(userId));
+      await AsyncStorage.removeItem(`pending_activity_sync_${userId}`);
       await AsyncStorage.removeItem('musicboxd_test_mode');
     });
 
