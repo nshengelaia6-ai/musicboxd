@@ -539,14 +539,8 @@ export default function Search() {
       router.push(`/artist/${item.id}`);
     } else if (item._type === 'album') {
       router.push(`/album/${item.id}` as any);
-    } else if (item.album?.id) {
-      router.push({
-        pathname: '/album/[id]',
-        params: {
-          id: item.album.id,
-          highlightTrackId: item.id,
-        },
-      } as any);
+    } else if (item._type === 'track') {
+      router.push({ pathname: '/track/[id]', params: { id: String(item.id) } } as any);
     }
   }
 
