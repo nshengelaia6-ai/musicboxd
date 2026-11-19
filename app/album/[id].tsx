@@ -496,11 +496,7 @@ export default function AlbumPage() {
                 {album.images?.[0]?.url ? <Image source={{ uri: album.images[0].url }} style={styles.cover} /> : <View style={[styles.cover, styles.coverPlaceholder]} />}
               </View>
             </ImageBackground>
-            {!!artist?.genres?.length && (
-              <View style={styles.albumDescription}>
-                <Text style={styles.descriptionText}>{artist.genres.slice(0, 3).join('  ·  ')}</Text>
-              </View>
-            )}
+
             <View style={styles.albumDescription}>
               <Text style={styles.descriptionText}>
                 {artist?.genres?.length
