@@ -207,10 +207,11 @@ export async function removeDeletedSpotifyAccountData(userId: string) {
       if (activeUserId === userId) {
         await replaceCurrentAccountData({});
         await AsyncStorage.removeItem(ACTIVE_ACCOUNT_KEY);
-        await clearSpotifySession();
-        notifySpotifySessionChanged();
       }
 
+      // Spotify tokens are device-global, so clear them after this account is deleted.
+      await clearSpotifySession();
+      notifySpotifySessionChanged();
       await AsyncStorage.removeItem(accountDataKey(userId));
       await AsyncStorage.removeItem('musicboxd_test_mode');
     });
