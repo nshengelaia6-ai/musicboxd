@@ -156,7 +156,9 @@ useEffect(() => {
         if (itemsError) throw itemsError;
 
         if (active) {
-          setProfileItems(items || []);
+          setProfileItems((items || []).filter(
+            (item: ProfileItem) => item.section !== 'lists' || item.data?.privacy === 'public'
+          ));
           setFollowing(Boolean(myFollowResult.data));
         }
       } catch (err) {
