@@ -176,19 +176,27 @@ export default function ReviewDetail() {
       const data = await AsyncStorage.getItem('reviews');
       const reviews = data ? JSON.parse(data) : [];
       const reviewToDelete = reviews.find((review: any) => String(review.id) === String(id));
-      await AsyncStorage.setItem('reviews', JSON.stringify(reviews.filter((review: any) => String(review.id) !== String(id))));
+      const albumId = reviewToDelete?.albumId || entry?.albumId;
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user && reviewToDelete?.albumId) {
+      // Remove cloud copies first. Keep the local review if either cloud
+      // deletion fails so the user can retry instead of leaving stale public data.
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (user && albumId) {
         const [{ error: profileDeleteError }, { error: activityDeleteError }] = await Promise.all([
           supabase.from('public_profile_items').delete()
-            .eq('user_id', user.id).eq('section', 'reviews').eq('item_key', String(reviewToDelete.albumId)),
+            .eq('user_id', user.id).eq('section', 'reviews').eq('item_key', String(albumId)),
           supabase.from('user_activity').delete()
-            .eq('user_id', user.id).eq('activity_type', 'reviewed').eq('item_key', String(reviewToDelete.albumId)),
+            .eq('user_id', user.id).eq('activity_type', 'reviewed').eq('item_key', String(albumId)),
         ]);
         if (profileDeleteError) throw profileDeleteError;
         if (activityDeleteError) throw activityDeleteError;
       }
+
+      await AsyncStorage.setItem(
+        'reviews',
+        JSON.stringify(reviews.filter((review: any) => String(review.id) !== String(id)))
+      );
 
       setShowDeleteConfirm(false);
       router.back();
