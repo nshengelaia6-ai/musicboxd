@@ -1,6 +1,6 @@
 ﻿
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { notifySpotifySessionChanged } from './spotify';
+import { clearSpotifySession, notifySpotifySessionChanged } from './spotify';
 
 const ACTIVE_ACCOUNT_KEY = 'active_spotify_user_id';
 const ACCOUNT_DATA_PREFIX = 'musicboxd_account_data:';
@@ -203,19 +203,18 @@ export async function removeDeletedSpotifyAccountData(userId: string) {
 
       const activeUserId = await AsyncStorage.getItem(ACTIVE_ACCOUNT_KEY);
 
-      // áƒ›áƒ˜áƒ›áƒ“áƒ˜áƒœáƒáƒ áƒ” áƒ›áƒáƒœáƒáƒªáƒ”áƒ›áƒ”áƒ‘áƒ¡ áƒ•áƒ¨áƒšáƒ˜áƒ— áƒ›áƒ®áƒáƒšáƒáƒ“ áƒ›áƒáƒ¨áƒ˜áƒœ,
-      // áƒ—áƒ£ áƒáƒ¥áƒ¢áƒ˜áƒ£áƒ áƒ˜ áƒáƒœáƒ’áƒáƒ áƒ˜áƒ¨áƒ˜ áƒ¡áƒ¬áƒáƒ áƒ”áƒ“ áƒ¬áƒáƒ¡áƒáƒ¨áƒšáƒ”áƒšáƒ˜ áƒáƒœáƒ’áƒáƒ áƒ˜áƒ¨áƒ˜áƒ.
+      // Clear account-scoped app data and Spotify credentials only for this account.
       if (activeUserId === userId) {
         await replaceCurrentAccountData({});
         await AsyncStorage.removeItem(ACTIVE_ACCOUNT_KEY);
+        await clearSpotifySession();
         notifySpotifySessionChanged();
       }
 
-      // áƒ¬áƒáƒ•áƒ¨áƒáƒšáƒáƒ— áƒ›áƒ®áƒáƒšáƒáƒ“ áƒáƒ› áƒáƒœáƒ’áƒáƒ áƒ˜áƒ¨áƒ˜áƒ¡ áƒ¨áƒ”áƒœáƒáƒ®áƒ£áƒšáƒ˜ áƒáƒ¡áƒšáƒ˜.
       await AsyncStorage.removeItem(accountDataKey(userId));
+      await AsyncStorage.removeItem('musicboxd_test_mode');
     });
 
   activationQueue = cleanup;
   await cleanup;
 }
-
