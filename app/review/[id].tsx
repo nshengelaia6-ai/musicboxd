@@ -33,7 +33,7 @@ export default function ReviewDetail() {
   const router = useRouter();
   const { backgroundColor, accentColor } = useAppTheme();
   const [entry, setEntry] = useState<any>(null);
-  const [username, setUsername] = useState('nia');
+  const [username, setUsername] = useState('You');
   const [avatar, setAvatar] = useState<string | null>(null);
   const [likes, setLikes] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
@@ -61,7 +61,7 @@ export default function ReviewDetail() {
           const profile = profileData ? JSON.parse(profileData) : {};
           if (active) {
             setEntry(found || null);
-            setUsername(profile.username || 'nia');
+            setUsername(profile.username || 'You');
             setAvatar(profile.avatar || null);
             setLikes(Number(likesData) || 0);
             setIsLiked(likedData === 'true');
