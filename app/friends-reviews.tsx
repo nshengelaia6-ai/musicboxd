@@ -5,6 +5,31 @@ import { useCallback, useState } from 'react';
 import { Stack } from 'expo-router';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+async function loadFriendReviewRows(friendIds: string[]) {
+  const rows: any[] = [];
+  const pageSize = 500;
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('user_activity')
+      .select('id,user_id,item_key,data,created_at')
+      .eq('activity_type', 'reviewed')
+      .in('user_id', friendIds)
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+
+    const page = data || [];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return rows;
+}
+
 export default function FriendsReviews() {
   const router = useRouter();
   const { backgroundColor, accentColor } = useAppTheme();
@@ -31,21 +56,15 @@ export default function FriendsReviews() {
           return;
         }
 
-        const [reviewsResult, usersResult] = await Promise.all([
-          supabase.from('user_activity')
-            .select('id,user_id,item_key,data,created_at')
-            .eq('activity_type', 'reviewed')
-            .in('user_id', ids)
-            .order('created_at', { ascending: false })
-            .limit(100),
+        const [reviewRows, usersResult] = await Promise.all([
+          loadFriendReviewRows(ids),
           supabase.from('users').select('id,username,avatar_url').in('id', ids),
         ]);
-        if (reviewsResult.error) throw reviewsResult.error;
         if (usersResult.error) throw usersResult.error;
 
         const userMap = new Map((usersResult.data || []).map((user: any) => [user.id, user]));
         const seenReviews = new Set<string>();
-        const rows = (reviewsResult.data || [])
+        const rows = reviewRows
           .filter((row: any) => row.data?.type === 'track' && (row.data?.review || Number(row.data?.rating) > 0))
           .filter((row: any) => {
             const key = String(row.user_id) + ':' + String(row.item_key);
