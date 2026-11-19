@@ -25,12 +25,86 @@ export default function PrivacySettings() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
+  const [blockedUsers, setBlockedUsers] = useState<{ id: string; username: string }[]>([]);
+  const [blockedUsersLoading, setBlockedUsersLoading] = useState(true);
+  const [blockedUsersError, setBlockedUsersError] = useState('');
+  const [unblockingId, setUnblockingId] = useState<string | null>(null);
 
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [showDeleteForm, setShowDeleteForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+
+  const loadBlockedUsers = async () => {
+    setBlockedUsersLoading(true);
+    setBlockedUsersError('');
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user?.id) throw new Error('Please sign in again.');
+
+      const { data: blocks, error: blocksError } = await supabase
+        .from('blocked_users')
+        .select('blocked_id')
+        .eq('blocker_id', authData.user.id);
+      if (blocksError) throw blocksError;
+
+      const ids = [...new Set((blocks || []).map((item: { blocked_id: string }) => item.blocked_id).filter(Boolean))];
+      if (ids.length === 0) {
+        setBlockedUsers([]);
+        return;
+      }
+
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('id, username')
+        .in('id', ids);
+      if (usersError) throw usersError;
+
+      setBlockedUsers(ids.map(id => {
+        const user = (users || []).find((item: { id: string; username: string | null }) => item.id === id);
+        return { id, username: user?.username || 'User' };
+      }));
+    } catch (error: any) {
+      setBlockedUsersError(error?.message || 'Could not load blocked users.');
+    } finally {
+      setBlockedUsersLoading(false);
+    }
+  };
+
+  async function unblockUser(userId: string) {
+    setUnblockingId(userId);
+    setBlockedUsersError('');
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user?.id) throw new Error('Please sign in again.');
+
+      const { error } = await supabase
+        .from('blocked_users')
+        .delete()
+        .eq('blocker_id', authData.user.id)
+        .eq('blocked_id', userId);
+      if (error) throw error;
+
+      setBlockedUsers(previous => previous.filter(user => user.id !== userId));
+    } catch (error: any) {
+      setBlockedUsersError(error?.message || 'Could not unblock this user.');
+    } finally {
+      setUnblockingId(null);
+    }
+  }
+
+  function confirmUnblock(user: { id: string; username: string }) {
+    const message = `Unblock ${user.username}? This will not restore the follow automatically.`;
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm(message)) void unblockUser(user.id);
+      return;
+    }
+    Alert.alert('Unblock user', message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Unblock', onPress: () => { void unblockUser(user.id); } },
+    ]);
+  }
 
   useEffect(() => {
     async function loadUser() {
@@ -40,6 +114,7 @@ export default function PrivacySettings() {
       }
     }
     loadUser();
+    void loadBlockedUsers();
   }, []);
 
   async function changePassword() {
@@ -429,6 +504,40 @@ export default function PrivacySettings() {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.heading}>Blocked Users</Text>
+        <Text style={styles.description}>
+          People you block cannot follow you or interact with you through Musicboxd. Unblocking does not restore previous follows.
+        </Text>
+
+        {blockedUsersLoading ? (
+          <ActivityIndicator color="#1DB954" style={{ marginTop: 16 }} />
+        ) : blockedUsersError ? (
+          <Text accessibilityRole="alert" style={styles.description}>{blockedUsersError}</Text>
+        ) : blockedUsers.length === 0 ? (
+          <Text style={styles.description}>You have not blocked anyone.</Text>
+        ) : (
+          blockedUsers.map(user => (
+            <View key={user.id} style={styles.blockedUserRow}>
+              <Text style={styles.optionText}>{user.username}</Text>
+              <TouchableOpacity
+                style={styles.unblockButton}
+                onPress={() => confirmUnblock(user)}
+                disabled={unblockingId === user.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Unblock ${user.username}`}
+              >
+                {unblockingId === user.id ? (
+                  <ActivityIndicator color="#111111" size="small" />
+                ) : (
+                  <Text style={styles.unblockButtonText}>Unblock</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.heading}>Privacy</Text>
         <Text style={styles.description}>
           Review how Musicboxd handles profile information, activity, and connected services.
@@ -575,6 +684,28 @@ const styles = StyleSheet.create({
   optionText: {
     color: '#EEEEEE',
     fontSize: 15,
+  },
+  blockedUserRow: {
+    minHeight: 54,
+    borderTopWidth: 1,
+    borderTopColor: '#303030',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  unblockButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    minWidth: 84,
+    alignItems: 'center',
+  },
+  unblockButtonText: {
+    color: '#111111',
+    fontSize: 13,
+    fontWeight: '600',
   },
   arrow: {
     color: '#888888',
