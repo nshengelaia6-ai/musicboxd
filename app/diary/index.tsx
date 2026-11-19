@@ -1,9 +1,8 @@
 import { useAppTheme } from '@/context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SectionList, Image, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
-import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/utils/supabase';
 
 type DiaryEntry = {
@@ -98,7 +97,7 @@ export default function DiaryScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useFocusEffect(useCallback(() => {
     loadDiary();
