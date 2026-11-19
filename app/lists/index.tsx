@@ -2,7 +2,6 @@ import { useAppTheme } from '@/context/ThemeContext';
 import * as Crypto from 'expo-crypto';
 import { supabase } from '@/utils/supabase';
 import { recordActivity } from '@/utils/activity';
-import { getValidSpotifyToken } from '@/utils/spotify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
@@ -415,14 +414,9 @@ export default function Lists() {
 
     let albumId = item.albumId;
     if (!albumId) {
-      const token = await getValidSpotifyToken();
-      if (!token) return;
       try {
-        const response = await fetch(`https://api.spotify.com/v1/tracks/${item.id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error(`Track lookup failed (${response.status})`);
-        const data = await response.json();
+        const { getSpotifyTrack } = await import('@/utils/spotifyCatalog');
+        const data = await getSpotifyTrack(item.id);
         albumId = data.album?.id;
       } catch {
         setSearchError('Could not open this track. Please try again.');
