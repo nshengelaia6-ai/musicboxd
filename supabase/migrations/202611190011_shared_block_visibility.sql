@@ -20,7 +20,7 @@ grant execute on function public.are_users_blocked(uuid, uuid) to authenticated;
 
 -- Remove any older permissive SELECT policies; PostgreSQL combines permissive
 -- policies with OR, so leaving one behind could bypass the block restriction.
-do $
+do $block$
 declare
   existing_policy record;
 begin
@@ -39,7 +39,7 @@ begin
     );
   end loop;
 end;
-$;
+$block$;
 
 drop policy if exists "Shared participants can view shared songs" on public.shared_songs;
 create policy "Unblocked shared participants can view shared songs"
