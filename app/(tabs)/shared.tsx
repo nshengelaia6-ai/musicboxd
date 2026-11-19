@@ -1,4 +1,4 @@
-﻿
+
 import { useAppTheme } from '@/context/ThemeContext';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useRouter } from 'expo-router';
