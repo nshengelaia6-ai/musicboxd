@@ -3,9 +3,11 @@ import { useAppTheme } from '@/context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Linking,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -111,12 +113,9 @@ export default function Shared() {
     setError('');
 
     try {
-      const [savedLikes, inboxResponse] = await Promise.all([
-        AsyncStorage.getItem('shared_song_likes'),
-        supabase.functions.invoke('swift-service', {
-          body: { action: 'inbox' },
-        }),
-      ]);
+      const inboxResponse = await supabase.functions.invoke('swift-service', {
+        body: { action: 'inbox' },
+      });
 
       const { data: result, error: inboxError } = inboxResponse;
 
@@ -139,12 +138,10 @@ export default function Shared() {
       setSharedSongs(inboxItems);
       setSentSongs(Array.isArray(result.sentItems) ? result.sentItems : []);
 
-      const parsedLikes = savedLikes ? JSON.parse(savedLikes) : {};
-      setLikedSongs(
-        parsedLikes && typeof parsedLikes === 'object'
-          ? parsedLikes
-          : {}
-      );
+      const allItems = [...inboxItems, ...(Array.isArray(result.sentItems) ? result.sentItems : [])];
+      const remoteLikes: Record<string, boolean> = {};
+      for (const item of allItems) remoteLikes[String(item.id)] = !!item.liked;
+      setLikedSongs(remoteLikes);
     } catch (e) {
       console.error('Could not load shared songs:', e);
       setError(
@@ -163,16 +160,36 @@ export default function Shared() {
     }, [loadShared])
   );
 
+  useEffect(() => {
+    const channel = supabase
+      .channel('shared-music-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_songs' }, () => {
+        void loadShared();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_song_likes' }, () => {
+        void loadShared();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_song_replies' }, () => {
+        void loadShared();
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [loadShared]);
+
   async function toggleLike(item: any, index: number) {
     const key = String(item.id || `${item.itemId || item.name}-${index}`);
-    const next = { ...likedSongs, [key]: !likedSongs[key] };
-
-    setLikedSongs(next);
-
-    try {
-      await AsyncStorage.setItem('shared_song_likes', JSON.stringify(next));
-    } catch (e) {
-      console.log('Could not save like', e);
+    if (!item.shareId) {
+      Alert.alert('Could not update like', 'This shared item is missing its server ID.');
+      return;
+    }
+    const nextLiked = !likedSongs[key];
+    setLikedSongs((current) => ({ ...current, [key]: nextLiked }));
+    const { data, error } = await supabase.functions.invoke('swift-service', {
+      body: { action: 'like', share_id: item.shareId, liked: nextLiked },
+    });
+    if (error || !data?.success) {
+      setLikedSongs((current) => ({ ...current, [key]: !nextLiked }));
+      Alert.alert('Could not update like', data?.error || error?.message || 'Please try again.');
     }
   }
 
@@ -180,15 +197,14 @@ export default function Shared() {
     if (item.type === 'track' && item.albumId) {
       router.push({
         pathname: '/album/[id]',
-        params: {
-          id: item.albumId,
-          highlightTrackId: item.itemId || item.id,
-        },
+        params: { id: item.albumId, highlightTrackId: item.itemId },
       } as any);
-    } else if (item.type === 'album' && (item.itemId || item.id)) {
-      router.push(`/album/${item.itemId || item.id}` as any);
+    } else if (item.type === 'album' && item.itemId) {
+      router.push(`/album/${item.itemId}` as any);
     } else if (item.url) {
-      console.log('Shared Spotify URL:', item.url);
+      void Linking.openURL(item.url).catch(() => {
+        Alert.alert('Could not open music', 'Please try again.');
+      });
     }
   }
 
@@ -201,29 +217,28 @@ export default function Shared() {
 
   async function saveReply() {
     if (!replyItem || !replyText.trim()) return;
+    if (!replyItem.shareId) {
+      setReplyStatus('This shared item cannot receive replies. Please refresh and try again.');
+      return;
+    }
 
     try {
-      const raw = await AsyncStorage.getItem('shared_song_replies');
-      const replies = raw ? JSON.parse(raw) : [];
-
-      replies.push({
-        id: `${Date.now()}`,
-        sharedSongId: replyItem.id,
-        to: getUsername(replyItem),
-        message: replyText.trim(),
-        date: new Date().toISOString(),
+      const { data, error } = await supabase.functions.invoke('swift-service', {
+        body: {
+          action: 'reply',
+          share_id: replyItem.shareId,
+          message: replyText.trim(),
+        },
       });
-
-      await AsyncStorage.setItem(
-        'shared_song_replies',
-        JSON.stringify(replies)
-      );
-
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || 'Could not send your reply.');
+      }
       setReplyVisible(false);
       setReplyText('');
       setReplyStatus('');
-    } catch {
-      setReplyStatus('Could not save your reply. Please try again.');
+      await loadShared();
+    } catch (e) {
+      setReplyStatus(e instanceof Error ? e.message : 'Could not send your reply. Please try again.');
     }
   }
 
@@ -322,8 +337,18 @@ export default function Shared() {
 
             {!!item.message && (
               <Text style={styles.message} numberOfLines={4}>
-                {String(item.message).replace(/[\u0080-\u009F]/g, '')}
+                {String(item.message).replace(/[\u0080-\u009F]/g, '')}
               </Text>
+            )}
+            {!!item.replies?.length && (
+              <View style={styles.replyThread}>
+                {item.replies.slice(-2).map((reply: any) => (
+                  <Text key={reply.id} style={styles.replyLine} numberOfLines={2}>
+                    <Text style={styles.replyAuthor}>@{reply.username}: </Text>
+                    {reply.message}
+                  </Text>
+                ))}
+              </View>
             )}
           </View>
 
@@ -429,6 +454,16 @@ export default function Shared() {
             <Text style={styles.replyTitle}>
               Reply to {replyItem ? getUsername(replyItem) : 'friend'}
             </Text>
+            {!!replyItem?.replies?.length && (
+              <View style={styles.replyThread}>
+                {replyItem.replies.slice(-4).map((reply: any) => (
+                  <Text key={reply.id} style={styles.replyLine}>
+                    <Text style={styles.replyAuthor}>@{reply.username}: </Text>
+                    {reply.message}
+                  </Text>
+                ))}
+              </View>
+            )}
 
             <TextInput
               value={replyText}
@@ -695,6 +730,19 @@ const styles = StyleSheet.create({
     maxHeight: 160,
     textAlignVertical: 'top',
     fontSize: 15,
+  },
+  replyThread: {
+    width: '100%',
+    marginTop: 8,
+    gap: 4,
+  },
+  replyLine: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  replyAuthor: {
+    fontWeight: '700',
   },
   replyError: {
     color: '#FF8B8B',
