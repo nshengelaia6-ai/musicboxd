@@ -42,6 +42,9 @@ export default function Search() {
   const [loading, setLoading] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const recentSearchesKey = currentUserId ? `recent_searches:${currentUserId}` : null;
+  const recentPeopleKey = currentUserId ? `recent_people:${currentUserId}` : null;
   const requestId = useRef(0);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const invalidateSearchRequests = useCallback(() => {
@@ -49,9 +52,45 @@ export default function Search() {
   }, []);
 
   useEffect(() => {
-    loadRecent();
-    loadRecentPeople();
+    let mounted = true;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (mounted) setCurrentUserId(session?.user?.id ?? null);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (mounted) setCurrentUserId(session?.user?.id ?? null);
+    });
+
+    // These legacy keys were shared by every account on this device and
+    // cannot safely be assigned to a particular user.
+    void AsyncStorage.multiRemove(['recent_searches', 'recent_people']);
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
+
+  useEffect(() => {
+    ++requestId.current;
+    setRecentSearches([]);
+    setRecentPeople([]);
+    setPeopleResults([]);
+    setFollowingIds(new Set());
+    setResults([]);
+    setQuery('');
+    setSearchError('');
+    setLoading(false);
+
+    if (searchDebounce.current) {
+      clearTimeout(searchDebounce.current);
+      searchDebounce.current = null;
+    }
+
+    if (!currentUserId) return;
+    void loadRecent(currentUserId);
+    void loadRecentPeople(currentUserId);
+  }, [currentUserId]);
 
   useEffect(() => {
     if (!feedback) return;
@@ -61,8 +100,8 @@ export default function Search() {
     return () => clearTimeout(timer);
   }, [feedback]);
 
-  async function loadRecent() {
-    const data = await AsyncStorage.getItem('recent_searches');
+  async function loadRecent(userId: string) {
+    const data = await AsyncStorage.getItem(`recent_searches:${userId}`);
 
     if (data) {
       try {
@@ -74,7 +113,9 @@ export default function Search() {
   }
 
   async function saveRecent(item: any) {
-    const data = await AsyncStorage.getItem('recent_searches');
+    if (!currentUserId) return;
+    const key = `recent_searches:${currentUserId}`;
+    const data = await AsyncStorage.getItem(key);
 
     let recent = data ? JSON.parse(data) : [];
 
@@ -82,10 +123,7 @@ export default function Search() {
     recent.unshift(item);
     recent = recent.slice(0, RECENT_LIMIT);
 
-    await AsyncStorage.setItem(
-      'recent_searches',
-      JSON.stringify(recent)
-    );
+    await AsyncStorage.setItem(key, JSON.stringify(recent));
 
     setRecentSearches(recent);
   }
@@ -97,19 +135,18 @@ export default function Search() {
 
     setRecentSearches(updated);
 
-    await AsyncStorage.setItem(
-      'recent_searches',
-      JSON.stringify(updated)
-    );
+    if (recentSearchesKey) {
+      await AsyncStorage.setItem(recentSearchesKey, JSON.stringify(updated));
+    }
   }
 
   async function clearAllRecent() {
     setRecentSearches([]);
-    await AsyncStorage.removeItem('recent_searches');
+    if (recentSearchesKey) await AsyncStorage.removeItem(recentSearchesKey);
   }
 
-  async function loadRecentPeople() {
-    const data = await AsyncStorage.getItem('recent_people');
+  async function loadRecentPeople(userId: string) {
+    const data = await AsyncStorage.getItem(`recent_people:${userId}`);
     if (data) {
       try {
         setRecentPeople(JSON.parse(data));
@@ -120,24 +157,26 @@ export default function Search() {
   }
 
   async function saveRecentPerson(person: any) {
-    const data = await AsyncStorage.getItem('recent_people');
+    if (!currentUserId) return;
+    const key = `recent_people:${currentUserId}`;
+    const data = await AsyncStorage.getItem(key);
     let recent = data ? JSON.parse(data) : [];
     recent = recent.filter((item: any) => item.id !== person.id);
     recent.unshift(person);
     recent = recent.slice(0, RECENT_LIMIT);
-    await AsyncStorage.setItem('recent_people', JSON.stringify(recent));
+    await AsyncStorage.setItem(key, JSON.stringify(recent));
     setRecentPeople(recent);
   }
 
   async function removeRecentPerson(id: string) {
     const updated = recentPeople.filter((person: any) => person.id !== id);
     setRecentPeople(updated);
-    await AsyncStorage.setItem('recent_people', JSON.stringify(updated));
+    if (recentPeopleKey) await AsyncStorage.setItem(recentPeopleKey, JSON.stringify(updated));
   }
 
   async function clearAllRecentPeople() {
     setRecentPeople([]);
-    await AsyncStorage.removeItem('recent_people');
+    if (recentPeopleKey) await AsyncStorage.removeItem(recentPeopleKey);
   }
 
   async function pickAlbum(album: any) {
@@ -302,7 +341,9 @@ export default function Search() {
     setSearchError('');
 
     try {
-      const myId = await AsyncStorage.getItem('supabase_user_id');
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      const myId = user?.id;
 
       if (!myId) {
         throw new Error(
@@ -416,7 +457,12 @@ export default function Search() {
 
   // Follow or unfollow a user in Supabase
   async function toggleFollow(userId: string) {
-    const myId = await AsyncStorage.getItem('supabase_user_id');
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      setSearchError('Please sign in again to add friends.');
+      return;
+    }
+    const myId = user.id;
 
     if (!myId) {
       setSearchError(
