@@ -51,7 +51,7 @@ export default function Following() {
 
           if (relationError) throw relationError;
 
-          const ids = (relations || []).map((item: any) => item.friend_id);
+          const ids = [...new Set((relations || []).map((item: any) => item.friend_id).filter(Boolean))];
 
           if (ids.length === 0) {
             if (active) setFollowing([]);
