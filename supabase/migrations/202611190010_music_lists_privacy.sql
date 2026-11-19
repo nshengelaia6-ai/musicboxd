@@ -28,7 +28,7 @@ language sql
 stable
 security definer
 set search_path = pg_catalog, public
-as $
+as $fn$
   select
     auth.uid() in (p_user_a, p_user_b)
     and exists (
@@ -39,7 +39,7 @@ as $
       select 1 from public.friendships f2
       where f2.user_id = p_user_b and f2.friend_id = p_user_a
     );
-$;
+$fn$;
 
 revoke all on function public.are_mutual_friends(uuid, uuid) from public;
 grant execute on function public.are_mutual_friends(uuid, uuid) to anon, authenticated;
