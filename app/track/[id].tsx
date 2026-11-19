@@ -15,7 +15,7 @@ export default function TrackPage() {
   const router = useRouter();
   const { backgroundColor, accentColor } = useAppTheme();
   const [track, setTrack] = useState<any>(null);
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);\n  const [reviewCount, setReviewCount] = useState(0);\n  const [averageRating, setAverageRating] = useState(0);
   const [people, setPeople] = useState<Record<string, any>>({});
   const [liked, setLiked] = useState(false);
   const [listened, setListened] = useState(false);
@@ -42,14 +42,25 @@ export default function TrackPage() {
       setListened(listenedItems.some((item: any) => String(item.id) === String(id) && item.type === 'track'));
       setWantToListen(wantItems.some((item: any) => String(item.id) === String(id) && item.type === 'track'));
 
-      const { data: reviewRows, error: reviewError } = await supabase
-        .from('music_reviews')
-        .select('id,user_id,rating,review_text,created_at,updated_at')
-        .eq('item_type', 'track')
-        .eq('item_id', String(id))
-        .order('updated_at', { ascending: false })
-        .limit(3);
+      const [{ data: reviewRows, error: reviewError, count }, { data: ratingRows, error: ratingError }] = await Promise.all([
+        supabase.from('music_reviews')
+          .select('id,user_id,rating,review_text,created_at,updated_at', { count: 'exact' })
+          .eq('item_type', 'track')
+          .eq('item_id', String(id))
+          .order('updated_at', { ascending: false })
+          .limit(3),
+        supabase.from('music_reviews')
+          .select('rating')
+          .eq('item_type', 'track')
+          .eq('item_id', String(id)),
+      ]);
       if (reviewError) throw reviewError;
+      if (ratingError) throw ratingError;
+      const ratings = ratingRows || [];
+      setReviewCount(count || 0);
+      setAverageRating(ratings.length
+        ? ratings.reduce((sum: number, row: any) => sum + Number(row.rating || 0), 0) / ratings.length
+        : 0);
       const userIds = [...new Set((reviewRows || []).map((row: any) => row.user_id))];
       const { data: profiles, error: profilesError } = userIds.length
         ? await supabase.from('users').select('id,username,avatar_url').in('id', userIds)
@@ -73,9 +84,6 @@ export default function TrackPage() {
   const artist = (track?.artists || []).map((person: any) => person.name).join(', ');
   const releaseDate = track?.album?.release_date || '';
   const releaseYear = releaseDate ? releaseDate.slice(0, 4) : '';
-  const average = reviews.length
-    ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviews.length
-    : 0;
 
   function openReviews() {
     if (!track) return;
@@ -167,13 +175,13 @@ export default function TrackPage() {
         </View>
 
         <View style={styles.ratingPanel}>
-          <Text style={styles.ratingNumber}>{average ? average.toFixed(1) : '—'}</Text>
+          <Text style={styles.ratingNumber}>{averageRating ? averageRating.toFixed(1) : '—'}</Text>
           <View style={{ flex: 1 }}>
             <Text style={styles.ratingTitle}>COMMUNITY RATING</Text>
-            <Text style={styles.ratingSub}>{reviews.length ? 'Based on recent reviews' : 'No ratings yet'}</Text>
+            <Text style={styles.ratingSub}>{reviewCount ? 'Average community rating' : 'No ratings yet'}</Text>
           </View>
           <TouchableOpacity onPress={openReviews} style={styles.reviewCount}>
-            <Text style={styles.reviewCountNumber}>{reviews.length}</Text>
+            <Text style={styles.reviewCountNumber}>{reviewCount}</Text>
             <Text style={styles.reviewCountLabel}>REVIEWS</Text>
           </TouchableOpacity>
         </View>
