@@ -1,13 +1,16 @@
 import { useAppTheme } from '@/context/ThemeContext';
 import { supabase } from '@/utils/supabase';
+import { recordActivity } from '@/utils/activity';
 import { getValidSpotifyToken } from '@/utils/spotify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Stack, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Stack, useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function Lists() {
   const router = useRouter();
+  const { userId } = useLocalSearchParams<{ userId?: string }>();
+  const [isOtherProfile, setIsOtherProfile] = useState(false);
   const { backgroundColor, accentColor } = useAppTheme();
   const [lists, setLists] = useState<any[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -27,14 +30,41 @@ export default function Lists() {
   const [showPrivacyOptions, setShowPrivacyOptions] = useState(false);
   const [selectedList, setSelectedList] = useState<any | null>(null);
   const [showListDetail, setShowListDetail] = useState(false);
+  const [showListMenu, setShowListMenu] = useState(false);
+  const [editingListId, setEditingListId] = useState<string | null>(null);
+  const [listCarousel, setListCarousel] = useState(false);
   const searchRequestId = useRef(0);
 
-  useEffect(() => { loadLists(); }, []);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      async function loadLists() {
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          const remote = Boolean(userId && userId !== authData.user?.id);
+          if (active) setIsOtherProfile(remote);
 
-  async function loadLists() {
-    const data = await AsyncStorage.getItem('lists');
-    if (data) setLists(JSON.parse(data));
-  }
+          if (remote) {
+            const { data, error } = await supabase
+              .from('public_profile_items')
+              .select('data')
+              .eq('user_id', userId)
+              .eq('section', 'lists');
+            if (error) throw error;
+            if (active) setLists((data || []).map((row: any) => row.data).filter((item: any) => item?.privacy === 'public'));
+          } else {
+            const data = await AsyncStorage.getItem('lists');
+            if (active) setLists(data ? JSON.parse(data) : []);
+          }
+        } catch (error) {
+          console.log('Could not load lists:', error);
+          if (active) setLists([]);
+        }
+      }
+      loadLists();
+      return () => { active = false; };
+    }, [userId])
+  );
 
   async function runSearch(query: string, type: 'album' | 'track') {
     setSearchQuery(query);
@@ -123,37 +153,112 @@ export default function Lists() {
     setPrivacy('public');
     setSelectedItems([]);
     setShowCreate(false);
+    setEditingListId(null);
   }
 
   async function createList() {
     if (!name.trim() || saving) return;
     setSaving(true);
     setSaveError('');
+
     try {
-      const newList = {
-        id: Date.now().toString(),
+      const existingList = editingListId
+        ? lists.find((item) => item.id === editingListId)
+        : null;
+
+      const updatedList = {
+        id: existingList?.id || Date.now().toString(),
         name: name.trim(),
         description: description.trim(),
         privacy,
         albums: selectedItems,
-        createdAt: new Date().toISOString(),
+        createdAt: existingList?.createdAt || new Date().toISOString(),
       };
-      const updated = [newList, ...lists];
+
+      const updated = existingList
+        ? lists.map((item) =>
+            item.id === editingListId ? updatedList : item
+          )
+        : [updatedList, ...lists];
+
       await AsyncStorage.setItem('lists', JSON.stringify(updated));
       setLists(updated);
+
+      if (!existingList) {
+        await recordActivity('created_list', String(updatedList.id), {
+          id: String(updatedList.id),
+          name: updatedList.name,
+          description: updatedList.description,
+          privacy: updatedList.privacy,
+          itemCount: updatedList.albums.length,
+          type: 'list',
+          createdAt: updatedList.createdAt,
+        });
+      }
+
+      if (existingList) setSelectedList(updatedList);
       handleCancel();
-    } catch {
+    } catch (error) {
+      console.error('List save failed:', error);
       setSaveError('Could not save this list. Please try again.');
     } finally {
       setSaving(false);
     }
   }
+  function editSelectedList() {
+    if (!selectedList) return;
+    setEditingListId(selectedList.id);
+    setName(selectedList.name || '');
+    setDescription(selectedList.description || '');
+    setPrivacy(selectedList.privacy || 'public');
+    setSelectedItems(selectedList.albums || []);
+    setShowListMenu(false);
+    setShowListDetail(false);
+    setTimeout(() => setShowCreate(true), 300);
+  }
 
+  function deleteSelectedList() {
+    if (!selectedList) return;
+    Alert.alert('Delete List', `Delete "${selectedList.name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const updated = lists.filter((item) => item.id !== selectedList.id);
+          await AsyncStorage.setItem('lists', JSON.stringify(updated));
+          setLists(updated);
+          setShowListMenu(false);
+          setShowListDetail(false);
+          setSelectedList(null);
+        },
+      },
+    ]);
+  }
+
+  async function shareSelectedList() {
+    if (!selectedList) return;
+    const items = (selectedList.albums || []).map((item: any) => {
+      const url = `https://open.spotify.com/${item.type || 'album'}/${item.id}`;
+      return `${item.name}${item.artist ? ` by ${item.artist}` : ''}\n${url}`;
+    });
+    const message = [
+      selectedList.name,
+      selectedList.description,
+      ...items,
+    ].filter(Boolean).join('\n\n');
+    try {
+      await Share.share({ title: selectedList.name, message });
+    } catch (error) {
+      console.log('Could not share list:', error);
+    }
+    setShowListMenu(false);
+  }
   function privacyLabel() {
-    if (privacy === 'public') return '🌐  Anyone (public list)';
-    if (privacy === 'link') return '🔗  Anyone with share link';
-    if (privacy === 'friends') return '👥  Friends with share link';
-    return '🔒  You (private list)';
+    if (privacy === 'public') return 'ðŸŒ  Anyone (public list)';
+    if (privacy === 'link') return 'ðŸ”—  Anyone with share link';
+    if (privacy === 'friends') return 'ðŸ‘¥  Friends with share link';
+    return 'ðŸ”’  You (private list)';
   }
 
   function privacyLabelFor(value?: string) {
@@ -201,12 +306,12 @@ export default function Lists() {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>‹</Text>
+          <Text style={styles.back}>{'\u2039'}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Lists</Text>
-        <TouchableOpacity onPress={() => setShowCreate(true)}>
+        {!isOtherProfile && <TouchableOpacity onPress={() => setShowCreate(true)}>
           <Text style={[styles.plus, { color: accentColor }]}>+</Text>
-        </TouchableOpacity>
+        </TouchableOpacity>}
       </View>
 
       {lists.length === 0 ? (
@@ -231,13 +336,13 @@ export default function Lists() {
                 {item.description ? <Text style={styles.listDesc} numberOfLines={1}>{item.description}</Text> : null}
                 <Text style={styles.listMeta}>{item.albums?.length || 0} items</Text>
               </View>
-              <Text style={styles.arrow}>›</Text>
+              <Text style={styles.arrow}>{'\u203A'}</Text>
             </TouchableOpacity>
           )}
         />
       )}
 
-      <Modal visible={showCreate} transparent animationType="slide">
+      <Modal visible={showCreate && !isOtherProfile} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={handleCancel} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
           <ScrollView style={styles.sheet} keyboardShouldPersistTaps="handled">
@@ -246,7 +351,7 @@ export default function Lists() {
               <TouchableOpacity onPress={handleCancel}>
                 <Text style={styles.cancelBtn}>Cancel</Text>
               </TouchableOpacity>
-              <Text style={styles.sheetTitle}>New List</Text>
+              <Text style={styles.sheetTitle}>{editingListId ? 'Edit List' : 'New List'}</Text>
               <TouchableOpacity onPress={createList} disabled={!name.trim() || saving}>
                 {saving
                   ? <ActivityIndicator color={accentColor} />
@@ -297,10 +402,10 @@ export default function Lists() {
                     {a.cover ? <Image source={{ uri: a.cover }} style={styles.albumChipImg} /> : <View style={[styles.albumChipImg, { backgroundColor: '#333' }]} />}
                     <View style={{ flex: 1 }}>
                       <Text style={styles.albumChipText} numberOfLines={1}>{a.name}</Text>
-                      <Text style={styles.albumChipType}>{a.type === 'track' ? '🎵 Track' : '💿 Album'}</Text>
+                      <Text style={styles.albumChipType}>{a.type === 'track' ? 'ðŸŽµ Track' : 'ðŸ’¿ Album'}</Text>
                     </View>
                     <TouchableOpacity onPress={() => removeSelectedItem(a.id)}>
-                      <Text style={styles.albumChipRemove}>✕</Text>
+                      <Text style={styles.albumChipRemove}>âœ•</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -310,7 +415,7 @@ export default function Lists() {
             <Text style={styles.label}>Visible to</Text>
             <TouchableOpacity style={styles.privacyRow} onPress={showPrivacySheet}>
               <Text style={styles.privacyLabel}>{privacyLabel()}</Text>
-              <Text style={styles.privacyChevron}>›</Text>
+              <Text style={styles.privacyChevron}>{'\u203A'}</Text>
             </TouchableOpacity>
             <Text style={styles.privacyHint}>Only public lists appear on your profile for others.</Text>
 
@@ -319,7 +424,7 @@ export default function Lists() {
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={showSearch} transparent animationType="slide">
+      <Modal visible={showSearch && !isOtherProfile} transparent animationType="slide">
         <Pressable style={styles.overlay} onPress={() => {
           setShowSearch(false);
           setTimeout(() => setShowCreate(true), 300);
@@ -340,10 +445,10 @@ export default function Lists() {
 
             <View style={styles.toggleRow}>
               <TouchableOpacity style={[styles.toggleBtn, searchType === 'album' && styles.toggleActive]} onPress={() => switchSearchType('album')}>
-                <Text style={[styles.toggleText, searchType === 'album' && styles.toggleTextActive]}>💿 Albums</Text>
+                <Text style={[styles.toggleText, searchType === 'album' && styles.toggleTextActive]}>ðŸ’¿ Albums</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.toggleBtn, searchType === 'track' && styles.toggleActive]} onPress={() => switchSearchType('track')}>
-                <Text style={[styles.toggleText, searchType === 'track' && styles.toggleTextActive]}>🎵 Tracks</Text>
+                <Text style={[styles.toggleText, searchType === 'track' && styles.toggleTextActive]}>ðŸŽµ Tracks</Text>
               </TouchableOpacity>
             </View>
 
@@ -377,7 +482,7 @@ export default function Lists() {
                       <Text style={styles.resultName} numberOfLines={1}>{item.name}</Text>
                       <Text style={styles.resultArtist} numberOfLines={1}>{getItemArtist(item)}</Text>
                     </View>
-                    <Text style={isSelected ? styles.resultCheckActive : styles.resultCheck}>{isSelected ? '✓' : '+'}</Text>
+                    <Text style={isSelected ? styles.resultCheckActive : styles.resultCheck}>{isSelected ? 'âœ“' : '+'}</Text>
                   </TouchableOpacity>
                 );
               }}
@@ -386,7 +491,7 @@ export default function Lists() {
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={showPrivacyOptions} transparent animationType="fade" onRequestClose={() => setShowPrivacyOptions(false)}>
+      <Modal visible={showPrivacyOptions && !isOtherProfile} transparent animationType="fade" onRequestClose={() => setShowPrivacyOptions(false)}>
         <Pressable style={styles.overlay} onPress={() => setShowPrivacyOptions(false)} />
         <View style={styles.privacySheet}>
           <Text style={styles.sheetTitle}>List visible to</Text>
@@ -404,7 +509,7 @@ export default function Lists() {
               accessibilityState={{ checked: privacy === value }}
             >
               <Text style={styles.privacyOptionText}>{label}</Text>
-              <Text style={styles.privacyChevron}>{privacy === value ? '✓' : ''}</Text>
+              <Text style={styles.privacyChevron}>{privacy === value ? 'âœ“' : ''}</Text>
             </TouchableOpacity>
           ))}
           <TouchableOpacity onPress={() => setShowPrivacyOptions(false)} style={styles.privacyCancel}>
@@ -413,39 +518,86 @@ export default function Lists() {
         </View>
       </Modal>
 
-      <Modal visible={showListDetail} transparent animationType="slide" onRequestClose={() => setShowListDetail(false)}>
-        <Pressable style={styles.overlay} onPress={() => setShowListDetail(false)} />
-        <View style={[styles.sheet, styles.detailSheet]}>
-          <View style={styles.sheetHandle} />
-          <View style={styles.sheetTopBar}>
-            <View style={{ width: 44 }} />
-            <Text style={styles.sheetTitle} numberOfLines={1}>{selectedList?.name}</Text>
-            <TouchableOpacity onPress={() => setShowListDetail(false)} accessibilityRole="button" accessibilityLabel="Close list">
-              <Text style={styles.cancelBtn}>Done</Text>
+      <Modal visible={showListDetail} animationType="slide" onRequestClose={() => setShowListDetail(false)}>
+        <SafeAreaView style={styles.listPage}>
+          <View style={styles.listPageHeader}>
+            <TouchableOpacity onPress={() => setShowListDetail(false)}>
+              <Text style={styles.listPageBack}>Back</Text>
             </TouchableOpacity>
+            <Text style={styles.listPageTitle} numberOfLines={1}>{selectedList?.name}</Text>
+            {!isOtherProfile && <TouchableOpacity onPress={() => setShowListMenu(true)} style={styles.menuTrigger}>
+              <Text style={styles.menuDots}>...</Text>
+            </TouchableOpacity>}
           </View>
-          {!!selectedList?.description && <Text style={styles.listDesc}>{selectedList.description}</Text>}
-          <Text style={styles.listMeta}>
-            {privacyLabelFor(selectedList?.privacy)} · {selectedList?.albums?.length || 0} items
-          </Text>
+          {!!selectedList?.description && <Text style={styles.listPageDescription}>{selectedList.description}</Text>}
           {(selectedList?.albums || []).length === 0 ? (
             <Text style={styles.emptySearch}>This list is empty.</Text>
           ) : (
             <FlatList
               data={selectedList.albums}
+              numColumns={3}
               keyExtractor={(item, index) => `${item.type || 'album'}-${item.id}-${index}`}
+              contentContainerStyle={styles.listPageGrid}
+              columnWrapperStyle={styles.listPageRow}
               renderItem={({ item }) => (
-                <TouchableOpacity style={styles.resultRow} onPress={() => openListItem(item)} accessibilityRole="link">
-                  {item.cover ? <Image source={{ uri: item.cover }} style={styles.resultImg} /> : <View style={[styles.resultImg, { backgroundColor: '#333' }]} />}
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.resultName} numberOfLines={1}>{item.name}</Text>
-                    <Text style={styles.resultArtist} numberOfLines={1}>{item.artist || (item.type === 'track' ? 'Track' : 'Album')}</Text>
-                  </View>
-                  <Text style={styles.arrow}>›</Text>
+                <TouchableOpacity
+                  style={styles.listPageItem}
+                  onPress={() => openListItem(item)}
+                >
+                  {item.cover ? <Image source={{ uri: item.cover }} style={styles.listPageCover} /> : <View style={[styles.listPageCover, { backgroundColor: '#333' }]} />}
+                  <Text style={styles.listPageItemName} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.listPageItemArtist} numberOfLines={1}>{item.artist || (item.type === 'track' ? 'Track' : 'Album')}</Text>
                 </TouchableOpacity>
               )}
             />
           )}
+        </SafeAreaView>
+      </Modal>      <Modal visible={listCarousel} transparent animationType="slide" onRequestClose={() => setListCarousel(false)}>
+        <View style={styles.carouselOverlay}>
+          <View style={styles.carouselHeader}>
+            <Text style={styles.sheetTitle}>{selectedList?.name}</Text>
+            <TouchableOpacity onPress={() => setListCarousel(false)}>
+              <Text style={styles.cancelBtn}>Done</Text>
+            </TouchableOpacity>
+          </View>
+          {(selectedList?.albums || []).length === 0 ? (
+            <Text style={styles.emptySearch}>This list is empty.</Text>
+          ) : (
+            <FlatList
+              horizontal
+              data={selectedList.albums}
+              keyExtractor={(item, index) => `${item.type || 'album'}-${item.id}-${index}`}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.carouselContent}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.carouselCard} onPress={() => { setListCarousel(false); openListItem(item); }}>
+                  {item.cover ? <Image source={{ uri: item.cover }} style={styles.carouselCover} /> : <View style={[styles.carouselCover, { backgroundColor: '#333' }]} />}
+                  <Text style={styles.carouselName} numberOfLines={2}>{item.name}</Text>
+                  <Text style={styles.carouselArtist} numberOfLines={1}>{item.artist || (item.type === 'track' ? 'Track' : 'Album')}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          )}
+        </View>
+      </Modal>
+      <Modal visible={showListMenu && !isOtherProfile} transparent animationType="fade" onRequestClose={() => setShowListMenu(false)}>
+        <Pressable style={styles.overlay} onPress={() => setShowListMenu(false)} />
+        <View style={styles.listMenuSheet}>
+          <TouchableOpacity style={styles.listMenuOption} onPress={deleteSelectedList}>
+            <Text style={styles.listMenuDanger}>Delete</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.listMenuOption} onPress={editSelectedList}>
+            <Text style={styles.listMenuOptionText}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.listMenuOption} onPress={() => { setShowListMenu(false); setListCarousel(true); }}>
+            <Text style={styles.listMenuOptionText}>View in Carousel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.listMenuOption} onPress={shareSelectedList}>
+            <Text style={styles.listMenuOptionText}>Share</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.listMenuDone} onPress={() => setShowListMenu(false)}>
+            <Text style={styles.listMenuOptionText}>Done</Text>
+          </TouchableOpacity>
         </View>
       </Modal>
     </SafeAreaView>
@@ -499,6 +651,32 @@ const styles = StyleSheet.create({
   privacyOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#2a2a2a' },
   privacyOptionText: { color: '#fff', fontSize: 15 },
   privacyCancel: { alignItems: 'center', paddingTop: 18 },
+  menuTrigger: { width: 44, alignItems: 'flex-end', justifyContent: 'center' },
+  menuDots: { color: '#fff', fontSize: 22, letterSpacing: 2 },
+  listMenuSheet: { position: 'absolute', top: 105, right: 20, width: 220, backgroundColor: '#242424', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 6 },
+  listMenuOption: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#383838' },
+  listMenuOptionText: { color: '#fff', fontSize: 15 },
+  listMenuDanger: { color: '#ff6b6b', fontSize: 15 },
+  listMenuDone: { paddingVertical: 15, alignItems: 'center' },
+  carouselOverlay: { flex: 1, backgroundColor: '#141414', paddingTop: 60 },
+  carouselHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 24 },
+  carouselContent: { alignItems: 'center', paddingHorizontal: 24, gap: 18 },
+  carouselCard: { width: 260, justifyContent: 'center' },
+  carouselCover: { width: 260, height: 260, borderRadius: 12, marginBottom: 18 },
+  carouselName: { color: '#fff', fontSize: 19, fontWeight: '700' },
+  carouselArtist: { color: '#888', fontSize: 15, marginTop: 8 },
+  listPage: { flex: 1, backgroundColor: '#0a0a0a' },
+  listPageHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16 },
+  listPageBack: { color: '#fff', fontSize: 15, width: 44 },
+  listPageTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', flex: 1, textAlign: 'center' },
+  listPageDescription: { color: '#888', fontSize: 13, paddingHorizontal: 20, marginBottom: 6 },
+  listPageMeta: { color: '#666', fontSize: 12, paddingHorizontal: 20, marginBottom: 12 },
+  listPageGrid: { padding: 12, gap: 12 },
+  listPageRow: { justifyContent: 'flex-start', gap: 8 },
+  listPageItem: { width: '31.5%', marginBottom: 8 },
+  listPageCover: { width: '100%', aspectRatio: 1, borderRadius: 6 },
+  listPageItemName: { color: '#fff', fontSize: 12, marginTop: 4 },
+  listPageItemArtist: { color: '#888', fontSize: 11, marginTop: 2 },
   detailSheet: { maxHeight: '85%' },
   resultRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
   resultImg: { width: 44, height: 44, borderRadius: 6, marginRight: 12 },
@@ -507,3 +685,16 @@ const styles = StyleSheet.create({
   resultCheck: { color: '#555', fontSize: 22, paddingHorizontal: 8 },
   resultCheckActive: { color: '#1DB954', fontSize: 20, fontWeight: 'bold', paddingHorizontal: 8 },
 });
+
+
+
+
+
+
+
+
+
+
+
+
+

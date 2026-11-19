@@ -1,9 +1,9 @@
-
+﻿
 import { useAppTheme } from '@/context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getValidSpotifyToken } from '@/utils/spotify';
+import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -19,10 +19,6 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-
-const SUPABASE_URL = 'https://jvxsfjxcydpdlvwrxmor.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY =
-  'sb_publishable_tH6PoxGwVF9JyUvsMw0mUg_cFiFzeCm';
 
 const FALLBACK_BACKGROUNDS = [
   '#40343B',
@@ -93,7 +89,10 @@ export default function Shared() {
   const { backgroundColor } = useAppTheme();
   const { width, height } = useWindowDimensions();
 
+  const storyListRef = useRef<FlatList<any>>(null);
   const [sharedSongs, setSharedSongs] = useState<any[]>([]);
+  const [sentSongs, setSentSongs] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'received' | 'sent'>('received');
   const [likedSongs, setLikedSongs] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -105,41 +104,29 @@ export default function Shared() {
 
   const storyHeight = Math.max(420, height - 125);
   const storyWidth = Math.min(width, 460);
+  const visibleSongs = activeTab === 'received' ? sharedSongs : sentSongs;
 
   const loadShared = useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
-      const [savedLikes, spotifyToken] = await Promise.all([
+      const [savedLikes, inboxResponse] = await Promise.all([
         AsyncStorage.getItem('shared_song_likes'),
-        getValidSpotifyToken(),
+        supabase.functions.invoke('swift-service', {
+          body: { action: 'inbox' },
+        }),
       ]);
 
-      if (!spotifyToken) {
-        setSharedSongs([]);
-        setError('Your Spotify session expired. Please sign in again.');
-        return;
+      const { data: result, error: inboxError } = inboxResponse;
+
+      if (inboxError) {
+        throw new Error(inboxError.message || 'Could not load your inbox. Please try again.');
       }
 
-      const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/swift-service`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${spotifyToken}`,
-            apikey: SUPABASE_PUBLISHABLE_KEY,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ action: 'inbox' }),
-        }
-      );
-
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok || !result.success) {
+      if (!result?.success) {
         throw new Error(
-          typeof result.error === 'string'
+          typeof result?.error === 'string'
             ? result.error
             : 'Could not load your inbox. Please try again.'
         );
@@ -150,6 +137,7 @@ export default function Shared() {
         : [];
 
       setSharedSongs(inboxItems);
+      setSentSongs(Array.isArray(result.sentItems) ? result.sentItems : []);
 
       const parsedLikes = savedLikes ? JSON.parse(savedLikes) : {};
       setLikedSongs(
@@ -259,7 +247,7 @@ export default function Shared() {
           ]}
         >
           <View style={styles.progressRow}>
-            {sharedSongs.map((song, i) => (
+            {visibleSongs.map((song, i) => (
               <View
                 key={String(song.id || i)}
                 style={[
@@ -297,7 +285,7 @@ export default function Shared() {
               accessibilityRole="button"
               accessibilityLabel="Open album or song"
             >
-              <Text style={styles.moreText}>•••</Text>
+              <Text style={styles.moreText}>...</Text>
             </TouchableOpacity>
           </View>
 
@@ -317,7 +305,7 @@ export default function Shared() {
                 />
               ) : (
                 <View style={[styles.artwork, styles.noArtwork]}>
-                  <Text style={styles.noArtworkText}>♫</Text>
+                  <Text style={styles.noArtworkText}>♪</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -334,11 +322,13 @@ export default function Shared() {
 
             {!!item.message && (
               <Text style={styles.message} numberOfLines={4}>
-                “{item.message}”
+                {String(item.message).replace(/[\u0080-\u009F]/g, '')}
               </Text>
             )}
           </View>
 
+          <TouchableOpacity activeOpacity={1} onPress={() => storyListRef.current?.scrollToIndex({ index: Math.max(0, index - 1), animated: true })} style={{ position: 'absolute', left: 0, top: 65, bottom: 85, width: '30%', zIndex: 2 }} accessibilityLabel="Previous story" />
+          <TouchableOpacity activeOpacity={1} onPress={() => storyListRef.current?.scrollToIndex({ index: Math.min(visibleSongs.length - 1, index + 1), animated: true })} style={{ position: 'absolute', right: 0, top: 65, bottom: 85, width: '30%', zIndex: 2 }} accessibilityLabel="Next story" />
           <View style={styles.bottomBar}>
             <TouchableOpacity
               style={styles.replyButton}
@@ -387,10 +377,11 @@ export default function Shared() {
   return (
     <View style={[styles.container, { backgroundColor }]}>
       <StatusBar barStyle="light-content" />
+      <View style={{ flexDirection: 'row', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, gap: 12 }}><TouchableOpacity onPress={() => setActiveTab('received')} style={{ flex: 1, padding: 12, borderRadius: 12, alignItems: 'center', backgroundColor: activeTab === 'received' ? '#FFFFFF' : 'rgba(255,255,255,0.10)' }}><Text style={{ color: activeTab === 'received' ? '#171717' : '#FFFFFF' }}>Received ({sharedSongs.length})</Text></TouchableOpacity><TouchableOpacity onPress={() => setActiveTab('sent')} style={{ flex: 1, padding: 12, borderRadius: 12, alignItems: 'center', backgroundColor: activeTab === 'sent' ? '#FFFFFF' : 'rgba(255,255,255,0.10)' }}><Text style={{ color: activeTab === 'sent' ? '#171717' : '#FFFFFF' }}>Sent ({sentSongs.length})</Text></TouchableOpacity></View>
 
-      {sharedSongs.length === 0 ? (
+      {visibleSongs.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>♫</Text>
+          <Text style={styles.emptyIcon}>♪</Text>
           <Text style={styles.emptyTitle}>Shared Songs</Text>
           <Text style={styles.emptyText}>
             Nothing shared yet. When a friend sends you an album or track, it will appear here.
@@ -398,7 +389,9 @@ export default function Shared() {
         </View>
       ) : (
         <FlatList
-          data={sharedSongs}
+          ref={storyListRef}
+          key={activeTab}
+          data={visibleSongs}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
@@ -738,3 +731,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
+
+
+
+
+
+
+
+
+

@@ -1,4 +1,4 @@
-
+﻿
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notifySpotifySessionChanged } from './spotify';
 
@@ -13,6 +13,7 @@ const ACCOUNT_DATA_KEYS = new Set([
   'liked',
   'wantToListen',
   'lists',
+  'diary_entries',
   'following',
   'followers',
   'shared_songs',
@@ -202,18 +203,19 @@ export async function removeDeletedSpotifyAccountData(userId: string) {
 
       const activeUserId = await AsyncStorage.getItem(ACTIVE_ACCOUNT_KEY);
 
-      // მიმდინარე მონაცემებს ვშლით მხოლოდ მაშინ,
-      // თუ აქტიური ანგარიში სწორედ წასაშლელი ანგარიშია.
+      // áƒ›áƒ˜áƒ›áƒ“áƒ˜áƒœáƒáƒ áƒ” áƒ›áƒáƒœáƒáƒªáƒ”áƒ›áƒ”áƒ‘áƒ¡ áƒ•áƒ¨áƒšáƒ˜áƒ— áƒ›áƒ®áƒáƒšáƒáƒ“ áƒ›áƒáƒ¨áƒ˜áƒœ,
+      // áƒ—áƒ£ áƒáƒ¥áƒ¢áƒ˜áƒ£áƒ áƒ˜ áƒáƒœáƒ’áƒáƒ áƒ˜áƒ¨áƒ˜ áƒ¡áƒ¬áƒáƒ áƒ”áƒ“ áƒ¬áƒáƒ¡áƒáƒ¨áƒšáƒ”áƒšáƒ˜ áƒáƒœáƒ’áƒáƒ áƒ˜áƒ¨áƒ˜áƒ.
       if (activeUserId === userId) {
         await replaceCurrentAccountData({});
         await AsyncStorage.removeItem(ACTIVE_ACCOUNT_KEY);
         notifySpotifySessionChanged();
       }
 
-      // წავშალოთ მხოლოდ ამ ანგარიშის შენახული ასლი.
+      // áƒ¬áƒáƒ•áƒ¨áƒáƒšáƒáƒ— áƒ›áƒ®áƒáƒšáƒáƒ“ áƒáƒ› áƒáƒœáƒ’áƒáƒ áƒ˜áƒ¨áƒ˜áƒ¡ áƒ¨áƒ”áƒœáƒáƒ®áƒ£áƒšáƒ˜ áƒáƒ¡áƒšáƒ˜.
       await AsyncStorage.removeItem(accountDataKey(userId));
     });
 
   activationQueue = cleanup;
   await cleanup;
 }
+

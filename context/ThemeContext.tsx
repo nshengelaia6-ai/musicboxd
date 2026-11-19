@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
-export const BACKGROUND_OPTIONS = ['#0a0a0a', '#141414', '#1a1a2e', '#16213e', '#0d1b0d', '#1a0d1a', '#2b1d0e', '#1c1c1c'];
-export const ACCENT_OPTIONS = ['#ffb6c1', '#1DB954', '#ff6b6b', '#4ecdc4', '#ffd93d', '#a78bfa', '#ff9f43', '#54a0ff'];
+export const BACKGROUND_OPTIONS = ['#14181C', '#1D2329', '#2C3440', '#343D49', '#202830', '#252D35', '#303943', '#39434F'];
+export const ACCENT_OPTIONS = ['#00E054', '#1DB954', '#65E572', '#FFFFFF', '#9BA7B2', '#54A0FF', '#F4C95D', '#FF7A90'];
 
 type ThemeContextType = {
   backgroundColor: string;
@@ -26,15 +26,38 @@ export function ThemeContextProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem('appTheme').then(data => {
-      if (data) {
-        const parsed = JSON.parse(data);
-        if (parsed.backgroundColor) setBackgroundColorState(parsed.backgroundColor);
-        if (parsed.accentColor) setAccentColorState(parsed.accentColor);
+    async function loadTheme() {
+      try {
+        const migration = await AsyncStorage.getItem('appThemeLetterboxdV1');
+
+        if (!migration) {
+          const newTheme = {
+            backgroundColor: BACKGROUND_OPTIONS[0],
+            accentColor: ACCENT_OPTIONS[0],
+          };
+
+          await AsyncStorage.setItem('appTheme', JSON.stringify(newTheme));
+          await AsyncStorage.setItem('appThemeLetterboxdV1', 'true');
+          setBackgroundColorState(newTheme.backgroundColor);
+          setAccentColorState(newTheme.accentColor);
+        } else {
+          const data = await AsyncStorage.getItem('appTheme');
+          if (data) {
+            const parsed = JSON.parse(data);
+            if (parsed.backgroundColor) setBackgroundColorState(parsed.backgroundColor);
+            if (parsed.accentColor) setAccentColorState(parsed.accentColor);
+          }
+        }
+      } catch (error) {
+        console.error('Theme loading failed:', error);
+      } finally {
+        setLoaded(true);
       }
-      setLoaded(true);
-    });
+    }
+
+    loadTheme();
   }, []);
+
 
   function setBackgroundColor(c: string) {
     setBackgroundColorState(c);

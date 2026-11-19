@@ -1,6 +1,7 @@
 
 import { useAppTheme } from '@/context/ThemeContext';
 import { supabase } from '@/utils/supabase';
+import { recordActivity } from '@/utils/activity';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -116,7 +117,12 @@ export default function ArtistPage() {
     try {
       const data = await AsyncStorage.getItem('followed_artists');
       const followedArtists = data ? JSON.parse(data) : [];
-      const next = !followed;
+
+      const alreadyFollowed = followedArtists.some(
+        (item: any) => item.id === artist.id
+      );
+
+      const next = !alreadyFollowed;
 
       const updated = next
         ? [
@@ -125,9 +131,7 @@ export default function ArtistPage() {
               name: artist.name,
               image: artist.images?.[0]?.url,
             },
-            ...followedArtists.filter(
-              (item: any) => item.id !== artist.id
-            ),
+            ...followedArtists,
           ]
         : followedArtists.filter(
             (item: any) => item.id !== artist.id
@@ -138,14 +142,23 @@ export default function ArtistPage() {
         JSON.stringify(updated)
       );
 
+      if (next) {
+        await recordActivity('followed_artist', String(artist.id), {
+          id: String(artist.id),
+          name: artist.name,
+          image: artist.images?.[0]?.url,
+          type: 'artist',
+        });
+      }
+
       setFollowed(next);
-    } catch {
+    } catch (error) {
+      console.error('Follow update failed:', error);
       setError(
         'Could not update your artist library. Please try again.'
       );
     }
   }
-
   return (
     <ScrollView
       style={[styles.container, { backgroundColor }]}
@@ -154,7 +167,7 @@ export default function ArtistPage() {
         onPress={() => router.back()}
         style={styles.backBtn}
       >
-        <Text style={styles.backText}>‹</Text>
+        <Text style={styles.backText}>{'‹'}</Text>
       </TouchableOpacity>
 
       {loading && (
@@ -388,3 +401,5 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
+
+

@@ -44,6 +44,7 @@ export default function Home() {
 
   const [newFromFriends, setNewFromFriends] = useState<any[]>([]);
   const [popularWithFriends, setPopularWithFriends] = useState<any[]>([]);
+  const [showAllNewFromFriends, setShowAllNewFromFriends] = useState(false);
   const [friendFeedLoading, setFriendFeedLoading] = useState(true);
   const [friendFeedError, setFriendFeedError] = useState('');
 
@@ -168,7 +169,7 @@ export default function Home() {
     }
   }, []);
 
-  // Load friends activity
+  // Load friends activity from user_activity
   const loadFriendsActivity = useCallback(async (userId: string) => {
     setFriendFeedLoading(true);
     setFriendFeedError('');
@@ -181,49 +182,114 @@ export default function Home() {
 
       if (friendshipsError) throw friendshipsError;
 
-      if (!friendships?.length) {
+      const friendIds = [
+        ...new Set(
+          (friendships || [])
+            .map((friend: any) => friend.friend_id)
+            .filter(Boolean)
+        ),
+      ];
+
+      if (friendIds.length === 0) {
         setNewFromFriends([]);
         setPopularWithFriends([]);
         return;
       }
 
-      const friendIds = friendships.map((friend) => friend.friend_id);
+      const [
+        { data: activities, error: activitiesError },
+        { data: users, error: usersError },
+      ] = await Promise.all([
+        supabase
+          .from('user_activity')
+          .select('id,user_id,activity_type,item_key,data,created_at')
+          .in('user_id', friendIds)
+          .eq('activity_type', 'listened')
+          .order('created_at', { ascending: false })
+          .limit(100),
 
-      const { data: recentRatings, error: recentError } = await supabase
-        .from('ratings')
-        .select('*, users(username, avatar_url)')
-        .in('user_id', friendIds)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        supabase
+          .from('users')
+          .select('id,username')
+          .in('id', friendIds),
+      ]);
 
-      if (recentError) throw recentError;
+      if (activitiesError) throw activitiesError;
+      if (usersError) throw usersError;
 
-      setNewFromFriends(recentRatings || []);
+      const trackActivities = (activities || []).filter(
+        (activity: any) =>
+          activity.data?.type === 'track' &&
+          (activity.data?.name || activity.item_key)
+      );
 
-      const { data: allRatings, error: ratingsError } = await supabase
-        .from('ratings')
-        .select('item_id, item_name, artist_name, cover_url, rating')
-        .in('user_id', friendIds);
+      const recentTracks = trackActivities.map((activity: any) => {
+        const user = (users || []).find(
+          (item: any) => item.id === activity.user_id
+        );
 
-      if (ratingsError) throw ratingsError;
+        return {
+          id: activity.id,
+          item_id: activity.item_key || activity.data?.id,
+          item_name: activity.data?.name || 'Unknown track',
+          artist_name:
+            activity.data?.artist_name ||
+            activity.data?.artistName ||
+            '',
+          cover_url:
+            activity.data?.cover ||
+            activity.data?.cover_url ||
+            '',
+          users: {
+            username: user?.username || 'User',
+          },
+          rating: activity.data?.rating ?? '',
+          created_at: activity.created_at,
+        };
+      });
+
+      setNewFromFriends(recentTracks);
 
       const counts: Record<string, any> = {};
 
-      (allRatings || []).forEach((rating) => {
-        if (!counts[rating.item_id]) {
-          counts[rating.item_id] = {
-            ...rating,
-            count: 0,
+      trackActivities.forEach((activity: any) => {
+        const trackId = activity.item_key || activity.data?.id;
+
+        if (!trackId) return;
+
+        if (!counts[trackId]) {
+          counts[trackId] = {
+            item_id: trackId,
+            item_name: activity.data?.name || 'Unknown track',
+            artist_name:
+              activity.data?.artist_name ||
+              activity.data?.artistName ||
+              '',
+            cover_url:
+              activity.data?.cover ||
+              activity.data?.cover_url ||
+              '',
+            friend_user_ids: [],
+            latest_activity: activity.created_at,
           };
         }
 
-        counts[rating.item_id].count++;
+        if (!counts[trackId].friend_user_ids.includes(activity.user_id)) {
+          counts[trackId].friend_user_ids.push(activity.user_id);
+        }
       });
 
       setPopularWithFriends(
         Object.values(counts)
+          .map((item: any) => ({
+            item_id: item.item_id,
+            item_name: item.item_name,
+            artist_name: item.artist_name,
+            cover_url: item.cover_url,
+            count: item.friend_user_ids.length,
+          }))
           .sort((a: any, b: any) => b.count - a.count)
-          .slice(0, 10)
+          .slice(0, 100)
       );
     } catch (error) {
       console.log('Friends feed failed', error);
@@ -234,14 +300,39 @@ export default function Home() {
       setFriendFeedLoading(false);
     }
   }, []);
+  useFocusEffect(
+    useCallback(() => {
+      if (!currentUserId) {
+        setFriendFeedLoading(false);
+        return;
+      }
 
-  useEffect(() => {
-    if (currentUserId) {
       loadFriendsActivity(currentUserId);
-    } else {
-      setFriendFeedLoading(false);
-    }
-  }, [currentUserId, loadFriendsActivity]);
+
+      const channel = supabase
+        .channel(`friends-feed-${currentUserId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'user_activity',
+          },
+          (payload) => {
+            const activity = payload.new as any;
+
+            if (activity.user_id !== currentUserId) {
+              loadFriendsActivity(currentUserId);
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        void supabase.removeChannel(channel);
+      };
+    }, [currentUserId, loadFriendsActivity])
+  );
 
   // Spotify track search
   useEffect(() => {
@@ -452,6 +543,49 @@ export default function Home() {
     }
   }
 
+  async function openFriendTrack(item: any) {
+    const trackId = item.item_id ?? item.track_id;
+    const trackName = item.item_name ?? item.track_name;
+    const artistName = item.artist_name || "";
+
+    if (!trackId || !trackName) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'spotify-search',
+        {
+          body: {
+            action: 'search',
+            query: `${trackName} ${artistName}`.trim(),
+            type: 'track',
+          },
+        }
+      );
+
+      if (error) throw error;
+
+      const track = (data?.tracks?.items ?? []).find(
+        (result: any) => result.id === trackId
+      );
+
+      const albumId = track?.album?.id;
+
+      if (!albumId) {
+        console.log('Could not find the track album');
+        return;
+      }
+
+      router.push({
+        pathname: '/album/[id]',
+        params: {
+          id: albumId,
+          highlightTrackId: trackId,
+        },
+      } as any);
+    } catch (error) {
+      console.log('Could not open friend track:', error);
+    }
+  }
   const activeFavorite = monthlyFavs[activeFavIndex];
 
   return (
@@ -467,7 +601,6 @@ export default function Home() {
         {/* MY MONTHLY FAVS */}
         <View style={styles.headingRow}>
           <Text style={styles.headingInline}>Monthly Favs</Text>
-          <Text style={styles.monthLabel}>{getMonthLabel()}</Text>
         </View>
 
         <ScrollView
@@ -504,7 +637,7 @@ export default function Home() {
                     />
                   ) : favorite ? (
                     <View style={[styles.favCover, styles.noCover]}>
-                      <Text style={styles.noCoverText}>♫</Text>
+                      <Text style={styles.noCoverText}>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â«</Text>
                     </View>
                   ) : (
                     <View style={[styles.favCover, styles.favPlus]}>
@@ -539,10 +672,11 @@ export default function Home() {
 
         {/* FRIENDS' MONTHLY FAVS */}
         <View style={styles.headingRow}>
-          <Text style={styles.headingInline}>Friends’ Monthly Favs</Text>
-          <Text style={styles.monthLabel}>{getMonthLabel()}</Text>
+          <Text style={styles.headingInline}>Friends' Monthly Favs</Text>
+          <TouchableOpacity onPress={() => router.push('/friends-monthly-favs' as any)} accessibilityRole="button" hitSlop={10}>
+            <Text style={{ color: accentColor, fontSize: 25, fontWeight: '400' }}>›</Text>
+          </TouchableOpacity>
         </View>
-
         {friendsMonthlyLoading ? (
           <ActivityIndicator
             color={accentColor}
@@ -555,7 +689,7 @@ export default function Home() {
         ) : friendsMonthlyFavs.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              Other users’ monthly favorites will appear here.
+              Other usersÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ monthly favorites will appear here.
             </Text>
           </View>
         ) : (
@@ -565,7 +699,7 @@ export default function Home() {
             contentContainerStyle={styles.favoritesRow}
           >
             {friendsMonthlyFavs.map((favorite) => (
-              <View key={favorite.id} style={styles.favItem}>
+              <TouchableOpacity key={favorite.id} style={styles.favItem} activeOpacity={0.8} onPress={() => openFriendTrack(favorite)}>
                 {favorite.cover_url ? (
                   <Image
                     source={{ uri: favorite.cover_url }}
@@ -573,7 +707,7 @@ export default function Home() {
                   />
                 ) : (
                   <View style={[styles.favCover, styles.noCover]}>
-                    <Text style={styles.noCoverText}>♫</Text>
+                    <Text style={styles.noCoverText}>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â«</Text>
                   </View>
                 )}
 
@@ -594,14 +728,22 @@ export default function Home() {
                     {favorite.comment}
                   </Text>
                 )}
-              </View>
+              </TouchableOpacity>
             ))}
           </ScrollView>
         )}
 
         {/* NEW FROM FRIENDS */}
-        <Text style={styles.heading}>New from Friends</Text>
-
+        <View style={styles.headingRow}>
+          <Text style={styles.headingInline}>New from Friends</Text>
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/friends-music', params: { type: 'new' } } as any)}
+            accessibilityRole="button"
+            hitSlop={10}
+          >
+            <Text style={{ color: accentColor, fontSize: 25, fontWeight: '400' }}>›</Text>
+          </TouchableOpacity>
+        </View>
         {friendFeedLoading ? (
           <ActivityIndicator
             color={accentColor}
@@ -614,7 +756,7 @@ export default function Home() {
         ) : newFromFriends.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              Your friends’ music activity will appear here.
+              Your friendsÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ music activity will appear here.
             </Text>
 
             <TouchableOpacity
@@ -634,11 +776,11 @@ export default function Home() {
         ) : (
           <FlatList
             horizontal
-            data={newFromFriends}
+            data={newFromFriends.slice(0, 12)}
             keyExtractor={(item) => item.id}
             showsHorizontalScrollIndicator={false}
             renderItem={({ item }) => (
-              <View style={styles.card}>
+              <TouchableOpacity style={styles.card} activeOpacity={0.8} onPress={() => openFriendTrack(item)}>
                 {item.cover_url ? (
                   <Image
                     source={{ uri: item.cover_url }}
@@ -646,7 +788,7 @@ export default function Home() {
                   />
                 ) : (
                   <View style={[styles.cover, styles.noCover]}>
-                    <Text style={styles.noCoverText}>♫</Text>
+                    <Text style={styles.noCoverText}>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â«</Text>
                   </View>
                 )}
 
@@ -658,21 +800,25 @@ export default function Home() {
                   {item.artist_name}
                 </Text>
 
-                <Text style={styles.ratingText}>
-                  ⭐ {item.rating}
-                </Text>
-
                 <Text style={styles.friendName}>
                   {item.users?.username}
                 </Text>
-              </View>
+              </TouchableOpacity>
             )}
           />
         )}
 
         {/* POPULAR WITH FRIENDS */}
-        <Text style={styles.heading}>Popular with Friends</Text>
-
+        <View style={styles.headingRow}>
+          <Text style={styles.headingInline}>Popular with Friends</Text>
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/friends-music', params: { type: 'popular' } } as any)}
+            accessibilityRole="button"
+            hitSlop={10}
+          >
+            <Text style={{ color: accentColor, fontSize: 25, fontWeight: '400' }}>›</Text>
+          </TouchableOpacity>
+        </View>
         {friendFeedLoading ? (
           <ActivityIndicator
             color={accentColor}
@@ -691,11 +837,11 @@ export default function Home() {
         ) : (
           <FlatList
             horizontal
-            data={popularWithFriends}
+            data={popularWithFriends.slice(0, 12)}
             keyExtractor={(item: any) => item.item_id}
             showsHorizontalScrollIndicator={false}
             renderItem={({ item }: any) => (
-              <View style={styles.card}>
+              <TouchableOpacity style={styles.card} activeOpacity={0.8} onPress={() => openFriendTrack(item)}>
                 {item.cover_url ? (
                   <Image
                     source={{ uri: item.cover_url }}
@@ -703,7 +849,7 @@ export default function Home() {
                   />
                 ) : (
                   <View style={[styles.cover, styles.noCover]}>
-                    <Text style={styles.noCoverText}>♫</Text>
+                    <Text style={styles.noCoverText}>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â«</Text>
                   </View>
                 )}
 
@@ -715,10 +861,8 @@ export default function Home() {
                   {item.artist_name}
                 </Text>
 
-                <Text style={styles.ratingText}>
-                  👥 {item.count}
-                </Text>
-              </View>
+
+              </TouchableOpacity>
             )}
           />
         )}
@@ -812,7 +956,7 @@ export default function Home() {
                         styles.noCover,
                       ]}
                     >
-                      <Text style={styles.noCoverText}>♫</Text>
+                      <Text style={styles.noCoverText}>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â«</Text>
                     </View>
                   )}
 
@@ -859,7 +1003,7 @@ export default function Home() {
                         styles.noCover,
                       ]}
                     >
-                      <Text style={styles.noCoverText}>♫</Text>
+                      <Text style={styles.noCoverText}>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â«</Text>
                     </View>
                   )}
 
@@ -979,7 +1123,7 @@ export default function Home() {
                 />
               ) : (
                 <View style={[styles.sheetCover, styles.noCover]}>
-                  <Text style={styles.noCoverText}>♫</Text>
+                  <Text style={styles.noCoverText}>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢Ãƒâ€šÃ‚Â«</Text>
                 </View>
               )}
 
@@ -1414,3 +1558,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
+
+
+
+

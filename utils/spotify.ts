@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+﻿import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
@@ -159,6 +159,8 @@ export async function getValidSpotifyToken() {
     await AsyncStorage.getItem('spotify_token_expires_at')
   );
 
+  console.log('[Spotify check]', { hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken, hasExpiry: !!expiresAt, isExpired: Boolean(expiresAt && expiresAt <= Date.now()) });
+
   if (!expiresAt) {
     return refreshToken ? refreshSpotifyToken() : accessToken;
   }
@@ -260,3 +262,4 @@ export const getRecentlyPlayed = async (token: string) => {
 
   return res.json();
 };
+

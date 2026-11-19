@@ -14,10 +14,10 @@ function Stars({ count, color }: { count: number; color: string }) {
         const half = !filled && count >= s - 0.5;
         return (
           <View key={s} style={{ width: starWidth, height: starWidth }}>
-            <Text style={{ fontSize: starWidth, color: '#333', position: 'absolute' }}>★</Text>
+            <Text style={{ fontSize: starWidth, color: '#333', position: 'absolute' }}>{'\u2605'}</Text>
             {(filled || half) && (
               <View style={{ overflow: 'hidden', width: filled ? starWidth : starWidth / 2, position: 'absolute' }}>
-                <Text style={{ fontSize: starWidth, color }}>★</Text>
+                <Text style={{ fontSize: starWidth, color }}>{'\u2605'}</Text>
               </View>
             )}
           </View>
@@ -196,7 +196,7 @@ export default function ReviewDetail() {
       <View style={[styles.container, { backgroundColor }]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backRow}>
-            <Text style={styles.backText}>‹ Back</Text>
+            <Text style={styles.backText}>{'\u2039'} Back</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Review</Text>
           <View style={{ width: 40 }} />
@@ -215,11 +215,11 @@ export default function ReviewDetail() {
     <View style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backRow}>
-          <Text style={styles.backText}>‹ Back</Text>
+          <Text style={styles.backText}>{'\u2039'} Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Review</Text>
         <TouchableOpacity onPress={() => setMenuVisible(true)} accessibilityRole="button" accessibilityLabel="Review actions">
-          <Text style={styles.dots}>•••</Text>
+          <Text style={styles.dots}>{'\u2022'}{'\u2022'}{'\u2022'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -235,7 +235,7 @@ export default function ReviewDetail() {
           <View style={{ flex: 1, paddingRight: 12 }}>
             <Text style={styles.title}>{entry.albumName}</Text>
             <Text style={styles.year}>{year}</Text>
-            <Stars count={entry.rating} color={accentColor} />
+            <Stars count={entry.rating} color={'#9BA7B2'} />
             <Text style={styles.listenedText}>Listened {formattedDate}</Text>
           </View>
           <Pressable onPress={goToAlbum}>
@@ -252,7 +252,7 @@ export default function ReviewDetail() {
         {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
 
         <TouchableOpacity style={styles.likeRow} onPress={handleLike} accessibilityRole="button" accessibilityLabel={isLiked ? 'Unlike review' : 'Like review'}>
-          <Text style={[styles.heartIcon, isLiked && { color: accentColor }]}>{isLiked ? '♥' : '♡'}</Text>
+          <Text style={[styles.heartIcon, isLiked && { color: accentColor }]}>{isLiked ? 'â™¥' : 'â™¡'}</Text>
           <Text style={styles.likeText}>{likes === 0 ? 'Be the first to like' : `${likes} ${likes === 1 ? 'like' : 'likes'}`}</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -262,7 +262,7 @@ export default function ReviewDetail() {
           <Text style={styles.pillText}>Edit</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.pillBtn} onPress={goToAlbum}>
-          <Text style={styles.pillText}>Album  ›</Text>
+          <Text style={styles.pillText}>Album  {'\u203A'}</Text>
         </TouchableOpacity>
       </View>
 

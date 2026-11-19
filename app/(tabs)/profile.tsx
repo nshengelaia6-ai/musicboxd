@@ -284,44 +284,93 @@ if (Array.isArray(sourceAlbums)) {
   setDraftFavoriteAlbums(albums.slice(0, 4));
 }
 
-      const followingData = await AsyncStorage.getItem('following');
-      const followersData = await AsyncStorage.getItem('followers');
+      // Sync profile sections to Supabase for public profiles.
+      if (user) {
+        try {
+          const sectionKeys = [
+            { section: 'songs', key: 'listened' },
+            { section: 'diary', key: 'diary_entries' },
+            { section: 'reviews', key: 'reviews' },
+            { section: 'lists', key: 'lists' },
+            { section: 'wanttolisten', key: 'wantToListen' },
+            { section: 'likes', key: 'liked' },
+            { section: 'artists', key: 'followed_artists' },
+          ];
 
-      const followingList = followingData
-        ? JSON.parse(followingData)
-        : [];
+          const publicRows = new Map<string, any>();
 
-      const followersList = followersData
-        ? JSON.parse(followersData)
-        : [];
+          for (const config of sectionKeys) {
+            const raw = await AsyncStorage.getItem(config.key);
+            const items = raw ? JSON.parse(raw) : [];
 
-      setFollowingCount(followingList.length);
-      setFollowersCount(followersList.length);
+            if (Array.isArray(items)) {
+              items.forEach((item: any, index: number) => {
+                const itemKey = String(item?.id ?? item?.albumId ?? item?.trackId ?? index);
+                publicRows.set(`${config.section}:${itemKey}`, {
+                  user_id: user.id,
+                  section: config.section,
+                  item_key: itemKey,
+                  data: item,
+                  updated_at: new Date().toISOString(),
+                });
+              });
+            }
+          }
 
-      // Keep the existing Spotify-based backend identity.
-      try {
-        const myId = await getCurrentUserId();
+          const { error: clearError } = await supabase
+            .from('public_profile_items')
+            .delete()
+            .eq('user_id', user.id);
 
-        if (!myId) return;
+          if (clearError) throw clearError;
 
-        await fetch(`${API_BASE}/users`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: myId,
-            username: finalUsername,
-            avatar: p.avatar || null,
-            bio: finalBio,
-          }),
-        });
+          const rows = Array.from(publicRows.values());
 
-        const res = await fetch(`${API_BASE}/follows/${myId}/counts`);
-        const counts = await res.json();
+          if (rows.length > 0) {
+            const { error: syncError } = await supabase
+              .from('public_profile_items')
+              .insert(rows);
 
-        setFollowingCount(counts.following ?? followingList.length);
-        setFollowersCount(counts.followers ?? followersList.length);
-      } catch {
-        console.log('API sync failed, using local counts');
+            if (syncError) throw syncError;
+          }
+        } catch (syncError) {
+          console.error('Public profile sync failed:', syncError);
+        }
+      }
+      const myId = await getCurrentUserId();
+
+      if (myId) {
+        try {
+          await fetch(`${API_BASE}/users`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: myId,
+              username: finalUsername,
+              avatar: p.avatar || null,
+              bio: finalBio,
+            }),
+          });
+
+          const [followingResult, followersResult] = await Promise.all([
+            supabase
+              .from('friendships')
+              .select('friend_id', { count: 'exact', head: true })
+              .eq('user_id', myId),
+            supabase
+              .from('friendships')
+              .select('user_id', { count: 'exact', head: true })
+              .eq('friend_id', myId),
+          ]);
+
+          if (followingResult.error) throw followingResult.error;
+          if (followersResult.error) throw followersResult.error;
+
+          setFollowingCount(followingResult.count ?? 0);
+          setFollowersCount(followersResult.count ?? 0);
+        } catch (error) {
+          console.error('Could not load follow counts:', error);
+        }
       }
     } catch (error) {
       console.error('Could not load profile data:', error);
@@ -403,10 +452,79 @@ if (Array.isArray(sourceAlbums)) {
       await AsyncStorage.removeItem('pendingFavoriteAlbums');
       await AsyncStorage.removeItem('returnToSettings');
 
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error('User not found');
+
+      const { error: profileError } = await supabase
+        .from('users')
+        .update({
+          username: cleanUsername,
+          bio: editBio,
+          avatar_url: editAvatar,
+          favorite_albums: savedAlbums,
+        })
+        .eq('id', user.id);
+
+      if (profileError) throw profileError;
+
       setShowSettings(false);
 
       try {
-        const myId = await getCurrentUserId();
+        // Sync profile sections to Supabase for public profiles.
+      if (user) {
+        try {
+          const sectionKeys = [
+            { section: 'songs', key: 'listened' },
+            { section: 'diary', key: 'diary_entries' },
+            { section: 'reviews', key: 'reviews' },
+            { section: 'lists', key: 'lists' },
+            { section: 'wanttolisten', key: 'wantToListen' },
+            { section: 'likes', key: 'liked' },
+            { section: 'artists', key: 'followed_artists' },
+          ];
+
+          const publicRows = new Map<string, any>();
+
+          for (const config of sectionKeys) {
+            const raw = await AsyncStorage.getItem(config.key);
+            const items = raw ? JSON.parse(raw) : [];
+
+            if (Array.isArray(items)) {
+              items.forEach((item: any, index: number) => {
+                const itemKey = String(item?.id ?? item?.albumId ?? item?.trackId ?? index);
+                publicRows.set(`${config.section}:${itemKey}`, {
+                  user_id: user.id,
+                  section: config.section,
+                  item_key: itemKey,
+                  data: item,
+                  updated_at: new Date().toISOString(),
+                });
+              });
+            }
+          }
+
+          const { error: clearError } = await supabase
+            .from('public_profile_items')
+            .delete()
+            .eq('user_id', user.id);
+
+          if (clearError) throw clearError;
+
+          const rows = Array.from(publicRows.values());
+
+          if (rows.length > 0) {
+            const { error: syncError } = await supabase
+              .from('public_profile_items')
+              .insert(rows);
+
+            if (syncError) throw syncError;
+          }
+        } catch (syncError) {
+          console.error('Public profile sync failed:', syncError);
+        }
+      }
+      const myId = await getCurrentUserId();
 
         if (myId) {
           await fetch(`${API_BASE}/users`, {
@@ -532,22 +650,6 @@ if (Array.isArray(sourceAlbums)) {
           <Text style={styles.username}>{username}</Text>
           <Text style={styles.bio}>{bio}</Text>
 
-          <View style={styles.stats}>
-            <View style={styles.stat}>
-              <Text style={styles.statNum}>{writtenReviewsCount}</Text>
-              <Text style={styles.statLabel}>Reviews</Text>
-            </View>
-
-            <View style={styles.stat}>
-              <Text style={styles.statNum}>{followingCount}</Text>
-              <Text style={styles.statLabel}>Following</Text>
-            </View>
-
-            <View style={styles.stat}>
-              <Text style={styles.statNum}>{followersCount}</Text>
-              <Text style={styles.statLabel}>Followers</Text>
-            </View>
-          </View>
         </View>
 
         {favoriteAlbums.some((album) => album != null) && (
@@ -603,14 +705,14 @@ if (Array.isArray(sourceAlbums)) {
                     ]}
                   >
                     <Text style={styles.activityBadgeText}>
-                      {item.review ? '✎' : '★'}
+                      {item.review ? '\u270E' : '\u2605'}
                     </Text>
                   </View>
 
                   <Text
-                    style={[styles.activityRating, { color: accentColor }]}
+                    style={[styles.activityRating, { color: '#9BA7B2' }]}
                   >
-                    {'★'.repeat(Math.floor(item.rating || 0))}
+                    {'\u2605'.repeat(Math.floor(item.rating || 0))}
                   </Text>
 
                   <Text style={styles.activityAlbum} numberOfLines={1}>
@@ -640,7 +742,7 @@ if (Array.isArray(sourceAlbums)) {
               onPress={() => router.push(item.route as any)}
             >
               <Text style={styles.menuText}>{item.label}</Text>
-              <Text style={styles.arrow}>›</Text>
+              <Text style={styles.arrow}>{'\u203A'}</Text>
             </Pressable>
           ))}
         </View>
@@ -807,7 +909,7 @@ if (Array.isArray(sourceAlbums)) {
                           lineHeight: 11,
                         }}
                       >
-                        ×
+                        Ã—
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -844,7 +946,7 @@ if (Array.isArray(sourceAlbums)) {
                 {spotifyConnecting
                   ? 'Connecting to Spotify...'
                   : spotifyConnected
-                    ? 'Spotify Connected ✓'
+                    ? 'Spotify Connected âœ“'
                     : 'Connect Spotify'}
               </Text>
             </TouchableOpacity>
@@ -1109,3 +1211,5 @@ const styles = StyleSheet.create({
   },
   stars: { fontSize: 12, marginTop: 2 },
 });
+
+

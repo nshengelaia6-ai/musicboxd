@@ -1,13 +1,14 @@
 import { useAppTheme } from '@/context/ThemeContext';
 import { API_BASE } from '@/utils/api';
 import { getCurrentUserId } from '@/utils/currentUser';
+import { supabase } from '@/utils/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const tabs = ['Friends', 'You'];
+const tabs = ['Friends', 'Incoming', 'You'];
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -41,6 +42,8 @@ export default function Activity() {
   const [activeTab, setActiveTab] = useState('Friends');
   const [youItems, setYouItems] = useState<any[]>([]);
   const [friendItems, setFriendItems] = useState<any[]>([]);
+  const [incomingItems, setIncomingItems] = useState<any[]>([]);
+  const [loadingIncoming, setLoadingIncoming] = useState(true);
   const [profiles, setProfiles] = useState<{ [id: string]: any }>({});
   const [loadingYou, setLoadingYou] = useState(true);
   const [loadingFriends, setLoadingFriends] = useState(true);
@@ -50,6 +53,7 @@ export default function Activity() {
     useCallback(() => {
       loadYou();
       loadFriends();
+      loadIncoming();
     }, [])
   );
 
@@ -66,6 +70,50 @@ export default function Activity() {
     }
   }
 
+  async function loadIncoming() {
+    setLoadingIncoming(true);
+    try {
+      const myId = await getCurrentUserId();
+      if (!myId) {
+        setIncomingItems([]);
+        return;
+      }
+
+      const { data: relations, error: relationError } = await supabase
+        .from('friendships')
+        .select('user_id')
+        .eq('friend_id', myId);
+
+      if (relationError) throw relationError;
+
+      const ids = [...new Set((relations || []).map((item: any) => item.user_id).filter(Boolean))];
+      if (ids.length === 0) {
+        setIncomingItems([]);
+        return;
+      }
+
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('id, username, avatar_url')
+        .in('id', ids);
+
+      if (usersError) throw usersError;
+
+      setIncomingItems(ids.map(id => {
+        const user = (users || []).find((item: any) => item.id === id);
+        return {
+          id,
+          username: user?.username || 'User',
+          avatar: user?.avatar_url || null,
+        };
+      }));
+    } catch (error) {
+      console.log('loadIncoming failed', error);
+      setIncomingItems([]);
+    } finally {
+      setLoadingIncoming(false);
+    }
+  }
   async function loadFriends() {
     setLoadingFriends(true);
     setFriendsError('');
@@ -176,8 +224,24 @@ export default function Activity() {
     );
   }
 
-  const currentItems = activeTab === 'You' ? youItems : friendItems;
-  const loadingItems = activeTab === 'You' ? loadingYou : loadingFriends;
+  function renderIncomingItem(item: any) {
+    return (
+      <View key={item.id} style={styles.row}>
+        {item.avatar
+          ? <Image source={{ uri: item.avatar }} style={styles.avatar} />
+          : <View style={styles.avatar} />}
+        <View style={styles.info}>
+          <Text style={styles.text}>
+            <Text style={styles.username}>{item.username}</Text>
+            {' '}started following you
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const currentItems = activeTab === 'You' ? youItems : activeTab === 'Incoming' ? incomingItems : friendItems;
+  const loadingItems = activeTab === 'You' ? loadingYou : activeTab === 'Incoming' ? loadingIncoming : loadingFriends;
   const isEmpty = currentItems.length === 0;
 
   return (
@@ -200,11 +264,15 @@ export default function Activity() {
           <Text style={styles.empty}>
             {activeTab === 'Friends'
               ? 'შენი მეგობრების აქტივობა ჯერ არ არის'
-              : 'ჯერ არ გაქვს აქტივობა'}
+              : activeTab === 'Incoming'
+                ? 'No new followers yet.'
+                : 'ჯერ არ გაქვს აქტივობა'}
           </Text>
         ) : activeTab === 'You'
           ? youItems.map(renderYouItem)
-          : friendItems.map(renderFriendItem)
+          : activeTab === 'Incoming'
+            ? incomingItems.map(renderIncomingItem)
+            : friendItems.map(renderFriendItem)
         }
       </ScrollView>
     </View>

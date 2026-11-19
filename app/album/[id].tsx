@@ -1,6 +1,7 @@
 ﻿
 import { useAppTheme } from '@/context/ThemeContext';
 import { sendMusicToFriend, shareMusicItem } from '@/utils/sharing';
+import { recordActivity } from '@/utils/activity';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -346,60 +347,69 @@ export default function AlbumPage() {
     setShowLists(true);
   }
 
-  function updateRating(newRating: number) {
+  async function updateRating(newRating: number) {
     setRating(newRating);
     setListened(true);
 
-    AsyncStorage.getItem('listened').then(existing => {
-      const list = existing ? JSON.parse(existing) : [];
-      const idx = list.findIndex((i: any) => i.id === album?.id);
+    const existing = await AsyncStorage.getItem('listened');
+    const list = existing ? JSON.parse(existing) : [];
+    const idx = list.findIndex((i: any) => i.id === album?.id);
 
-      if (idx !== -1) {
-        list[idx].rating = newRating;
-      } else {
-        list.unshift({
-          id: album?.id,
-          name: album?.name,
-          cover: album?.images?.[0]?.url,
-          type: 'album',
-          rating: newRating,
-          date: new Date().toISOString(),
-        });
-      }
+    const itemData = {
+      id: album?.id,
+      name: album?.name,
+      cover: album?.images?.[0]?.url,
+      type: 'album',
+      rating: newRating,
+      date: new Date().toISOString(),
+    };
 
-      AsyncStorage.setItem('listened', JSON.stringify(list));
-    });
+    if (idx !== -1) {
+      list[idx].rating = newRating;
+    } else {
+      list.unshift(itemData);
+    }
+
+    await AsyncStorage.setItem('listened', JSON.stringify(list));
+
+    if (idx === -1 && album?.id) {
+      await recordActivity('listened', album.id, itemData);
+    }
   }
 
-  function updateTrackRating(newRating: number) {
+  async function updateTrackRating(newRating: number) {
     setTrackRating(newRating);
     setTrackListened(true);
 
-    AsyncStorage.getItem('listened').then(existing => {
-      const list = existing ? JSON.parse(existing) : [];
-      const idx = list.findIndex(
-        (i: any) => i.id === selectedTrack?.id
-      );
+    const existing = await AsyncStorage.getItem('listened');
+    const list = existing ? JSON.parse(existing) : [];
+    const idx = list.findIndex(
+      (i: any) => i.id === selectedTrack?.id
+    );
 
-      if (idx !== -1) {
-        list[idx].rating = newRating;
-        list[idx].albumId = album?.id;
-      } else {
-        list.unshift({
-          id: selectedTrack?.id,
-          name: selectedTrack?.name,
-          cover: album?.images?.[0]?.url,
-          type: 'track',
-          albumId: album?.id,
-          rating: newRating,
-          date: new Date().toISOString(),
-        });
-      }
+    const itemData = {
+      id: selectedTrack?.id,
+      name: selectedTrack?.name,
+      cover: album?.images?.[0]?.url,
+      type: 'track',
+      albumId: album?.id,
+      rating: newRating,
+      date: new Date().toISOString(),
+    };
 
-      AsyncStorage.setItem('listened', JSON.stringify(list));
-    });
+    if (idx !== -1) {
+      list[idx].rating = newRating;
+      list[idx].albumId = album?.id;
+    } else {
+      list.unshift(itemData);
+    }
+
+    await AsyncStorage.setItem('listened', JSON.stringify(list));
+
+    if (idx === -1 && selectedTrack?.id) {
+      await recordActivity('listened', selectedTrack.id, itemData);
+    }
   }
-
   return (
     <View style={[styles.screen, { backgroundColor }]}>
       {loading && (
@@ -576,7 +586,8 @@ export default function AlbumPage() {
                       rating,
                       date: new Date().toISOString(),
                     });
-                  }
+                    await recordActivity('listened', album.id, list[0]);
+}
                 } else {
                   const idx = list.findIndex((i: any) => i.id === album.id);
                   if (idx !== -1) list.splice(idx, 1);
@@ -615,7 +626,8 @@ export default function AlbumPage() {
                       type: 'album',
                       date: new Date().toISOString(),
                     });
-                  }
+                    await recordActivity('liked', album.id, list[0]);
+}
                 } else {
                   const idx = list.findIndex((i: any) => i.id === album.id);
                   if (idx !== -1) list.splice(idx, 1);
@@ -654,7 +666,8 @@ export default function AlbumPage() {
                       cover: album.images?.[0]?.url,
                       type: 'album',
                     });
-                  }
+                    await recordActivity('wants_to_listen', album.id, list[0]);
+}
                 } else {
                   const idx = list.findIndex((i: any) => i.id === album.id);
                   if (idx !== -1) list.splice(idx, 1);
@@ -696,7 +709,7 @@ export default function AlbumPage() {
                   currentRating: String(rating),
                 },
               });
-            }}
+}}
           >
             <Text style={styles.menuText}>Review or log</Text>
           </TouchableOpacity>
@@ -734,7 +747,7 @@ export default function AlbumPage() {
                 artist: album.artists?.[0]?.name,
                 cover: album.images?.[0]?.url,
               });
-            }}
+}}
           >
             <Text style={styles.menuText}>Share</Text>
           </TouchableOpacity>
@@ -794,7 +807,8 @@ export default function AlbumPage() {
                       rating: trackRating,
                       date: new Date().toISOString(),
                     });
-                  }
+                    await recordActivity('listened', selectedTrack.id, list[0]);
+}
                 } else {
                   const idx = list.findIndex(
                     (i: any) => i.id === selectedTrack.id
@@ -836,7 +850,8 @@ export default function AlbumPage() {
                       albumId: album?.id,
                       date: new Date().toISOString(),
                     });
-                  }
+                    await recordActivity('liked', selectedTrack.id, list[0]);
+}
                 } else {
                   const idx = list.findIndex(
                     (i: any) => i.id === selectedTrack.id
@@ -878,7 +893,8 @@ export default function AlbumPage() {
                       type: 'track',
                       albumId: album?.id,
                     });
-                  }
+                    await recordActivity('wants_to_listen', selectedTrack.id, list[0]);
+}
                 } else {
                   const idx = list.findIndex(
                     (i: any) => i.id === selectedTrack.id
@@ -925,7 +941,7 @@ export default function AlbumPage() {
                   currentRating: String(trackRating),
                 },
               });
-            }}
+}}
           >
             <Text style={styles.menuText}>Review or log</Text>
           </TouchableOpacity>
@@ -965,7 +981,7 @@ export default function AlbumPage() {
                 artist: selectedTrack.artists?.[0]?.name,
                 cover: album?.images?.[0]?.url,
               });
-            }}
+}}
           >
             <Text style={styles.menuText}>Share</Text>
           </TouchableOpacity>
@@ -1490,6 +1506,11 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: { color: '#bbb', fontSize: 15 },
 });
+
+
+
+
+
 
 
 

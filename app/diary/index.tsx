@@ -1,8 +1,10 @@
-﻿import { useAppTheme } from '@/context/ThemeContext';
+import { useAppTheme } from '@/context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SectionList, Image, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { supabase } from '@/utils/supabase';
 
 type DiaryEntry = {
   id: string;
@@ -19,6 +21,7 @@ type DiaryEntry = {
 
 export default function DiaryScreen() {
   const router = useRouter();
+  const { userId } = useLocalSearchParams<{ userId?: string }>();
   const { backgroundColor, accentColor } = useAppTheme();
   const [sections, setSections] = useState<{ title: string; data: DiaryEntry[] }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,26 +29,44 @@ export default function DiaryScreen() {
   const loadDiary = useCallback(async () => {
     setLoading(true);
     try {
-      const diaryData = await AsyncStorage.getItem('diary_entries');
       let entries: DiaryEntry[] = [];
+      let reviews: any[] = [];
 
-      if (diaryData === null) {
-        const listenedData = await AsyncStorage.getItem('listened');
-        const listened = listenedData ? JSON.parse(listenedData) : [];
+      const { data: authData } = await supabase.auth.getUser();
+      const isOtherProfile = Boolean(userId && userId !== authData.user?.id);
 
-        entries = listened.map((item: any, index: number) => ({
-          ...item,
-          id: `legacy-${item.id}-${item.date || index}`,
-          itemId: item.id,
-        }));
+      if (isOtherProfile) {
+        const [diaryResult, reviewsResult] = await Promise.all([
+          supabase.from('public_profile_items').select('data').eq('user_id', userId).eq('section', 'diary'),
+          supabase.from('public_profile_items').select('data').eq('user_id', userId).eq('section', 'reviews'),
+        ]);
 
-        await AsyncStorage.setItem('diary_entries', JSON.stringify(entries));
+        if (diaryResult.error) throw diaryResult.error;
+        if (reviewsResult.error) throw reviewsResult.error;
+
+        entries = (diaryResult.data || []).map((row: any) => row.data as DiaryEntry);
+        reviews = (reviewsResult.data || []).map((row: any) => row.data);
       } else {
-        entries = JSON.parse(diaryData);
-      }
+        const diaryData = await AsyncStorage.getItem('diary_entries');
 
-      const reviewsData = await AsyncStorage.getItem('reviews');
-      const reviews = reviewsData ? JSON.parse(reviewsData) : [];
+        if (diaryData === null) {
+          const listenedData = await AsyncStorage.getItem('listened');
+          const listened = listenedData ? JSON.parse(listenedData) : [];
+
+          entries = listened.map((item: any, index: number) => ({
+            ...item,
+            id: `legacy-${item.id}-${item.date || index}`,
+            itemId: item.id,
+          }));
+
+          await AsyncStorage.setItem('diary_entries', JSON.stringify(entries));
+        } else {
+          entries = JSON.parse(diaryData);
+        }
+
+        const reviewsData = await AsyncStorage.getItem('reviews');
+        reviews = reviewsData ? JSON.parse(reviewsData) : [];
+      }
 
       const enriched = entries.map(entry => {
         const review = reviews.find((r: any) => r.albumId === (entry.itemId || entry.id));
@@ -100,7 +121,7 @@ export default function DiaryScreen() {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>‹</Text>
+          <Text style={styles.back}>{'\u2039'}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Diary</Text>
         <View style={{ width: 30 }} />
@@ -137,8 +158,8 @@ export default function DiaryScreen() {
                 <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
                 {item.artist ? <Text style={styles.artist}>{item.artist}</Text> : null}
                 {item.rating ? (
-                  <Text style={[styles.rating, { color: accentColor }]}>
-                    {'★'.repeat(Math.floor(item.rating))}{item.rating % 1 ? '½' : ''}
+                  <Text style={[styles.rating, { color: '#9BA7B2' }]}>
+                    {'\u2605'.repeat(Math.floor(item.rating))}{item.rating % 1 ? '\u00BD' : ''}
                   </Text>
                 ) : null}
                 {item.review ? <Text style={styles.review} numberOfLines={3}>{item.review}</Text> : null}

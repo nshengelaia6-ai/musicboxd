@@ -1,4 +1,4 @@
-﻿import { useRef } from 'react';
+import { useRef } from 'react';
 import { PanResponder, StyleSheet, Text, View } from 'react-native';
 
 type StarRatingProps = {
@@ -73,7 +73,7 @@ export default function StarRating({
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
-  star: { color: '#333', textAlign: 'center' },
-  starActive: { color: '#ffb6c1', textAlign: 'center' },
+  star: { color: '#9BA7B2', textAlign: 'center' },
+  starActive: { color: '#00E054', textAlign: 'center' },
 });
 

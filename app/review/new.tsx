@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '@/utils/supabase';
+import { recordActivity } from '@/utils/activity';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Image, PanResponder, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -73,10 +75,10 @@ export default function ReviewPage() {
             const half = !filled && rating >= s - 0.5;
             return (
               <View key={s} style={{ width: STAR_SIZE, height: STAR_SIZE }}>
-                <Text style={styles.starEmpty}>★</Text>
+                <Text style={styles.starEmpty}>{'\u2605'}</Text>
                 {(filled || half) && (
                   <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', width: filled ? STAR_SIZE : STAR_SIZE / 2 }]}>
-                    <Text style={styles.starFilled}>★</Text>
+                    <Text style={styles.starFilled}>{'\u2605'}</Text>
                   </View>
                 )}
               </View>
@@ -98,6 +100,7 @@ export default function ReviewPage() {
       const existing = await AsyncStorage.getItem('reviews');
       const reviews = existing ? JSON.parse(existing) : [];
       const existingIndex = reviews.findIndex((r: any) => r.albumId === albumId);
+      const isNewReview = existingIndex === -1;
 
       if (existingIndex !== -1) {
         reviews[existingIndex] = {
@@ -124,9 +127,31 @@ export default function ReviewPage() {
       }
       await AsyncStorage.setItem('reviews', JSON.stringify(reviews));
 
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          const savedReview = reviews.find((r: any) => r.albumId === albumId);
+
+          if (user && savedReview) {
+            const { error: syncError } = await supabase
+              .from('public_profile_items')
+              .upsert({
+                user_id: user.id,
+                section: 'reviews',
+                item_key: String(albumId),
+                data: savedReview,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'user_id,section,item_key' });
+
+            if (syncError) console.error('Review sync failed:', syncError);
+          }
+        } catch (syncError) {
+          console.error('Review sync failed:', syncError);
+        }
+
       const listenedData = await AsyncStorage.getItem('listened');
       const listenedList = listenedData ? JSON.parse(listenedData) : [];
       const listenedIndex = listenedList.findIndex((i: any) => i.id === albumId);
+      const isNewListened = listenedIndex === -1;
 
       if (listenedIndex !== -1) {
         // Do not wipe an existing rating when saving a text-only review.
@@ -148,12 +173,30 @@ export default function ReviewPage() {
       }
       await AsyncStorage.setItem('listened', JSON.stringify(listenedList));
 
+      if (isNewReview) {
+        await recordActivity('reviewed', String(albumId), {
+          id: String(albumId),
+          name: String(albumName ?? ''),
+          artist: String(albumArtist ?? ''),
+          cover: String(albumCover ?? ''),
+          type: resolvedType,
+          albumId: resolvedType === 'track' ? resolvedParentAlbumId : undefined,
+          rating,
+          review,
+          date: reviews[0]?.date ?? new Date().toISOString(),
+        });
+      }
+
+      if (isNewListened) {
+        await recordActivity('listened', String(albumId), listenedList[0]);
+      }
+
       // The album page reads this to show the "Review saved" toast.
       await AsyncStorage.setItem('review_saved_notification', JSON.stringify({ time: Date.now() }));
 
       router.back();
     } catch (e) {
-      console.error('შენახვა ვერ მოხერხდა', e);
+      console.error('Ã¡Æ’Â¨Ã¡Æ’â€Ã¡Æ’Å“Ã¡Æ’ÂÃ¡Æ’Â®Ã¡Æ’â€¢Ã¡Æ’Â Ã¡Æ’â€¢Ã¡Æ’â€Ã¡Æ’Â  Ã¡Æ’â€ºÃ¡Æ’ÂÃ¡Æ’Â®Ã¡Æ’â€Ã¡Æ’Â Ã¡Æ’Â®Ã¡Æ’â€œÃ¡Æ’Â', e);
     }
   }
 
@@ -217,7 +260,7 @@ const styles = StyleSheet.create({
   label: { color: '#ccc', fontSize: 16 },
   date: { color: '#fff', fontSize: 15 },
   starsRow: { flexDirection: 'row', gap: STAR_GAP },
-  starEmpty: { fontSize: 32, color: '#555' },
-  starFilled: { fontSize: 32, color: '#ffb6c1' },
+  starEmpty: { fontSize: 32, color: '#9BA7B2' },
+  starFilled: { fontSize: 32, color: '#00E054' },
   reviewInput: { color: '#fff', fontSize: 15, padding: 16, minHeight: 200, textAlignVertical: 'top' },
 });

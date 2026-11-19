@@ -32,6 +32,7 @@ export default function Search() {
   const [selected, setSelected] = useState<any>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [recentSearches, setRecentSearches] = useState<any[]>([]);
+  const [recentPeople, setRecentPeople] = useState<any[]>([]);
   const [tab, setTab] = useState<'music' | 'people'>('music');
   const [peopleResults, setPeopleResults] = useState<any[]>([]);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
@@ -44,6 +45,7 @@ export default function Search() {
 
   useEffect(() => {
     loadRecent();
+    loadRecentPeople();
   }, []);
 
   useEffect(() => {
@@ -99,6 +101,38 @@ export default function Search() {
   async function clearAllRecent() {
     setRecentSearches([]);
     await AsyncStorage.removeItem('recent_searches');
+  }
+
+  async function loadRecentPeople() {
+    const data = await AsyncStorage.getItem('recent_people');
+    if (data) {
+      try {
+        setRecentPeople(JSON.parse(data));
+      } catch {
+        setRecentPeople([]);
+      }
+    }
+  }
+
+  async function saveRecentPerson(person: any) {
+    const data = await AsyncStorage.getItem('recent_people');
+    let recent = data ? JSON.parse(data) : [];
+    recent = recent.filter((item: any) => item.id !== person.id);
+    recent.unshift(person);
+    recent = recent.slice(0, RECENT_LIMIT);
+    await AsyncStorage.setItem('recent_people', JSON.stringify(recent));
+    setRecentPeople(recent);
+  }
+
+  async function removeRecentPerson(id: string) {
+    const updated = recentPeople.filter((person: any) => person.id !== id);
+    setRecentPeople(updated);
+    await AsyncStorage.setItem('recent_people', JSON.stringify(updated));
+  }
+
+  async function clearAllRecentPeople() {
+    setRecentPeople([]);
+    await AsyncStorage.removeItem('recent_people');
   }
 
   async function pickAlbum(album: any) {
@@ -782,17 +816,39 @@ export default function Search() {
 
       {tab === 'people' && !isPickMode ? (
         <FlatList
-          data={peopleResults}
+          data={query.trim().length < 2 ? recentPeople : peopleResults}
           keyExtractor={(item) => item.id}
           ListEmptyComponent={
             <Text style={styles.emptyText}>
               {query.trim().length >= 2 && !loading
                 ? 'No people found.'
-                : 'Search for people you know.'}
+                : recentPeople.length > 0
+                  ? 'Your recent people will appear here.'
+                  : 'Search for people you know.'}
             </Text>
+          }
+          ListFooterComponent={
+            query.trim().length < 2 && recentPeople.length > 0 ? (
+              <TouchableOpacity
+                onPress={clearAllRecentPeople}
+                style={styles.clearAllBtn}
+              >
+                <Text style={styles.clearAllText}>Clear recent people</Text>
+              </TouchableOpacity>
+            ) : null
           }
           renderItem={({ item }) => (
             <View style={styles.row}>
+              <TouchableOpacity
+                style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+                onPress={async () => {
+                  await saveRecentPerson(item);
+                  router.push({
+                    pathname: "/user/[id]",
+                    params: { id: item.id },
+                  });
+                }}
+              >
               {item.avatar ? (
                 <Image
                   source={{ uri: item.avatar }}
@@ -819,6 +875,7 @@ export default function Search() {
                   </Text>
                 ) : null}
               </View>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
@@ -846,6 +903,16 @@ export default function Search() {
                     : 'Follow'}
                 </Text>
               </TouchableOpacity>
+              {query.trim().length < 2 && (
+                <TouchableOpacity
+                  onPress={() => removeRecentPerson(item.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${item.username} from recent people`}
+                  style={{ paddingHorizontal: 12, paddingVertical: 8 }}
+                >
+                  <Text style={styles.dots}>x</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         />

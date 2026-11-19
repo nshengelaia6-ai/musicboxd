@@ -1,9 +1,5 @@
-import { Share } from 'react-native';
-import { getValidSpotifyToken } from './spotify';
-
-const SUPABASE_URL = 'https://jvxsfjxcydpdlvwrxmor.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY =
-  'sb_publishable_tH6PoxGwVF9JyUvsMw0mUg_cFiFzeCm';
+﻿import { Share } from 'react-native';
+import { supabase } from './supabase';
 
 export type ShareableMusicItem = {
   id: string;
@@ -33,39 +29,26 @@ export async function sendMusicToFriend(
   recipientId: string,
   message = ''
 ): Promise<void> {
-  const spotifyToken = await getValidSpotifyToken();
+  const { data, error } = await supabase.functions.invoke('swift-service', {
+    body: {
+      recipient_id: recipientId,
+      item_type: item.type,
+      item_id: item.id,
+      item_name: item.name,
+      artist_name: item.artist || '',
+      cover_url: item.cover || '',
+      message: message.trim(),
+    },
+  });
 
-  if (!spotifyToken) {
-    throw new Error('Spotify session expired. Please sign in again.');
+  if (error) {
+    throw new Error(error.message || 'Could not send music. Please try again.');
   }
 
-  const response = await fetch(
-    `${SUPABASE_URL}/functions/v1/swift-service`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${spotifyToken}`,
-        apikey: SUPABASE_PUBLISHABLE_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        recipient_id: recipientId,
-        item_type: item.type,
-        item_id: item.id,
-        item_name: item.name,
-        artist_name: item.artist || '',
-        cover_url: item.cover || '',
-        message: message.trim(),
-      }),
-    }
-  );
-
-  const result = await response.json().catch(() => ({}));
-
-  if (!response.ok || !result.success) {
+  if (!data?.success) {
     throw new Error(
-      typeof result.error === 'string'
-        ? result.error
+      typeof data?.error === 'string'
+        ? data.error
         : 'Could not send music. Please try again.'
     );
   }

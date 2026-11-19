@@ -28,7 +28,7 @@ export default function Reviews() {
     <View style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>‹</Text>
+          <Text style={styles.back}>{'\u2039'}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Reviews</Text>
         <View style={{ width: 30 }} />
@@ -53,7 +53,7 @@ export default function Reviews() {
               <View style={styles.info}>
                 <Text style={styles.albumName}>{item.albumName}</Text>
                 <Text style={styles.artist}>{item.albumArtist}</Text>
-                <Text style={[styles.rating, { color: accentColor }]}>{'★'.repeat(Math.floor(item.rating))}{item.rating % 1 ? '½' : ''}</Text>
+                <Text style={[styles.rating, { color: '#9BA7B2' }]}>{'\u2605'.repeat(Math.floor(item.rating))}{item.rating % 1 ? '\u00BD' : ''}</Text>
                 {item.review ? <Text style={styles.review}>{item.review}</Text> : null}
                 <Text style={styles.date}>{new Date(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
               </View>
