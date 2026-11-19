@@ -598,11 +598,13 @@ export default function Home() {
           <Text style={styles.pageTitle}>Musicboxd</Text>
         </View>
         <View style={styles.homeNav}>
-          <Text style={[styles.homeNavText, styles.homeNavActive]}>Songs</Text>
-          <TouchableOpacity onPress={() => router.push('/friends-reviews' as any)}>
+          <View style={[styles.homeNavTab, styles.homeNavTabActive, { borderBottomColor: accentColor }]}>
+            <Text style={[styles.homeNavText, styles.homeNavActive, { color: accentColor }]}>Songs</Text>
+          </View>
+          <TouchableOpacity style={styles.homeNavTab} onPress={() => router.push('/friends-reviews' as any)}>
             <Text style={styles.homeNavText}>Reviews</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/friends-lists' as any)}>
+          <TouchableOpacity style={styles.homeNavTab} onPress={() => router.push('/friends-lists' as any)}>
             <Text style={styles.homeNavText}>Lists</Text>
           </TouchableOpacity>
         </View>
@@ -1209,33 +1211,43 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 16,
-    marginBottom: 8,
+    paddingTop: 2,
+    paddingBottom: 12,
   },
   pageTitle: {
     color: 'white',
-    fontSize: 27,
+    fontSize: 25,
     fontWeight: '800',
-    letterSpacing: -0.7,
+    letterSpacing: -0.6,
+    textAlign: 'center',
   },
   homeNav: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: 12,
-    paddingBottom: 12,
+    alignItems: 'stretch',
     marginBottom: 18,
     borderBottomWidth: 1,
     borderBottomColor: '#292929',
   },
+  homeNavTab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+    marginBottom: -1,
+  },
+  homeNavTabActive: {
+    borderBottomWidth: 2,
+  },
   homeNavText: {
     color: '#888',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    paddingVertical: 8,
+    letterSpacing: 0.2,
   },
   homeNavActive: {
     color: '#fff',
