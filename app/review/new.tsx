@@ -203,6 +203,22 @@ export default function ReviewPage() {
           }, { onConflict: 'user_id,section,item_key' });
         if (profileSyncError) console.error('Review profile sync failed:', profileSyncError);
 
+        const { error: publicReviewError } = await supabase
+          .from('music_reviews')
+          .upsert({
+            user_id: user.id,
+            item_type: resolvedType,
+            item_id: String(albumId),
+            parent_album_id: resolvedType === 'track' ? resolvedParentAlbumId : null,
+            item_name: String(albumName ?? savedReview.albumName ?? ''),
+            artist_name: String(albumArtist ?? savedReview.albumArtist ?? ''),
+            cover_url: String(albumCover ?? savedReview.albumCover ?? ''),
+            rating: Number(rating) || 0,
+            review_text: String(review || '').trim(),
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,item_type,item_id' });
+        if (publicReviewError) console.error('Public review sync failed:', publicReviewError);
+
         if (isNewReview) {
           await recordActivity('reviewed', String(albumId), reviewData);
         } else {
