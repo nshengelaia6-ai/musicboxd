@@ -3,7 +3,7 @@ import { supabase } from '@/utils/supabase';
 import { subscribeToSpotifySession } from '@/utils/spotify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -71,6 +71,7 @@ export default function Home() {
   const [showAllNewFromFriends, setShowAllNewFromFriends] = useState(false);
   const [friendFeedLoading, setFriendFeedLoading] = useState(true);
   const [friendFeedError, setFriendFeedError] = useState('');
+  const friendIdsRef = useRef<Set<string>>(new Set());
 
   // Monthly Favs
   const [monthlyFavs, setMonthlyFavs] = useState<any[]>([]);
@@ -262,6 +263,8 @@ export default function Home() {
         ),
       ];
 
+      friendIdsRef.current = new Set(friendIds);
+
       if (friendIds.length === 0) {
         setNewFromFriends([]);
         setPopularWithFriends([]);
@@ -397,7 +400,10 @@ export default function Home() {
           (payload) => {
             const activity = payload.new as any;
 
-            if (activity.user_id !== currentUserId) {
+            if (
+              activity.user_id !== currentUserId &&
+              friendIdsRef.current.has(activity.user_id)
+            ) {
               loadFriendsActivity(currentUserId);
             }
           }
