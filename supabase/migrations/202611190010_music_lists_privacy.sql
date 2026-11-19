@@ -20,6 +20,30 @@ create unique index if not exists music_lists_share_token_uidx
 
 alter table public.music_lists enable row level security;
 
+-- Security-definer helper lets the list policy verify mutual follows without
+-- depending on the caller's visibility into another user's friendship rows.
+create or replace function public.are_mutual_friends(p_user_a uuid, p_user_b uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $
+  select
+    auth.uid() in (p_user_a, p_user_b)
+    and exists (
+      select 1 from public.friendships f1
+      where f1.user_id = p_user_a and f1.friend_id = p_user_b
+    )
+    and exists (
+      select 1 from public.friendships f2
+      where f2.user_id = p_user_b and f2.friend_id = p_user_a
+    );
+$;
+
+revoke all on function public.are_mutual_friends(uuid, uuid) from public;
+grant execute on function public.are_mutual_friends(uuid, uuid) to authenticated;
+
 drop policy if exists "Owners can manage their music lists" on public.music_lists;
 create policy "Owners can manage their music lists"
   on public.music_lists for all to authenticated
@@ -34,16 +58,7 @@ create policy "Public and mutual friends can view music lists"
     or user_id = auth.uid()
     or (
       privacy = 'friends'
-      and exists (
-        select 1 from public.friendships f1
-        where f1.user_id = music_lists.user_id
-          and f1.friend_id = auth.uid()
-          and exists (
-            select 1 from public.friendships f2
-            where f2.user_id = auth.uid()
-              and f2.friend_id = music_lists.user_id
-          )
-      )
+      and public.are_mutual_friends(music_lists.user_id, auth.uid())
     )
   );
 
