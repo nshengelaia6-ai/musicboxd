@@ -228,7 +228,40 @@ export default function Search() {
           })
         );
 
-        setResults([...tracks, ...albums, ...artists]);
+        const normalizedQuery = text.trim().toLocaleLowerCase();
+
+        const getMatchScore = (item: any) => {
+          const name = String(item.name || '').toLocaleLowerCase();
+
+          if (item._type === 'track') {
+            if (name === normalizedQuery) return 120;
+            if (name.startsWith(normalizedQuery)) return 95;
+            if (name.includes(normalizedQuery)) return 75;
+            return 0;
+          }
+
+          if (item._type === 'artist') {
+            if (name === normalizedQuery) return 115;
+            if (name.startsWith(normalizedQuery)) return 90;
+            if (name.includes(normalizedQuery)) return 70;
+            return 0;
+          }
+
+          if (item._type === 'album') {
+            if (name === normalizedQuery) return 110;
+            if (name.startsWith(normalizedQuery)) return 85;
+            if (name.includes(normalizedQuery)) return 65;
+            return 0;
+          }
+
+          return 0;
+        };
+
+        const combinedResults = [...tracks, ...albums, ...artists];
+        combinedResults.sort(
+          (a, b) => getMatchScore(b) - getMatchScore(a)
+        );
+        setResults(combinedResults);
       }
     } catch (error) {
       console.log('Spotify search error:', error);
