@@ -228,7 +228,7 @@ export default function Search() {
           })
         );
 
-        setResults([...artists, ...albums, ...tracks]);
+        setResults([...tracks, ...albums, ...artists]);
       }
     } catch (error) {
       console.log('Spotify search error:', error);
