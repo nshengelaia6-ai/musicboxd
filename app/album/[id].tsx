@@ -22,7 +22,6 @@ import StarRating from './StarRating';
 
 
 const DOTS = '\u00B7\u00B7\u00B7';
-const BULLET = '\u2022';
 const BACK = '\u2039';
 const CHECK = '\u2713';
 const HEART_FILLED = '\u2665';
@@ -47,9 +46,7 @@ export default function AlbumPage() {
   const [albumReviewPeople, setAlbumReviewPeople] = useState<Record<string, any>>({});
   const [albumReviewCount, setAlbumReviewCount] = useState(0);
   const [albumAverageRating, setAlbumAverageRating] = useState(0);
-  const [trackReviews, setTrackReviews] = useState<any[]>([]);
-  const [trackReviewPeople, setTrackReviewPeople] = useState<Record<string, any>>({});
-  const [loading, setLoading] = useState(true);
+  const [trackReviews, setTrackReviews] = useState<any[]  const [  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
   const [menuVisible, setMenuVisible] = useState(false);
