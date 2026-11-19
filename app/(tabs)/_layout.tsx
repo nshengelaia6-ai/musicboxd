@@ -3,14 +3,11 @@ import { activateSpotifyAccount } from '@/utils/accountStorage';
 import { supabase } from '@/utils/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Redirect, Tabs } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
-
-const TEST_MODE_KEY = 'musicboxd_test_mode';
 
 export default function TabLayout() {
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
-  const testModeRef = useRef(false);
 
   async function activateUser(userId: string) {
     await activateSpotifyAccount(userId);
@@ -22,23 +19,15 @@ export default function TabLayout() {
 
     async function initialize() {
       try {
-        const [sessionResult, savedTestMode] = await Promise.all([
-          supabase.auth.getSession(),
-          AsyncStorage.getItem(TEST_MODE_KEY),
-        ]);
-
+        const sessionResult = await supabase.auth.getSession();
         const session = sessionResult.data.session;
-        const isTestMode = savedTestMode === 'true';
-        testModeRef.current = isTestMode;
 
         if (session && !sessionResult.error) {
           await activateUser(session.user.id);
         }
 
         if (active) {
-          setLoggedIn(
-            (!sessionResult.error && !!session) || isTestMode
-          );
+          setLoggedIn(!sessionResult.error && !!session);
         }
       } catch (error) {
         console.error('Account initialization failed:', error);
@@ -64,11 +53,7 @@ export default function TabLayout() {
               if (active) setLoggedIn(false);
             });
         } else {
-          void AsyncStorage.removeItem('supabase_user_id');
-
-          if (active) {
-            setLoggedIn(testModeRef.current);
-          }
+          if (active) setLoggedIn(false);
         }
       }
     );
