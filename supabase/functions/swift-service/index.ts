@@ -34,6 +34,16 @@ Deno.serve(async (req) => {
       .eq("id", authData.user.id).maybeSingle();
     if (userError || !user) return respond({ error: "User profile not found in the app" }, 403);
 
+    async function usersAreBlocked(firstUserId: string, secondUserId: string) {
+      const { data, error } = await supabase.from("blocked_users")
+        .select("blocker_id, blocked_id")
+        .or(`and(blocker_id.eq.${firstUserId},blocked_id.eq.${secondUserId}),and(blocker_id.eq.${secondUserId},blocked_id.eq.${firstUserId})`)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return Boolean(data);
+    }
+
     // All interaction actions first verify that the caller is a sender or recipient.
     if (body.action === "like" || body.action === "reply") {
       const shareId = String(body.share_id || "");
@@ -44,6 +54,14 @@ Deno.serve(async (req) => {
       if (shareError || !share) return respond({ error: "Shared item not found" }, 404);
       if (share.user_id !== user.id && share.recipient_id !== user.id) {
         return respond({ error: "You cannot interact with this shared item" }, 403);
+      }
+      try {
+        if (await usersAreBlocked(share.user_id, share.recipient_id)) {
+          return respond({ error: "This interaction is unavailable because one participant has blocked the other" }, 403);
+        }
+      } catch (blockError) {
+        console.error("Could not verify block status:", blockError);
+        return respond({ error: "Could not verify participant permissions" }, 500);
       }
 
       if (body.action === "like") {
@@ -85,12 +103,22 @@ Deno.serve(async (req) => {
       }
 
       const [rows, sentRows] = await Promise.all([fetchAll("recipient_id"), fetchAll("user_id")]);
-      const allRows = [...rows, ...sentRows];
+      const { data: blockRows, error: blockLookupError } = await supabase
+        .from("blocked_users")
+        .select("blocker_id, blocked_id")
+        .or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`);
+      if (blockLookupError) return respond({ error: "Could not verify block settings" }, 500);
+      const blockedIds = new Set((blockRows || []).map((row) =>
+        row.blocker_id === user.id ? row.blocked_id : row.blocker_id
+      ));
+      const visibleRows = rows.filter((row) => !blockedIds.has(row.user_id));
+      const visibleSentRows = sentRows.filter((row) => !blockedIds.has(row.recipient_id));
+      const allRows = [...visibleRows, ...visibleSentRows];
       const shareIds = [...new Set(allRows.map((r) => r.id))];
       const participantIds = [...new Set([
         user.id,
-        ...rows.map((r) => r.user_id),
-        ...sentRows.map((r) => r.recipient_id),
+        ...visibleRows.map((r) => r.user_id),
+        ...visibleSentRows.map((r) => r.recipient_id),
       ])];
 
       const people: Record<string, any> = {};
@@ -162,7 +190,7 @@ Deno.serve(async (req) => {
           replies: replies[row.id] || [],
         };
       };
-      return respond({ success: true, items: rows.map((r) => mapItem(r, false)), sentItems: sentRows.map((r) => mapItem(r, true)) });
+      return respond({ success: true, items: visibleRows.map((r) => mapItem(r, false)), sentItems: visibleSentRows.map((r) => mapItem(r, true)) });
     }
 
     const { recipient_id, item_type, item_id, item_name, artist_name, cover_url, message, album_id } = body;
@@ -176,6 +204,14 @@ Deno.serve(async (req) => {
       .from("users").select("id").eq("id", recipient_id).maybeSingle();
     if (recipientError || !recipient) return respond({ error: "Recipient not found" }, 404);
     if (user.id === recipient.id) return respond({ error: "You cannot send music to yourself" }, 400);
+    try {
+      if (await usersAreBlocked(user.id, recipient.id)) {
+        return respond({ error: "You cannot share music with a user involved in a block" }, 403);
+      }
+    } catch (blockError) {
+      console.error("Could not verify block status:", blockError);
+      return respond({ error: "Could not verify recipient permissions" }, 500);
+    }
 
     const { data: friendship, error: friendshipError } = await supabase.from("friendships")
       .select("id")
