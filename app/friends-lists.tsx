@@ -81,7 +81,7 @@ export default function FriendsLists() {
                     <Text style={styles.username}>@{row.profile?.username || 'Music lover'}</Text>
                     <Text style={styles.listName}>{list.name || 'Untitled list'}</Text>
                     {!!list.description && <Text style={styles.description} numberOfLines={2}>{list.description}</Text>}
-                    <Text style={styles.meta}>{tracks.length} {tracks.length === 1 ? 'item' : 'items'}</Text>
+                    <Text style={styles.meta}>{Number(list.itemCount ?? tracks.length)} {Number(list.itemCount ?? tracks.length) === 1 ? 'item' : 'items'}</Text>
                   </View>
                   <Text style={styles.arrow}>›</Text>
                 </TouchableOpacity>
