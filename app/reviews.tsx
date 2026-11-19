@@ -6,7 +6,7 @@ import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react
 
 export default function Reviews() {
   const router = useRouter();
-  const { backgroundColor, accentColor } = useAppTheme();
+  const { backgroundColor } = useAppTheme();
   const [reviews, setReviews] = useState<any[]>([]);
 
   useFocusEffect(
