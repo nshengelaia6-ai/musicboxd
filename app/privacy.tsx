@@ -43,28 +43,10 @@ export default function PrivacyScreen() {
           shared songs and related interactions, ratings, album
           reviews, listening activity, lists, and favorites. Some
           information is stored in the app on your device and some
-          is stored in our Supabase database. The app may also store
-          Spotify connection credentials or tokens on your device
-          to provide Spotify features.
+          is stored in our Supabase database.
         </Text>
 
-        <Text style={styles.heading}>2. Spotify connection</Text>
-        <Text style={styles.paragraph}>
-          Spotify connection is optional. If you connect Spotify,
-          Musicboxd may process the Spotify account identifier,
-          profile information, and music-related information made
-          available by the permissions you approve. The exact data
-          available depends on the permissions granted and the
-          Spotify features you use. Do not connect Spotify if you
-          do not want Musicboxd to process that information.
-        </Text>
-        <Text style={styles.paragraph}>
-          Spotify handles its own data according to its Privacy
-          Policy. You can manage or revoke musicboxd&apos;s access
-          through your Spotify account settings.
-        </Text>
-
-        <Text style={styles.heading}>3. How we use information</Text>
+        <Text style={styles.heading}>2. How we use information</Text>
         <Text style={styles.paragraph}>
           We use information to authenticate users, maintain
           profiles, provide music and social features, display
@@ -77,10 +59,9 @@ export default function PrivacyScreen() {
         <Text style={styles.heading}>4. Data storage</Text>
         <Text style={styles.paragraph}>
           Musicboxd uses Supabase for account authentication,
-          database storage, and file storage. Some app information
-          and Spotify connection data may also be stored locally
-          on your device. Data handled by Spotify is also subject
-          to Spotify&apos;s systems and policies. The services and
+          database storage, and file storage. Some app information may
+          also be stored locally on your device. Musicboxd uses
+          Spotify&apos;s public music catalog for search and metadata. The services and
           infrastructure used to operate Musicboxd may process
           information in locations outside your country.
         </Text>
@@ -101,7 +82,7 @@ export default function PrivacyScreen() {
         <Text style={styles.paragraph}>
           Musicboxd relies on third-party providers, including
           Supabase for authentication, database, and file services,
-          and Spotify when you connect your Spotify account.
+          and Spotify&apos;s public music catalog through server-side search.
           These providers process information under their own
           terms and privacy policies. Musicboxd does not control
           their independent services.
@@ -123,9 +104,8 @@ export default function PrivacyScreen() {
 
         <Text style={styles.heading}>8. Your choices and requests</Text>
         <Text style={styles.paragraph}>
-          You can edit profile information in the app, choose
-          whether to connect Spotify, and stop using connected
-          Spotify features. You can request permanent deletion
+          You can edit profile information in the app and request
+          permanent deletion
           through Privacy & Settings. Depending on your location,
           you may also have rights to access, correct, or request
           deletion of personal information, subject to applicable
