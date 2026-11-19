@@ -1,5 +1,4 @@
 import { useAppTheme } from '@/context/ThemeContext';
-import { getValidSpotifyToken } from '@/utils/spotify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -42,13 +41,9 @@ export default function WantToListenScreen() {
     let albumId = item.albumId;
 
     if (!albumId) {
-      const token = await getValidSpotifyToken();
-      if (!token) return;
       try {
-        const res = await fetch(`https://api.spotify.com/v1/tracks/${item.id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
+        const { getSpotifyTrack } = await import('@/utils/spotifyCatalog');
+        const data = await getSpotifyTrack(item.id);
         albumId = data.album?.id;
       } catch (e) {
         console.log('failed to resolve album', e);
