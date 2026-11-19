@@ -42,6 +42,7 @@ export default function Search() {
   const [searchError, setSearchError] = useState('');
   const [feedback, setFeedback] = useState('');
   const requestId = useRef(0);
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     loadRecent();
@@ -365,6 +366,50 @@ export default function Search() {
     }
   }
 
+  // Debounce input and clear stale results as soon as the query changes.
+  function handleSearchInput(text: string) {
+    setQuery(text);
+    ++requestId.current;
+
+    if (searchDebounce.current) {
+      clearTimeout(searchDebounce.current);
+      searchDebounce.current = null;
+    }
+
+    if (text.trim().length < 2) {
+      setResults([]);
+      setPeopleResults([]);
+      setSearchError('');
+      setLoading(false);
+      return;
+    }
+
+    if (tab === 'people' && !isPickMode) {
+      setPeopleResults([]);
+    } else {
+      setResults([]);
+    }
+
+    setSearchError('');
+    setLoading(true);
+
+    searchDebounce.current = setTimeout(() => {
+      searchDebounce.current = null;
+      if (tab === 'people' && !isPickMode) {
+        searchPeople(text);
+      } else {
+        searchSpotify(text);
+      }
+    }, 400);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (searchDebounce.current) clearTimeout(searchDebounce.current);
+      ++requestId.current;
+    };
+  }, []);
+
   // Follow or unfollow a user in Supabase
   async function toggleFollow(userId: string) {
     const myId = await AsyncStorage.getItem('supabase_user_id');
@@ -576,55 +621,67 @@ export default function Search() {
 
       // Keep public lists in sync so friends see tracks added from Search.
       const updatedList = currentLists[listIndex];
-      const { data: { user } } = await supabase.auth.getUser();
+      let cloudSyncFailed = false;
 
-      if (user) {
-        const itemKey = String(updatedList.id);
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
 
-        if (updatedList.privacy === 'public') {
-          const { error } = await supabase
-            .from('public_profile_items')
-            .upsert({
-              user_id: user.id,
-              section: 'lists',
-              item_key: itemKey,
-              data: {
-                id: itemKey,
-                name: updatedList.name,
-                description: updatedList.description || '',
-                privacy: updatedList.privacy,
-                itemCount: updatedList.albums.length,
-                albums: updatedList.albums,
-                type: 'list',
-                createdAt: updatedList.createdAt,
-              },
-              updated_at: new Date().toISOString(),
-            }, { onConflict: 'user_id,section,item_key' });
-
-          if (error) {
-            console.error('Search list sync failed:', error);
-          }
+        if (!user) {
+          cloudSyncFailed = updatedList.privacy === 'public';
         } else {
-          const { error } = await supabase
-            .from('public_profile_items')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('section', 'lists')
-            .eq('item_key', itemKey);
+          const itemKey = String(updatedList.id);
 
-          if (error) {
-            console.error('Search private list cleanup failed:', error);
+          if (updatedList.privacy === 'public') {
+            const { error } = await supabase
+              .from('public_profile_items')
+              .upsert({
+                user_id: user.id,
+                section: 'lists',
+                item_key: itemKey,
+                data: {
+                  id: itemKey,
+                  name: updatedList.name,
+                  description: updatedList.description || '',
+                  privacy: updatedList.privacy,
+                  itemCount: updatedList.albums.length,
+                  albums: updatedList.albums,
+                  type: 'list',
+                  createdAt: updatedList.createdAt,
+                },
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'user_id,section,item_key' });
+
+            if (error) throw error;
+          } else {
+            const { error } = await supabase
+              .from('public_profile_items')
+              .delete()
+              .eq('user_id', user.id)
+              .eq('section', 'lists')
+              .eq('item_key', itemKey);
+
+            if (error) throw error;
           }
         }
+      } catch (error) {
+        cloudSyncFailed = true;
+        console.error('Search list cloud sync failed:', error);
+      }
+
+      if (cloudSyncFailed) {
+        setFeedback('Added on this device, but cloud sync failed. Please try again.');
       }
     }
 
     setLists(currentLists);
     setShowListPicker(false);
 
-    setFeedback(
-      `Added to ${currentLists[listIndex].name}.`
-    );
+    if (!feedback) {
+      setFeedback(
+        `Added to ${currentLists[listIndex].name}.`
+      );
+    }
   }
 
   const openMenu = (item: any) => {
@@ -775,11 +832,7 @@ export default function Search() {
           }
           placeholderTextColor="#555"
           value={query}
-          onChangeText={(text) =>
-            tab === 'people' && !isPickMode
-              ? searchPeople(text)
-              : searchSpotify(text)
-          }
+          onChangeText={handleSearchInput}
           autoFocus={isPickMode}
         />
 
@@ -787,6 +840,10 @@ export default function Search() {
           <TouchableOpacity
             onPress={() => {
               ++requestId.current;
+              if (searchDebounce.current) {
+                clearTimeout(searchDebounce.current);
+                searchDebounce.current = null;
+              }
               setQuery('');
               setResults([]);
               setPeopleResults([]);
