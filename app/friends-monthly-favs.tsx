@@ -153,7 +153,7 @@ export default function FriendsMonthlyFavsScreen() {
           <Text style={[styles.backText, { color: accentColor }]}>‹</Text>
         </Pressable>
 
-        <Text style={styles.headerTitle}>Friends' Monthly Favs</Text>
+        <Text style={styles.headerTitle}>Friends&apos; Monthly Favs</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -163,7 +163,7 @@ export default function FriendsMonthlyFavsScreen() {
           <Text style={styles.empty}>{error}</Text>
         ) : favorites.length === 0 ? (
           <Text style={styles.empty}>
-            Other users' monthly favorites will appear here.
+            Other users&apos; monthly favorites will appear here.
           </Text>
         ) : (
           <View style={[styles.grid, { maxWidth: gridWidth }]}>
