@@ -333,6 +333,13 @@ export default function AlbumPage() {
     }
   }
 
+  function openReviews(itemType: 'album' | 'track', itemId: string, itemName: string, artistName: string, coverUrl: string, parentAlbumId?: string) {
+    router.push({
+      pathname: '/reviews',
+      params: { itemType, itemId, itemName, artistName, coverUrl, parentAlbumId: parentAlbumId || '' },
+    } as any);
+  }
+
   async function openTrack(track: any) {
     await WebBrowser.openBrowserAsync(
       `https://open.spotify.com/track/${track.id}`
@@ -481,6 +488,19 @@ export default function AlbumPage() {
               <Text style={styles.dots}>{DOTS}</Text>
             </TouchableOpacity>
           </View>
+        )}
+
+        {album && (
+          <TouchableOpacity
+            style={{ paddingHorizontal: 18, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#252525', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+            onPress={() => openReviews('album', album.id, album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', album.id)}
+          >
+            <View>
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Reviews</Text>
+              <Text style={{ color: '#888', fontSize: 12, marginTop: 4 }}>What listeners think about this album</Text>
+            </View>
+            <Text style={{ color: accentColor, fontSize: 14, fontWeight: '700' }}>See all ›</Text>
+          </TouchableOpacity>
         )}
 
         <View>
@@ -945,6 +965,16 @@ export default function AlbumPage() {
 }}
           >
             <Text style={styles.menuText}>Review or log</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              setTrackMenuVisible(false);
+              openReviews('track', selectedTrack.id, selectedTrack.name, selectedTrack.artists?.[0]?.name || '', album?.images?.[0]?.url || '', album?.id);
+            }}
+          >
+            <Text style={styles.menuText}>Read track reviews</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
