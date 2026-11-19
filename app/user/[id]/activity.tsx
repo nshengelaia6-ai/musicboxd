@@ -1,4 +1,4 @@
-﻿import { supabase } from '@/utils/supabase';
+import { supabase } from '@/utils/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
