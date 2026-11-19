@@ -44,6 +44,10 @@ export default function AlbumPage() {
 
   const [album, setAlbum] = useState<any>(null);
   const [tracks, setTracks] = useState<any[]>([]);
+  const [albumReviews, setAlbumReviews] = useState<any[]>([]);
+  const [albumReviewPeople, setAlbumReviewPeople] = useState<Record<string, any>>({});
+  const [trackReviews, setTrackReviews] = useState<any[]>([]);
+  const [trackReviewPeople, setTrackReviewPeople] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
@@ -157,6 +161,30 @@ export default function AlbumPage() {
       setAlbum(data);
       setTracks(data.tracks?.items || []);
 
+      try {
+        const { data: recentReviews, error: recentReviewsError } = await supabase
+          .from('music_reviews')
+          .select('id,user_id,rating,review_text,created_at,updated_at')
+          .eq('item_type', 'album')
+          .eq('item_id', String(data.id))
+          .order('updated_at', { ascending: false })
+          .limit(3);
+        if (recentReviewsError) throw recentReviewsError;
+        const reviewerIds = [...new Set((recentReviews || []).map((review: any) => review.user_id))];
+        const { data: reviewerProfiles, error: reviewerProfilesError } = reviewerIds.length
+          ? await supabase.from('users').select('id,username,avatar_url').in('id', reviewerIds)
+          : { data: [], error: null };
+        if (reviewerProfilesError) throw reviewerProfilesError;
+        const reviewerMap: Record<string, any> = {};
+        (reviewerProfiles || []).forEach((person: any) => { reviewerMap[person.id] = person; });
+        setAlbumReviews(recentReviews || []);
+        setAlbumReviewPeople(reviewerMap);
+      } catch (reviewLoadError) {
+        console.warn('Could not load album reviews:', reviewLoadError);
+        setAlbumReviews([]);
+        setAlbumReviewPeople({});
+      }
+
       const listenedData = await AsyncStorage.getItem('listened');
       const listenedList = listenedData ? JSON.parse(listenedData) : [];
       const foundListened = listenedList.find(
@@ -210,6 +238,29 @@ export default function AlbumPage() {
   async function openTrackMenu(track: any) {
     setSelectedTrack(track);
     setTrackMenuVisible(true);
+    setTrackReviews([]);
+    setTrackReviewPeople({});
+    try {
+      const { data: recentTrackReviews, error: trackReviewsError } = await supabase
+        .from('music_reviews')
+        .select('id,user_id,rating,review_text,created_at,updated_at')
+        .eq('item_type', 'track')
+        .eq('item_id', String(track.id))
+        .order('updated_at', { ascending: false })
+        .limit(3);
+      if (trackReviewsError) throw trackReviewsError;
+      const reviewerIds = [...new Set((recentTrackReviews || []).map((review: any) => review.user_id))];
+      const { data: reviewerProfiles, error: reviewerProfilesError } = reviewerIds.length
+        ? await supabase.from('users').select('id,username,avatar_url').in('id', reviewerIds)
+        : { data: [], error: null };
+      if (reviewerProfilesError) throw reviewerProfilesError;
+      const reviewerMap: Record<string, any> = {};
+      (reviewerProfiles || []).forEach((person: any) => { reviewerMap[person.id] = person; });
+      setTrackReviews(recentTrackReviews || []);
+      setTrackReviewPeople(reviewerMap);
+    } catch (trackReviewLoadError) {
+      console.warn('Could not load track reviews:', trackReviewLoadError);
+    }
 
     const listenedData = await AsyncStorage.getItem('listened');
     const listenedList = listenedData ? JSON.parse(listenedData) : [];
@@ -501,6 +552,27 @@ export default function AlbumPage() {
             </View>
             <Text style={{ color: accentColor, fontSize: 14, fontWeight: '700' }}>See all ›</Text>
           </TouchableOpacity>
+        )}
+
+        {album && (
+          <View style={{ paddingHorizontal: 18, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#252525' }}>
+            <TouchableOpacity
+              onPress={() => openReviews('album', album.id, album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', album.id)}
+              style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: albumReviews.length ? 12 : 0 }}
+            >
+              <View>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Reviews</Text>
+                <Text style={{ color: '#888', fontSize: 12, marginTop: 4 }}>{albumReviews.length ? 'Recent listener reviews' : 'Be the first to review this album'}</Text>
+              </View>
+              <Text style={{ color: accentColor, fontSize: 14, fontWeight: '700' }}>See all ›</Text>
+            </TouchableOpacity>
+            {albumReviews.map((review: any) => (
+              <View key={review.id} style={{ paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#252525' }}>
+                <Text style={{ color: '#ddd', fontSize: 13, fontWeight: '600' }}>@{albumReviewPeople[review.user_id]?.username || 'listener'}  ·  {'★'.repeat(Math.floor(Number(review.rating) || 0))}{Number(review.rating) % 1 ? '½' : ''}</Text>
+                {!!review.review_text && <Text style={{ color: '#aaa', fontSize: 13, lineHeight: 19, marginTop: 5 }} numberOfLines={3}>{review.review_text}</Text>}
+              </View>
+            ))}
+          </View>
         )}
 
         <View>
@@ -804,6 +876,18 @@ export default function AlbumPage() {
                   {selectedTrack.artists?.[0]?.name}
                 </Text>
               </View>
+            </View>
+          )}
+
+          {trackReviews.length > 0 && (
+            <View style={{ maxHeight: 150, marginBottom: 12 }}>
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700', marginBottom: 8 }}>Recent reviews</Text>
+              {trackReviews.map((review: any) => (
+                <View key={review.id} style={{ paddingVertical: 7, borderTopWidth: 1, borderTopColor: '#333' }}>
+                  <Text style={{ color: '#ddd', fontSize: 12, fontWeight: '600' }}>@{trackReviewPeople[review.user_id]?.username || 'listener'}  ·  {'★'.repeat(Math.floor(Number(review.rating) || 0))}{Number(review.rating) % 1 ? '½' : ''}</Text>
+                  {!!review.review_text && <Text style={{ color: '#aaa', fontSize: 12, marginTop: 4 }} numberOfLines={2}>{review.review_text}</Text>}
+                </View>
+              ))}
             </View>
           )}
 
