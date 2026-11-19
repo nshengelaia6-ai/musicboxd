@@ -1,5 +1,4 @@
 import { useAppTheme } from '@/context/ThemeContext';
-import { getValidSpotifyToken } from '@/utils/spotify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -101,16 +100,9 @@ export default function ReviewDetail() {
       return;
     }
 
-    const token = await getValidSpotifyToken();
-    if (!token) {
-      router.push(`/album/${entry.albumId}` as any);
-      return;
-    }
     try {
-      const res = await fetch(`https://api.spotify.com/v1/tracks/${entry.albumId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
+      const { getSpotifyTrack } = await import('@/utils/spotifyCatalog');
+      const data = await getSpotifyTrack(entry.albumId);
       const realAlbumId = data.album?.id;
       if (realAlbumId) {
         router.push({
