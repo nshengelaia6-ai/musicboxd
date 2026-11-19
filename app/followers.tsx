@@ -177,7 +177,10 @@ export default function Followers() {
 
       const { error: blockError } = await supabase
         .from('blocked_users')
-        .insert({ blocker_id: myId, blocked_id: target.id });
+        .upsert(
+          { blocker_id: myId, blocked_id: target.id },
+          { onConflict: 'blocker_id,blocked_id', ignoreDuplicates: true }
+        );
 
       if (blockError) throw blockError;
 
