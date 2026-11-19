@@ -136,9 +136,11 @@ export default function Home() {
               .eq('month_key', getMonthKey())
               .order('slot_index', { ascending: true });
 
-            if (cloudError) throw cloudError;
+            if (cloudError) {
+              console.log('Could not restore Monthly Favs from cloud:', cloudError);
+            }
 
-            if (cloudFavorites?.length) {
+            if (!cloudError && cloudFavorites?.length) {
               const merged = [...localFavorites];
               cloudFavorites.forEach((item: any) => {
                 const slot = Number(item.slot_index);
