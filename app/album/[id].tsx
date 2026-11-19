@@ -496,9 +496,11 @@ export default function AlbumPage() {
                 {album.images?.[0]?.url ? <Image source={{ uri: album.images[0].url }} style={styles.cover} /> : <View style={[styles.cover, styles.coverPlaceholder]} />}
               </View>
             </ImageBackground>
-            <View style={styles.albumDescription}>
-              <Text style={styles.descriptionText}>{artist?.genres?.length ? artist.genres.slice(0, 3).join('  ·  ') : `${album.release_date?.slice(0, 4) || ''}  ·  ${album.total_tracks || 0} tracks`}</Text>
-            </View>
+            {!!artist?.genres?.length && (
+              <View style={styles.albumDescription}>
+                <Text style={styles.descriptionText}>{artist.genres.slice(0, 3).join('  ·  ')}</Text>
+              </View>
+            )}
             <View style={styles.actions}>
               <TouchableOpacity style={[styles.action, styles.reviewAction, { borderColor: accentColor }]} onPress={() => router.push({ pathname: '/review/new', params: {
                 albumId: album.id, albumName: album.name, albumArtist: album.artists?.[0]?.name,
