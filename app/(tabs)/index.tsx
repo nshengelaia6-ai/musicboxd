@@ -82,7 +82,7 @@ export default function Home() {
   const [comment, setComment] = useState('');
   const [savingFavorite, setSavingFavorite] = useState(false);
   const [formError, setFormError] = useState('');
-  const [sessionVersion, setSessionVersion] = useState(0);
+  const [, setSessionVersion] = useState(0);
 
   // Re-load everything when the Spotify account changes (new login / switch).
   useEffect(() => {
