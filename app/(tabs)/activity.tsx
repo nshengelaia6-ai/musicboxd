@@ -142,12 +142,23 @@ export default function Activity() {
         return;
       }
 
-      const [followingResult, incomingResult] = await Promise.all([
+      const [followingResult, incomingWithDateResult] = await Promise.all([
         supabase.from('friendships').select('friend_id').eq('user_id', myId),
         supabase.from('friendships').select('user_id,created_at').eq('friend_id', myId),
       ]);
       if (followingResult.error) throw followingResult.error;
-      if (incomingResult.error) throw incomingResult.error;
+
+      // Some older deployments may not have created_at on friendships.
+      // Keep Incoming working even when that optional timestamp is unavailable.
+      let incomingRowsData: any[] = incomingWithDateResult.data || [];
+      if (incomingWithDateResult.error) {
+        const incomingFallback = await supabase
+          .from('friendships')
+          .select('user_id')
+          .eq('friend_id', myId);
+        if (incomingFallback.error) throw incomingFallback.error;
+        incomingRowsData = incomingFallback.data || [];
+      }
 
       const friendIds = [...new Set(
         (followingResult.data || []).map((row: any) => row.friend_id).filter(Boolean)
@@ -215,7 +226,7 @@ export default function Activity() {
       ));
       setFriendItems(friendsActivities);
       const incomingRows = new Map(
-        (incomingResult.data || []).map((row: any) => [row.user_id, row])
+        incomingRowsData.map((row: any) => [row.user_id, row])
       );
       setIncomingItems(incomingIds.map((id) => ({
         id,
