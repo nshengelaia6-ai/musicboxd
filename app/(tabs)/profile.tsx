@@ -764,7 +764,12 @@ if (Array.isArray(sourceAlbums)) {
             onPress={cancelProfileEdit}
           />
 
-          <View style={[styles.bottomSheet, { paddingBottom: 40 }]}>
+          <ScrollView
+            style={[styles.bottomSheet, { maxHeight: '85%', paddingBottom: 0 }]}
+            contentContainerStyle={{ paddingBottom: 40 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator
+          >
             <View style={styles.sheetHandle} />
 
             <Text style={styles.sheetTitle}>Settings</Text>
@@ -968,7 +973,7 @@ if (Array.isArray(sourceAlbums)) {
             >
               <Text style={styles.sheetOptionText}>Cancel</Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
     </View>
