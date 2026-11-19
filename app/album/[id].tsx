@@ -542,19 +542,6 @@ export default function AlbumPage() {
         )}
 
         {album && (
-          <TouchableOpacity
-            style={{ paddingHorizontal: 18, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#252525', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-            onPress={() => openReviews('album', album.id, album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', album.id)}
-          >
-            <View>
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Reviews</Text>
-              <Text style={{ color: '#888', fontSize: 12, marginTop: 4 }}>What listeners think about this album</Text>
-            </View>
-            <Text style={{ color: accentColor, fontSize: 14, fontWeight: '700' }}>See all ›</Text>
-          </TouchableOpacity>
-        )}
-
-        {album && (
           <View style={{ paddingHorizontal: 18, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#252525' }}>
             <TouchableOpacity
               onPress={() => openReviews('album', album.id, album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', album.id)}
