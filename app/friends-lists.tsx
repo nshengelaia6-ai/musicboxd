@@ -31,10 +31,10 @@ export default function FriendsLists() {
         }
 
         const [listsResult, usersResult] = await Promise.all([
-          supabase.from('public_profile_items')
-            .select('id,user_id,item_key,data,updated_at')
-            .eq('section', 'lists').in('user_id', ids)
-            .order('updated_at', { ascending: false }).limit(100),
+          supabase.from('user_activity')
+            .select('id,user_id,item_key,data,created_at')
+            .eq('activity_type', 'created_list').in('user_id', ids)
+            .order('created_at', { ascending: false }).limit(100),
           supabase.from('users').select('id,username,avatar_url').in('id', ids),
         ]);
         if (listsResult.error) throw listsResult.error;
@@ -75,8 +75,7 @@ export default function FriendsLists() {
               const tracks = Array.isArray(list.albums) ? list.albums : [];
               const firstCover = tracks.find((track: any) => track.cover)?.cover;
               return (
-                <TouchableOpacity key={row.id} style={styles.card} activeOpacity={0.8}
-                  onPress={() => router.push({ pathname: '/lists', params: { userId: row.user_id } } as any)}>
+                <TouchableOpacity key={row.id} style={styles.card} activeOpacity={0.8}>
                   {firstCover ? <Image source={{ uri: firstCover }} style={styles.cover} /> : <View style={styles.cover} />}
                   <View style={styles.details}>
                     <Text style={styles.username}>@{row.profile?.username || 'Music lover'}</Text>
