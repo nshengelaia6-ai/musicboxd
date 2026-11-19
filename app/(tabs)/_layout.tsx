@@ -2,7 +2,6 @@
 import { activateSpotifyAccount } from '@/utils/accountStorage';
 import { supabase } from '@/utils/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Redirect, Tabs } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
