@@ -1,6 +1,5 @@
 ﻿
 import { useAppTheme } from '@/context/ThemeContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -97,6 +96,7 @@ export default function Shared() {
   const [activeTab, setActiveTab] = useState<'received' | 'sent'>('received');
   const [likedSongs, setLikedSongs] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const loadRequestRef = useRef(0);
   const [error, setError] = useState('');
 
   const [replyVisible, setReplyVisible] = useState(false);
@@ -108,8 +108,9 @@ export default function Shared() {
   const storyWidth = Math.min(width, 460);
   const visibleSongs = activeTab === 'received' ? sharedSongs : sentSongs;
 
-  const loadShared = useCallback(async () => {
-    setLoading(true);
+  const loadShared = useCallback(async (showLoader = true) => {
+    const requestId = ++loadRequestRef.current;
+    if (showLoader) setLoading(true);
     setError('');
 
     try {
@@ -135,6 +136,7 @@ export default function Shared() {
         ? result.items
         : [];
 
+      if (requestId !== loadRequestRef.current) return;
       setSharedSongs(inboxItems);
       setSentSongs(Array.isArray(result.sentItems) ? result.sentItems : []);
 
@@ -143,14 +145,16 @@ export default function Shared() {
       for (const item of allItems) remoteLikes[String(item.id)] = !!item.liked;
       setLikedSongs(remoteLikes);
     } catch (e) {
-      console.error('Could not load shared songs:', e);
-      setError(
-        e instanceof Error
-          ? e.message
-          : 'Could not load your shared songs. Please try again.'
-      );
+      if (requestId === loadRequestRef.current) {
+        console.error('Could not load shared songs:', e);
+        setError(
+          e instanceof Error
+            ? e.message
+            : 'Could not load your shared songs. Please try again.'
+        );
+      }
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestRef.current) setLoading(false);
     }
   }, []);
 
@@ -164,7 +168,7 @@ export default function Shared() {
     const channel = supabase
       .channel('shared-music-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_songs' }, () => {
-        void loadShared();
+        void loadShared(false);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_song_likes' }, () => {
         void loadShared();
@@ -252,6 +256,7 @@ export default function Shared() {
     const avatar = getAvatar(item);
     const key = String(item.id || `${item.itemId || item.name}-${index}`);
     const liked = !!likedSongs[key];
+    const likeCount = Math.max(0, Number(item.likeCount || 0) + (liked === !!item.liked ? 0 : liked ? 1 : -1));
 
     return (
       <View style={[styles.page, { width }]}>
@@ -356,8 +361,6 @@ export default function Shared() {
             )}
           </View>
 
-          <TouchableOpacity activeOpacity={1} onPress={() => storyListRef.current?.scrollToIndex({ index: Math.max(0, index - 1), animated: true })} style={{ position: 'absolute', left: 0, top: 65, bottom: 85, width: '30%', zIndex: 2 }} accessibilityLabel="Previous story" />
-          <TouchableOpacity activeOpacity={1} onPress={() => storyListRef.current?.scrollToIndex({ index: Math.min(visibleSongs.length - 1, index + 1), animated: true })} style={{ position: 'absolute', right: 0, top: 65, bottom: 85, width: '30%', zIndex: 2 }} accessibilityLabel="Next story" />
           <View style={styles.bottomBar}>
             <TouchableOpacity
               style={styles.replyButton}
@@ -374,9 +377,12 @@ export default function Shared() {
               accessibilityRole="button"
               accessibilityLabel={liked ? 'Unlike' : 'Like'}
             >
-              <Text style={[styles.heart, liked && styles.heartLiked]}>
-                {liked ? '♥' : '♡'}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={[styles.heart, liked && styles.heartLiked]}>
+                  {liked ? '♥' : '♡'}
+                </Text>
+                {likeCount > 0 && <Text style={{ color: '#FFFFFF', fontSize: 12 }}>{likeCount}</Text>}
+              </View>
             </TouchableOpacity>
           </View>
         </View>
