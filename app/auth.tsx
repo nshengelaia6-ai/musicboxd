@@ -630,10 +630,6 @@ export default function AuthScreen() {
               )}
             </Pressable>
 
-            <Text style={styles.note}>
-              Spotify connection is separate and can be completed after you
-              sign in.
-            </Text>
 
 
           </View>
