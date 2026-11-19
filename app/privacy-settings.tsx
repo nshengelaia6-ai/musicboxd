@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { removeDeletedSpotifyAccountData } from '../utils/accountStorage';
+import { clearSpotifySession } from '../utils/spotify';
 import { supabase } from '../utils/supabase';
 
 export default function PrivacySettings() {
@@ -289,6 +290,7 @@ export default function PrivacySettings() {
         return;
       }
 
+      await clearSpotifySession();
       router.replace('/auth' as any);
     } catch {
       setMessage('Could not log out. Please try again.');
