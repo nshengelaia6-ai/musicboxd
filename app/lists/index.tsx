@@ -540,7 +540,7 @@ export default function Lists() {
               <Text style={styles.privacyLabel}>{privacyLabel()}</Text>
               <Text style={styles.privacyChevron}>{'\u203A'}</Text>
             </TouchableOpacity>
-            <Text style={styles.privacyHint}>Only public lists appear on your profile for others.</Text>
+            <Text style={styles.privacyHint}>Public lists are visible to everyone. Friends lists are visible to mutual follows; link lists require their private link.</Text>
 
             <View style={{ height: 40 }} />
           </ScrollView>
