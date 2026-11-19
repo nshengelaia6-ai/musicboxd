@@ -57,11 +57,6 @@ export default function AuthScreen() {
     router.push('/privacy');
   }
 
-  async function handleTestEntry() {
-    await AsyncStorage.setItem('musicboxd_test_mode', 'true');
-    router.replace('/(tabs)');
-  }
-
   async function handleSubmit() {
     setError('');
     setMessage('');
