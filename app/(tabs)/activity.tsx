@@ -330,7 +330,21 @@ export default function Activity() {
             <Text style={styles.song}>{title}</Text>
           </Text>
           {!!subtitle && <Text style={styles.subtitle}>{String(subtitle)}</Text>}
-          {Number(item.rating) > 0 && <Text style={styles.rating}>★ {item.rating}/5</Text>}
+          {Number(item.rating) > 0 && (
+            <View style={styles.ratingStars}>
+              {Array.from({ length: 5 }, (_, index) => (
+                <Text
+                  key={index}
+                  style={[
+                    styles.ratingStar,
+                    Number(item.rating) >= index + 1 && styles.ratingStarActive,
+                  ]}
+                >
+                  ★
+                </Text>
+              ))}
+            </View>
+          )}
           {!!comment && <Text style={styles.comment} numberOfLines={3}>{String(comment)}</Text>}
           <Text style={styles.time}>{timeAgo(entry.created_at)}</Text>
         </View>
@@ -439,7 +453,9 @@ const styles = StyleSheet.create({
   username: { color: '#fff', fontWeight: 'bold' },
   song: { color: '#00b4d8', fontWeight: '600' },
   subtitle: { color: '#999', fontSize: 12, marginTop: 3 },
-  rating: { color: '#ffc2d4', fontSize: 12, marginTop: 4 },
+  ratingStars: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  ratingStar: { color: '#555', fontSize: 15, marginRight: 2 },
+  ratingStarActive: { color: '#ffc2d4' },
   comment: { color: '#bbb', fontSize: 12, lineHeight: 18, marginTop: 5 },
   time: { color: '#666', fontSize: 11, marginTop: 5 },
   emptyState: { alignItems: 'center', paddingHorizontal: 24 },
