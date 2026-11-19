@@ -118,9 +118,6 @@ export default function Profile() {
   const [pendingSlotIndex, setPendingSlotIndex] =
     useState<number | null>(null);
 
-  const [followingCount, setFollowingCount] = useState(0);
-  const [followersCount, setFollowersCount] = useState(0);
-
   const profileEditSnapshot = useRef<{
     username: string;
     bio: string;
@@ -321,23 +318,6 @@ if (Array.isArray(sourceAlbums)) {
             });
           }
 
-          // Friendships are keyed by Supabase Auth UUID, never Spotify ID.
-          const [followingResult, followersResult] = await Promise.all([
-            supabase
-              .from('friendships')
-              .select('friend_id', { count: 'exact', head: true })
-              .eq('user_id', user.id),
-            supabase
-              .from('friendships')
-              .select('user_id', { count: 'exact', head: true })
-              .eq('friend_id', user.id),
-          ]);
-
-          if (followingResult.error) throw followingResult.error;
-          if (followersResult.error) throw followersResult.error;
-
-          setFollowingCount(followingResult.count ?? 0);
-          setFollowersCount(followersResult.count ?? 0);
         } catch (error) {
           console.error('Could not load follow counts:', error);
         }
@@ -606,24 +586,6 @@ if (Array.isArray(sourceAlbums)) {
           <Text style={styles.username}>{username}</Text>
           <Text style={styles.bio}>{bio}</Text>
 
-          <View style={styles.stats}>
-            <TouchableOpacity
-              style={styles.stat}
-              onPress={() => router.push('/following' as any)}
-              accessibilityRole="button"
-            >
-              <Text style={styles.statNum}>{followingCount}</Text>
-              <Text style={styles.statLabel}>Following</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.stat}
-              onPress={() => router.push('/followers' as any)}
-              accessibilityRole="button"
-            >
-              <Text style={styles.statNum}>{followersCount}</Text>
-              <Text style={styles.statLabel}>Followers</Text>
-            </TouchableOpacity>
-          </View>
 
         </View>
 
@@ -708,6 +670,8 @@ if (Array.isArray(sourceAlbums)) {
             { label: 'Want to Listen', route: '/wanttolisten' },
             { label: 'Likes', route: '/likes' },
             { label: 'Artists', route: '/artists' },
+            { label: 'Following', route: '/following' },
+            { label: 'Followers', route: '/followers' },
           ].map((item) => (
             <Pressable
               key={item.label}
