@@ -47,6 +47,8 @@ export default function AlbumPage() {
   const [albumReviewCount, setAlbumReviewCount] = useState(0);
   const [albumAverageRating, setAlbumAverageRating] = useState(0);
   const [trackReviews, setTrackReviews] = useState<any[]>([]);
+  const [trackReviewPeople, setTrackReviewPeople] = useState<Record<string, any>>({});
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
   const [menuVisible, setMenuVisible] = useState(false);
