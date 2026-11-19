@@ -39,7 +39,7 @@ begin
 end;
 $block$;
 
-do $
+do $block$
 begin
   if not exists (
     select 1 from pg_constraint
