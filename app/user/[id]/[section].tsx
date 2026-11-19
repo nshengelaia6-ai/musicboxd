@@ -121,7 +121,10 @@ export default function UserCategoryScreen() {
         if (profileResult.error) throw profileResult.error;
 
         if (active) {
-          setItems(itemsResult.data || []);
+          const visibleItems = (itemsResult.data || []).filter(
+            (item: ProfileItem) => section !== 'lists' || item.data?.privacy === 'public'
+          );
+          setItems(visibleItems);
           setUsername(profileResult.data?.username || 'User');
         }
       } catch (err) {
