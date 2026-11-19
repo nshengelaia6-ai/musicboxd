@@ -64,7 +64,7 @@ export default function ReviewPage() {
       setLoaded(true);
     }
     loadExisting();
-  }, [albumId]);
+  }, [albumId, currentRating]);
 
   function renderStars() {
     return (
