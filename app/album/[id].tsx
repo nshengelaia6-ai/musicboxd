@@ -47,6 +47,8 @@ export default function AlbumPage() {
   const [albumReviews, setAlbumReviews] = useState<any[]>([]);
   const [albumReviewPeople, setAlbumReviewPeople] = useState<Record<string, any>>({});
   const [albumReviewCount, setAlbumReviewCount] = useState(0);
+  const [albumRatingAverage, setAlbumRatingAverage] = useState(0);
+  const [albumRatingDistribution, setAlbumRatingDistribution] = useState<{ rating: number; count: number }[]>([]);
   const [trackReviews, setTrackReviews] = useState<any[]>([]);
   const [trackReviewPeople, setTrackReviewPeople] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
@@ -186,6 +188,33 @@ export default function AlbumPage() {
           .limit(3);
         if (recentReviewsError) throw recentReviewsError;
         setAlbumReviewCount(totalReviews || 0);
+
+        const { data: ratingRows, error: ratingRowsError } = await supabase
+          .from('music_reviews')
+          .select('rating')
+          .eq('item_type', 'album')
+          .eq('item_id', String(data.id))
+          .gt('rating', 0);
+        if (ratingRowsError) throw ratingRowsError;
+
+        const ratingValues = (ratingRows || [])
+          .map((row: any) => Number(row.rating))
+          .filter((value: number) => Number.isFinite(value) && value > 0 && value <= 5);
+        const average = ratingValues.length
+          ? ratingValues.reduce((sum: number, value: number) => sum + value, 0) / ratingValues.length
+          : 0;
+        setAlbumRatingAverage(average);
+        setAlbumReviewCount(ratingValues.length);
+        setAlbumRatingDistribution(
+          Array.from({ length: 10 }, (_, index) => {
+            const value = 5 - index * 0.5;
+            return {
+              rating: value,
+              count: ratingValues.filter((rating: number) => rating === value).length,
+            };
+          })
+        );
+
         const reviewerIds = [...new Set((recentReviews || []).map((review: any) => review.user_id))];
         const { data: reviewerProfiles, error: reviewerProfilesError } = reviewerIds.length
           ? await supabase.from('users').select('id,username,avatar_url').in('id', reviewerIds)
@@ -200,6 +229,8 @@ export default function AlbumPage() {
         setAlbumReviews([]);
         setAlbumReviewPeople({});
         setAlbumReviewCount(0);
+        setAlbumRatingAverage(0);
+        setAlbumRatingDistribution([]);
       }
 
       const listenedData = await AsyncStorage.getItem('listened');
@@ -520,8 +551,36 @@ export default function AlbumPage() {
 
         {album && (
           <View style={styles.tracklistHeader}>
-            <Text style={styles.sectionTitle}>Tracklist</Text>
-            <Text style={styles.sectionSub}>{album.total_tracks} tracks</Text>
+            <View style={styles.tracklistTitleRow}>
+              <Text style={styles.sectionTitle}>Tracklist</Text>
+              <View style={styles.ratingSummary}>
+                <Text style={styles.ratingStar}>★</Text>
+                <Text style={styles.ratingAverage}>
+                  {albumRatingAverage > 0 ? albumRatingAverage.toFixed(2) : '—'}
+                </Text>
+                <Text style={styles.ratingTotal}>{albumRatingDistribution.reduce((sum, item) => sum + item.count, 0)} ratings</Text>
+              </View>
+            </View>
+            {albumRatingDistribution.some(item => item.count > 0) && (
+              <View style={styles.ratingDistribution}>
+                {albumRatingDistribution.map(item => {
+                  const total = albumRatingDistribution.reduce((sum, row) => sum + row.count, 0);
+                  return (
+                    <View key={item.rating} style={styles.ratingBarRow}>
+                      <Text style={styles.ratingBarLabel}>{item.rating.toFixed(1)}</Text>
+                      <View style={styles.ratingBarTrack}>
+                        <View
+                          style={[
+                            styles.ratingBarFill,
+                            { width: `${total ? (item.count / total) * 100 : 0}%` },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </View>
         )}
 
@@ -1403,6 +1462,16 @@ const styles = StyleSheet.create({
   stars: { fontSize: 14, fontWeight: '700' },
   reviewText: { color: '#E5E9EC', fontSize: 14, lineHeight: 21, marginTop: 11 },
   tracklistHeader: { paddingHorizontal: 18, paddingVertical: 16, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#2C3440' },
+  tracklistTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  ratingSummary: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  ratingStar: { color: '#A8B4BE', fontSize: 18 },
+  ratingAverage: { color: '#E5E9EC', fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  ratingTotal: { color: '#9BA7B2', fontSize: 10, marginLeft: 3 },
+  ratingDistribution: { gap: 3 },
+  ratingBarRow: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 8 },
+  ratingBarLabel: { color: '#89949E', fontSize: 8, width: 20, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  ratingBarTrack: { flex: 1, height: 4, backgroundColor: '#303740', borderRadius: 3, overflow: 'hidden' },
+  ratingBarFill: { height: 4, backgroundColor: '#A8B4BE', borderRadius: 3 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
