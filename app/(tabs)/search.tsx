@@ -5,7 +5,7 @@ import { recordActivity } from '@/utils/activity';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/utils/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -44,6 +44,9 @@ export default function Search() {
   const [feedback, setFeedback] = useState('');
   const requestId = useRef(0);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const invalidateSearchRequests = useCallback(() => {
+    requestId.current += 1;
+  }, []);
 
   useEffect(() => {
     loadRecent();
@@ -405,12 +408,11 @@ export default function Search() {
   }
 
   useEffect(() => {
-    const requestIdRef = requestId;
     return () => {
       if (searchDebounce.current) clearTimeout(searchDebounce.current);
-      ++requestIdRef.current;
+      invalidateSearchRequests();
     };
-  }, []);
+  }, [invalidateSearchRequests]);
 
   // Follow or unfollow a user in Supabase
   async function toggleFollow(userId: string) {
