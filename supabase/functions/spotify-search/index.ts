@@ -124,6 +124,16 @@ serve(async (req) => {
         `https://api.spotify.com/v1/albums/${encodeURIComponent(id)}`;
     }
 
+    // TRACK DETAILS
+    else if (action === "track") {
+      if (!id) {
+        throw new Error("Track ID is missing.");
+      }
+
+      endpoint =
+        `https://api.spotify.com/v1/tracks/${encodeURIComponent(id)}`;
+    }
+
     else {
       throw new Error("Invalid action.");
     }
