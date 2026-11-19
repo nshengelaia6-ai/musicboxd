@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  ImageBackground,
   Modal,
   Pressable,
   ScrollView,
@@ -18,7 +19,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import StarRating from './StarRating';
 
 
 const DOTS = '\u00B7\u00B7\u00B7';
@@ -41,6 +41,7 @@ export default function AlbumPage() {
   const { backgroundColor, accentColor } = useAppTheme();
 
   const [album, setAlbum] = useState<any>(null);
+  const [artist, setArtist] = useState<any>(null);
   const [tracks, setTracks] = useState<any[]>([]);
   const [albumReviews, setAlbumReviews] = useState<any[]>([]);
   const [albumReviewPeople, setAlbumReviewPeople] = useState<Record<string, any>>({});
@@ -160,6 +161,21 @@ export default function AlbumPage() {
 
       setAlbum(data);
       setTracks(data.tracks?.items || []);
+      setArtist(null);
+      const primaryArtistId = data.artists?.[0]?.id;
+      if (primaryArtistId) {
+        try {
+          const { data: artistData, error: artistError } = await supabase.functions.invoke(
+            'spotify-search',
+            { body: { action: 'artist', id: primaryArtistId } }
+          );
+          if (artistError) throw artistError;
+          if (artistData?.error) throw new Error(artistData.error);
+          setArtist(artistData);
+        } catch (artistLoadError) {
+          console.warn('Could not load artist artwork:', artistLoadError);
+        }
+      }
 
       try {
         const [{ data: recentReviews, error: recentReviewsError, count: totalReviews }, { data: ratingRows, error: ratingRowsError }] = await Promise.all([
@@ -419,36 +435,6 @@ export default function AlbumPage() {
     setShowLists(true);
   }
 
-  async function updateRating(newRating: number) {
-    setRating(newRating);
-    setListened(true);
-
-    const existing = await AsyncStorage.getItem('listened');
-    const list = existing ? JSON.parse(existing) : [];
-    const idx = list.findIndex((i: any) => i.id === album?.id);
-
-    const itemData = {
-      id: album?.id,
-      name: album?.name,
-      cover: album?.images?.[0]?.url,
-      type: 'album',
-      rating: newRating,
-      date: new Date().toISOString(),
-    };
-
-    if (idx !== -1) {
-      list[idx].rating = newRating;
-    } else {
-      list.unshift(itemData);
-    }
-
-    await AsyncStorage.setItem('listened', JSON.stringify(list));
-
-    if (idx === -1 && album?.id) {
-      await recordActivity('listened', album.id, itemData);
-    }
-  }
-
   async function toggleAlbumCollection(kind: 'liked' | 'listened' | 'wantToListen') {
     if (!album) return;
     const key = kind;
@@ -541,73 +527,36 @@ export default function AlbumPage() {
       >
         {album && (
           <>
-            <View style={styles.topBar}>
-              <TouchableOpacity onPress={() => router.back()} style={styles.topBarSide}>
-                <Text style={styles.backText}>{BACK}</Text>
-              </TouchableOpacity>
-              <Text style={styles.topBarTitle}>MUSICBOXD</Text>
-              <TouchableOpacity
-                onPress={() => { setSelectedTrack(null); setMenuVisible(true); }}
-                style={styles.topBarSide}
-              >
-                <Text style={styles.dots}>{DOTS}</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View
-              style={styles.hero}
-              onLayout={e => { headerHeight.current = e.nativeEvent.layout.height; }}
-            >
-              {album.images?.[0]?.url ? (
-                <Image source={{ uri: album.images[0].url }} style={styles.cover} />
-              ) : (
-                <View style={[styles.cover, styles.coverPlaceholder]} />
-              )}
-              <View style={styles.heroInfo}>
-                <Text style={styles.typeLabel}>{String(album.album_type || 'ALBUM').toUpperCase()}</Text>
-                <Text style={styles.albumName}>{album.name}</Text>
-                <Text style={styles.artistName}>{album.artists?.map((artist: any) => artist.name).join(', ')}</Text>
-                <Text style={styles.meta}>
-                  {album.release_date?.slice(0, 4)}  ·  {album.total_tracks} tracks
-                </Text>
+            <ImageBackground source={{ uri: artist?.images?.[0]?.url || album.images?.[0]?.url }} style={styles.heroBackground} imageStyle={styles.heroBackgroundImage} resizeMode="cover">
+              <View style={styles.heroShade} />
+              <View style={styles.topBar}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.topBarSide}><Text style={styles.backText}>{BACK}</Text></TouchableOpacity>
+                <Text style={styles.topBarTitle}>MUSICBOXD</Text>
+                <TouchableOpacity onPress={() => { setSelectedTrack(null); setMenuVisible(true); }} style={styles.topBarSide}><Text style={styles.dots}>{DOTS}</Text></TouchableOpacity>
               </View>
-            </View>
-
-            <View style={styles.ratingPanel}>
-              <Text style={styles.ratingNumber}>{albumAverageRating ? albumAverageRating.toFixed(1) : '—'}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.ratingTitle}>COMMUNITY RATING</Text>
-                <Text style={styles.ratingSub}>{albumReviewCount ? 'Average listener rating' : 'No ratings yet'}</Text>
+              <View style={styles.hero} onLayout={e => { headerHeight.current = e.nativeEvent.layout.height + 72; }}>
+                <View style={styles.heroInfo}>
+                  <Text style={styles.albumName}>{album.name}</Text>
+                  <Text style={styles.artistName}>{album.artists?.map((artist: any) => artist.name).join(', ')}</Text>
+                  <Text style={styles.meta}>{album.release_date?.slice(0, 4)}  ·  {album.total_tracks} tracks  ·  {String(album.album_type || 'album').toUpperCase()}</Text>
+                </View>
+                {album.images?.[0]?.url ? <Image source={{ uri: album.images[0].url }} style={styles.cover} /> : <View style={[styles.cover, styles.coverPlaceholder]} />}
               </View>
-              <TouchableOpacity
-                onPress={() => openReviews('album', album.id, album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', album.id)}
-                style={styles.reviewCount}
-              >
-                <Text style={styles.reviewCountNumber}>{albumReviewCount}</Text>
-                <Text style={styles.reviewCountLabel}>REVIEWS</Text>
-              </TouchableOpacity>
+            </ImageBackground>
+            <View style={styles.albumDescription}>
+              <Text style={styles.descriptionText}>{artist?.genres?.length ? artist.genres.slice(0, 3).join('  ·  ') : `${album.release_date?.slice(0, 4) || ''}  ·  ${album.total_tracks || 0} tracks`}</Text>
             </View>
-
             <View style={styles.actions}>
-              <TouchableOpacity
-                style={[styles.primaryAction, { backgroundColor: accentColor }]}
-                onPress={() => router.push({ pathname: '/review/new', params: {
-                  albumId: album.id, albumName: album.name, albumArtist: album.artists?.[0]?.name,
-                  albumCover: album.images?.[0]?.url, itemType: 'album', parentAlbumId: album.id,
-                  currentRating: String(rating),
-                } } as any)}
-              >
-                <Text style={styles.primaryActionText}>＋  Review</Text>
+              <TouchableOpacity style={[styles.action, styles.reviewAction, { borderColor: accentColor }]} onPress={() => router.push({ pathname: '/review/new', params: {
+                albumId: album.id, albumName: album.name, albumArtist: album.artists?.[0]?.name,
+                albumCover: album.images?.[0]?.url, itemType: 'album', parentAlbumId: album.id, currentRating: String(rating),
+              } } as any)}>
+                <Text style={[styles.actionIcon, { color: accentColor }]}>＋</Text><Text style={[styles.actionText, { color: '#fff' }]}>Review</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.action, listened && styles.actionActive]} onPress={() => void toggleAlbumCollection('listened')}>
-                <Text style={styles.actionIcon}>◉</Text><Text style={styles.actionText}>{listened ? 'Listened' : 'Log'}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.action, liked && styles.actionActive]} onPress={() => void toggleAlbumCollection('liked')}>
-                <Text style={[styles.actionIcon, liked && { color: accentColor }]}>{liked ? HEART_FILLED : HEART_EMPTY}</Text><Text style={styles.actionText}>Like</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.action, wantToListen && styles.actionActive]} onPress={() => void toggleAlbumCollection('wantToListen')}>
-                <Text style={styles.actionIcon}>＋</Text><Text style={styles.actionText}>Watchlist</Text>
-              </TouchableOpacity>
+              <TouchableOpacity style={[styles.action, listened && styles.actionActive]} onPress={() => void toggleAlbumCollection('listened')}><Text style={styles.actionIcon}>◉</Text><Text style={styles.actionText}>Log</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.action, liked && styles.actionActive]} onPress={() => void toggleAlbumCollection('liked')}><Text style={[styles.actionIcon, liked && { color: accentColor }]}>{liked ? HEART_FILLED : HEART_EMPTY}</Text><Text style={styles.actionText}>Like</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.action, wantToListen && styles.actionActive]} onPress={() => void toggleAlbumCollection('wantToListen')}><Text style={styles.actionIcon}>＋</Text><Text style={styles.actionText}>Watchlist</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.action} onPress={() => void shareMusicItem({ id: album.id, type: 'album', name: album.name, artist: album.artists?.[0]?.name, cover: album.images?.[0]?.url })}><Text style={styles.actionIcon}>↗</Text><Text style={styles.actionText}>Share</Text></TouchableOpacity>
             </View>
           </>
         )}
@@ -644,7 +593,6 @@ export default function AlbumPage() {
                       <Text style={styles.username}>@{person?.username || 'listener'}</Text>
                       <Text style={styles.date}>{new Date(review.updated_at || review.created_at).toLocaleDateString()}</Text>
                     </View>
-                    <Text style={[styles.stars, { color: accentColor }]}>{'★'.repeat(Math.floor(Number(review.rating) || 0))}{Number(review.rating) % 1 ? '½' : ''}</Text>
                   </View>
                   {!!review.review_text && <Text style={styles.reviewText} numberOfLines={4}>{review.review_text}</Text>}
                 </TouchableOpacity>
@@ -866,10 +814,6 @@ export default function AlbumPage() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.rateSection}>
-            <Text style={styles.rateLabel}>Rate</Text>
-            <StarRating rating={rating} onChange={updateRating} />
-          </View>
 
           <TouchableOpacity
             style={styles.menuItem}
@@ -968,8 +912,7 @@ export default function AlbumPage() {
             <View style={{ maxHeight: 150, marginBottom: 12 }}>
               <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700', marginBottom: 8 }}>Recent reviews</Text>
               {trackReviews.map((review: any) => (
-                <View key={review.id} style={{ paddingVertical: 7, borderTopWidth: 1, borderTopColor: '#333' }}>
-                  <Text style={{ color: '#ddd', fontSize: 12, fontWeight: '600' }}>@{trackReviewPeople[review.user_id]?.username || 'listener'}  ·  {'★'.repeat(Math.floor(Number(review.rating) || 0))}{Number(review.rating) % 1 ? '½' : ''}</Text>
+                <View key={review.id} style={{ paddingVertical: 7, borderTopWidth: 1, borderTopColor: '#333' }}>                  <Text style={{ color: '#ddd', fontSize: 12, fontWeight: '600' }}>@{trackReviewPeople[review.user_id]?.username || 'listener'}</Text>
                   {!!review.review_text && <Text style={{ color: '#aaa', fontSize: 12, marginTop: 4 }} numberOfLines={2}>{review.review_text}</Text>}
                 </View>
               ))}
@@ -1453,16 +1396,21 @@ export default function AlbumPage() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   container: { flex: 1 },
-  topBar: { paddingTop: 56, paddingHorizontal: 18, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#2C3440' },
+  topBar: { paddingTop: 56, paddingHorizontal: 18, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topBarSide: { width: 34, alignItems: 'flex-start' },
   topBarTitle: { color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 2 },
   cover: { width: 156, height: 156, borderRadius: 5, backgroundColor: '#2C3440' },
   coverPlaceholder: { backgroundColor: '#2C3440' },
-  hero: { flexDirection: 'row', alignItems: 'center', gap: 18, paddingHorizontal: 18, paddingTop: 24, paddingBottom: 22 },
+  heroBackground: { height: 440, justifyContent: 'space-between', backgroundColor: '#17191d' },
+  heroBackgroundImage: { opacity: 0.72 },
+  heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8, 10, 14, 0.48)' },
+  hero: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 16, paddingHorizontal: 18, paddingTop: 22, paddingBottom: 24 },
   heroInfo: { flex: 1, alignItems: 'flex-start' },
-  albumName: { color: '#fff', fontSize: 23, lineHeight: 28, fontWeight: '800', marginTop: 7 },
-  artistName: { color: '#D5DADF', fontSize: 14, marginTop: 7 },
-  meta: { color: '#9BA7B2', fontSize: 12, marginTop: 9 },
+  albumName: { color: '#fff', fontSize: 29, lineHeight: 34, fontWeight: '800', marginTop: 7 },
+  artistName: { color: '#D5DADF', fontSize: 17, marginTop: 7 },
+  meta: { color: '#D5DADF', fontSize: 13, marginTop: 9 },
+  albumDescription: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 4 },
+  descriptionText: { color: '#AEB8C2', fontSize: 14, lineHeight: 21 },
   typeLabel: { color: '#9BA7B2', fontSize: 10, fontWeight: '800', letterSpacing: 1.7 },
   backText: { color: '#fff', fontSize: 32, lineHeight: 34 },
   dots: { color: '#fff', fontSize: 22 },
@@ -1473,13 +1421,14 @@ const styles = StyleSheet.create({
   reviewCount: { alignItems: 'center', paddingLeft: 13, borderLeftWidth: 1, borderLeftColor: '#48525E' },
   reviewCountNumber: { color: '#fff', fontSize: 18, fontWeight: '700' },
   reviewCountLabel: { color: '#9BA7B2', fontSize: 9, letterSpacing: 1, marginTop: 2 },
-  actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 19, gap: 7 },
+  actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 19, gap: 5 },
   primaryAction: { paddingHorizontal: 12, paddingVertical: 12, borderRadius: 6 },
   primaryActionText: { color: '#fff', fontSize: 12, fontWeight: '800' },
-  action: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 6, backgroundColor: '#2C3440' },
+  action: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 6, backgroundColor: 'transparent' },
+  reviewAction: { borderWidth: 1, borderRadius: 22 },
   actionActive: { backgroundColor: '#3A4653' },
-  actionIcon: { color: '#D5DADF', fontSize: 17, marginBottom: 3 },
-  actionText: { color: '#D5DADF', fontSize: 9, fontWeight: '600' },
+  actionIcon: { color: '#D5DADF', fontSize: 21, marginBottom: 5 },
+  actionText: { color: '#D5DADF', fontSize: 10, fontWeight: '600' },
   reviewsSection: { marginTop: 6 },
   sectionHeader: { paddingHorizontal: 18, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#2C3440' },
   sectionTitle: { color: '#fff', fontSize: 19, fontWeight: '800' },
