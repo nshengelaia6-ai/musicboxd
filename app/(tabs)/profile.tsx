@@ -227,7 +227,13 @@ export default function Profile() {
       setDraftFavoriteAlbums([...EMPTY_ALBUMS]);
 
       const reviewsData = await AsyncStorage.getItem('reviews');
-      setReviews(reviewsData ? JSON.parse(reviewsData) : []);
+      let localReviews: any[] = [];
+      try {
+        const parsedReviews = reviewsData ? JSON.parse(reviewsData) : [];
+        localReviews = Array.isArray(parsedReviews) ? parsedReviews : [];
+      } catch {
+        localReviews = [];
+      }
 
       const profileData = await AsyncStorage.getItem('profile');
       const p = profileData ? JSON.parse(profileData) : {};
@@ -246,6 +252,47 @@ export default function Profile() {
           cloudProfile = data;
         }
       }
+
+      // Load the full cloud activity feed for this profile, with legacy local reviews as fallback.
+      let recentItems: any[] = [...localReviews];
+      if (user) {
+        const { data: activityRows, error: activityError } = await supabase
+          .from('user_activity')
+          .select('id, activity_type, item_key, data, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (activityError) {
+          console.warn('Could not load cloud profile activity:', activityError);
+        } else if (activityRows) {
+          const cloudItems = activityRows.map((entry: any) => ({
+            id: entry.id,
+            albumId: String(entry.item_key),
+            albumName: entry.data?.name || entry.data?.title || entry.item_key,
+            albumArtist: entry.data?.artist || entry.data?.artist_name || '',
+            albumCover: entry.data?.cover || entry.data?.albumCover || '',
+            rating: entry.data?.rating || 0,
+            review: entry.data?.review || '',
+            activityType: entry.activity_type,
+            date: entry.created_at,
+          }));
+          const cloudReviewKeys = new Set(
+            cloudItems
+              .filter((item: any) => item.activityType === 'reviewed')
+              .map((item: any) => String(item.albumId))
+          );
+          const legacyItems = localReviews.filter(
+            (item: any) => !cloudReviewKeys.has(String(item.albumId))
+          );
+          recentItems = [...cloudItems, ...legacyItems]
+            .sort((a: any, b: any) =>
+              new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
+            )
+            .slice(0, 10);
+        }
+      }
+      setReviews(recentItems);
 
       // Supabase profile data takes priority over device-local cached values.
       const finalUsername = authUsername || p.username || '';
@@ -392,22 +439,29 @@ if (Array.isArray(sourceAlbums)) {
         avatarUrl = publicUrlData.publicUrl;
       }
 
-      const { error: authUpdateError } = await supabase.auth.updateUser({
-        data: { username: cleanUsername },
-      });
-      if (authUpdateError) throw authUpdateError;
-
-      const { error: profileError } = await supabase
+      // Upsert guarantees a profile row exists even for older accounts that
+      // were created before the public.users row was provisioned.
+      const { data: savedProfile, error: profileError } = await supabase
         .from('users')
-        .update({
+        .upsert({
+          id: user.id,
           username: cleanUsername,
           bio: editBio,
           avatar_url: avatarUrl,
           favorite_albums: savedAlbums,
-        })
-        .eq('id', user.id);
+        }, { onConflict: 'id' })
+        .select('id')
+        .single();
 
       if (profileError) throw profileError;
+      if (!savedProfile?.id) {
+        throw new Error('Profile could not be saved. Please try again.');
+      }
+
+      const { error: authUpdateError } = await supabase.auth.updateUser({
+        data: { username: cleanUsername },
+      });
+      if (authUpdateError) throw authUpdateError;
 
       await AsyncStorage.setItem(
         'profile',
