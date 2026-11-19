@@ -94,18 +94,24 @@ export default function UserCategoryScreen() {
       }
 
       try {
-        const itemsPromise = section === 'activity'
+        const itemsPromise = section === 'lists'
           ? supabase
-              .from('public_profile_items')
-              .select('id, section, item_key, data, updated_at')
+              .from('music_lists')
+              .select('id, name, description, privacy, items, created_at, updated_at')
               .eq('user_id', id)
               .order('updated_at', { ascending: false })
-          : supabase
-              .from('public_profile_items')
-              .select('id, section, item_key, data, updated_at')
-              .eq('user_id', id)
-              .eq('section', section)
-              .order('updated_at', { ascending: false });
+          : section === 'activity'
+            ? supabase
+                .from('public_profile_items')
+                .select('id, section, item_key, data, updated_at')
+                .eq('user_id', id)
+                .order('updated_at', { ascending: false })
+            : supabase
+                .from('public_profile_items')
+                .select('id, section, item_key, data, updated_at')
+                .eq('user_id', id)
+                .eq('section', section)
+                .order('updated_at', { ascending: false });
 
         const [itemsResult, profileResult] = await Promise.all([
           itemsPromise,
@@ -121,9 +127,22 @@ export default function UserCategoryScreen() {
         if (profileResult.error) throw profileResult.error;
 
         if (active) {
-          const visibleItems = (itemsResult.data || []).filter(
-            (item: ProfileItem) => section !== 'lists' || item.data?.privacy === 'public'
-          );
+          const visibleItems: ProfileItem[] = section === 'lists'
+            ? (itemsResult.data || []).map((item: any) => ({
+                id: String(item.id),
+                section: 'lists',
+                item_key: String(item.id),
+                data: {
+                  id: item.id,
+                  name: item.name,
+                  description: item.description,
+                  privacy: item.privacy,
+                  albums: Array.isArray(item.items) ? item.items : [],
+                  itemCount: Array.isArray(item.items) ? item.items.length : 0,
+                },
+                updated_at: item.updated_at || item.created_at,
+              }))
+            : (itemsResult.data || []) as ProfileItem[];
           setItems(visibleItems);
           setUsername(profileResult.data?.username || 'User');
         }
@@ -181,7 +200,13 @@ export default function UserCategoryScreen() {
               const subtitle = itemSubtitle(item);
 
               return (
-                <View key={entry.id} style={styles.itemCard}>
+                <TouchableOpacity
+                  key={entry.id}
+                  style={styles.itemCard}
+                  activeOpacity={section === 'lists' ? 0.75 : 1}
+                  disabled={section !== 'lists'}
+                  onPress={() => router.push({ pathname: '/list/[id]', params: { id: entry.item_key } } as any)}
+                >
                   {cover ? (
                     <Image
                       source={{ uri: cover }}
@@ -211,7 +236,7 @@ export default function UserCategoryScreen() {
                       </Text>
                     )}
                   </View>
-                </View>
+                </TouchableOpacity>
               );
               })}
             </View>
