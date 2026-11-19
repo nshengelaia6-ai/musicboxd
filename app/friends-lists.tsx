@@ -2,6 +2,7 @@ import { useAppTheme } from '@/context/ThemeContext';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
+import { Stack } from 'expo-router';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function FriendsLists() {
@@ -57,6 +58,7 @@ export default function FriendsLists() {
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
+      <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.brandHeader}>
         <Text style={styles.brand}>Musicboxd</Text>
       </View>
@@ -74,7 +76,14 @@ export default function FriendsLists() {
               const tracks = Array.isArray(list.albums) ? list.albums : [];
               const firstCover = tracks.find((track: any) => track.cover)?.cover;
               return (
-                <TouchableOpacity key={row.id} style={styles.card} activeOpacity={0.8}>
+                <TouchableOpacity
+                  key={row.id}
+                  style={styles.card}
+                  activeOpacity={0.8}
+                  onPress={() => router.push({ pathname: '/lists', params: { userId: row.user_id } } as any)}
+                  accessibilityRole="button"
+                  accessibilityLabel={'Open ' + (list.name || 'friend list')}
+                >
                   {firstCover ? <Image source={{ uri: firstCover }} style={styles.cover} /> : <View style={styles.cover} />}
                   <View style={styles.details}>
                     <Text style={styles.username}>@{row.profile?.username || 'Music lover'}</Text>
