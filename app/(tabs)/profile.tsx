@@ -289,7 +289,7 @@ export default function Profile() {
 
 const sourceAlbums = pendingAlbumsData
   ? JSON.parse(pendingAlbumsData)
-  : p.favoriteAlbums;
+  : cloudProfile?.favorite_albums ?? p.favoriteAlbums;
 
 if (Array.isArray(sourceAlbums)) {
   const albums = [...sourceAlbums];
@@ -419,7 +419,7 @@ if (Array.isArray(sourceAlbums)) {
         const filePath = `${user.id}/${Date.now()}.${extension}`;
         const { error: uploadError } = await supabase.storage
           .from('avatars')
-          .upload(filePath, bytes, {
+          .upload(filePath, bytes.buffer as ArrayBuffer, {
             contentType: pendingAvatar.mimeType,
             cacheControl: '3600',
             upsert: false,
