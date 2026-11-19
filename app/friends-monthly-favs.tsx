@@ -1,4 +1,4 @@
-﻿import { useAppTheme } from '@/context/ThemeContext';
+import { useAppTheme } from '@/context/ThemeContext';
 import { supabase } from '@/utils/supabase';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
