@@ -449,40 +449,6 @@ export default function AlbumPage() {
     }
   }
 
-  async function updateTrackRating(newRating: number) {
-    setTrackRating(newRating);
-    setTrackListened(true);
-
-    const existing = await AsyncStorage.getItem('listened');
-    const list = existing ? JSON.parse(existing) : [];
-    const idx = list.findIndex(
-      (i: any) => i.id === selectedTrack?.id
-    );
-
-    const itemData = {
-      id: selectedTrack?.id,
-      name: selectedTrack?.name,
-      artist: selectedTrack?.artists?.map((artist: any) => artist.name).join(', ') || '',
-      cover: album?.images?.[0]?.url,
-      type: 'track',
-      albumId: album?.id,
-      rating: newRating,
-      date: new Date().toISOString(),
-    };
-
-    if (idx !== -1) {
-      list[idx].rating = newRating;
-      list[idx].albumId = album?.id;
-    } else {
-      list.unshift(itemData);
-    }
-
-    await AsyncStorage.setItem('listened', JSON.stringify(list));
-
-    if (idx === -1 && selectedTrack?.id) {
-      await recordActivity('listened', selectedTrack.id, itemData);
-    }
-  }
   return (
     <View style={[styles.screen, { backgroundColor }]}>
       {loading && (
@@ -1039,15 +1005,7 @@ export default function AlbumPage() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.rateSection}>
-            <Text style={styles.rateLabel}>Rate</Text>
-            <StarRating
-              rating={trackRating}
-              onChange={updateTrackRating}
-            />
-          </View>
-
-          <TouchableOpacity
+<TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
               setTrackMenuVisible(false);
