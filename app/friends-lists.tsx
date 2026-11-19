@@ -32,10 +32,11 @@ export default function FriendsLists() {
         }
 
         const [listsResult, usersResult] = await Promise.all([
-          supabase.from('user_activity')
-            .select('id,user_id,item_key,data,created_at')
-            .eq('activity_type', 'created_list').in('user_id', ids)
-            .order('created_at', { ascending: false }).limit(100),
+          supabase.from('public_profile_items')
+            .select('id,user_id,item_key,data,updated_at')
+            .eq('section', 'lists')
+            .in('user_id', ids)
+            .order('updated_at', { ascending: false }),
           supabase.from('users').select('id,username,avatar_url').in('id', ids),
         ]);
         if (listsResult.error) throw listsResult.error;
