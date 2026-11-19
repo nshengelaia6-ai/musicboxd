@@ -320,10 +320,10 @@ export default function Lists() {
     setShowListMenu(false);
   }
   function privacyLabel() {
-    if (privacy === 'public') return 'ðŸŒ  Anyone (public list)';
-    if (privacy === 'link') return 'ðŸ”—  Anyone with share link';
-    if (privacy === 'friends') return 'ðŸ‘¥  Friends with share link';
-    return 'ðŸ”’  You (private list)';
+    if (privacy === 'public') return 'Anyone (public list)';
+    if (privacy === 'link') return 'Anyone with share link';
+    if (privacy === 'friends') return 'Friends with share link';
+    return 'You (private list)';
   }
 
   function showPrivacySheet() {
@@ -567,7 +567,7 @@ export default function Lists() {
               accessibilityState={{ checked: privacy === value }}
             >
               <Text style={styles.privacyOptionText}>{label}</Text>
-              <Text style={styles.privacyChevron}>{privacy === value ? 'âœ“' : ''}</Text>
+              <Text style={styles.privacyChevron}>{privacy === value ? '✓' : ''}</Text>
             </TouchableOpacity>
           ))}
           <TouchableOpacity onPress={() => setShowPrivacyOptions(false)} style={styles.privacyCancel}>
