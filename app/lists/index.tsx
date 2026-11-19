@@ -64,7 +64,10 @@ export default function Lists() {
               return;
             }
             const { data: cloudRows, error: cloudError } = await supabase
-              .from('music_lists').select('id').order('updated_at', { ascending: false });
+              .from('music_lists')
+              .select('id')
+              .eq('user_id', authData.user.id)
+              .order('updated_at', { ascending: false });
             if (cloudError) throw cloudError;
             const cloudIds = new Set((cloudRows || []).map((row: any) => String(row.id)));
             const legacyLists = Array.isArray(localLists) ? localLists : [];
@@ -87,6 +90,7 @@ export default function Lists() {
             const { data, error } = await supabase
               .from('music_lists')
               .select('id, name, description, privacy, items, created_at, share_token')
+              .eq('user_id', authData.user.id)
               .order('updated_at', { ascending: false });
             if (error) throw error;
             const mapped = (data || []).map((row: any) => ({
