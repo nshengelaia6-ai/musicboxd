@@ -88,31 +88,48 @@ Deno.serve(async (req) => {
       const allRows = [...rows, ...sentRows];
       const shareIds = [...new Set(allRows.map((r) => r.id))];
       const participantIds = [...new Set([
+        user.id,
         ...rows.map((r) => r.user_id),
         ...sentRows.map((r) => r.recipient_id),
       ])];
 
-      const [peopleResult, likesResult, repliesResult] = await Promise.all([
-        participantIds.length
-          ? supabase.from("users").select("id, username, avatar_url").in("id", participantIds)
-          : Promise.resolve({ data: [], error: null } as any),
-        shareIds.length
-          ? supabase.from("shared_song_likes").select("shared_song_id, user_id").in("shared_song_id", shareIds)
-          : Promise.resolve({ data: [], error: null } as any),
-        shareIds.length
-          ? supabase.from("shared_song_replies").select("id, shared_song_id, user_id, message, created_at").in("shared_song_id", shareIds).order("created_at", { ascending: true })
-          : Promise.resolve({ data: [], error: null } as any),
-      ]);
-      if (peopleResult.error || likesResult.error || repliesResult.error) {
-        return respond({ error: "Could not load shared music interactions" }, 500);
+      const people: Record<string, any> = {};
+      for (let i = 0; i < participantIds.length; i += 500) {
+        const { data, error } = await supabase.from("users")
+          .select("id, username, avatar_url").in("id", participantIds.slice(i, i + 500));
+        if (error) return respond({ error: "Could not load shared music participants" }, 500);
+        for (const person of data || []) people[person.id] = person;
       }
 
-      const people: Record<string, any> = {};
-      for (const p of peopleResult.data || []) people[p.id] = p;
+      // Fetch interactions in bounded batches/pages so large histories do not
+      // silently lose likes or replies at PostgREST's default row limit.
+      const likesRows: any[] = [];
+      const repliesRows: any[] = [];
+      for (let i = 0; i < shareIds.length; i += 200) {
+        const batch = shareIds.slice(i, i + 200);
+        for (let from = 0; ; from += 500) {
+          const { data, error } = await supabase.from("shared_song_likes")
+            .select("shared_song_id, user_id").in("shared_song_id", batch)
+            .range(from, from + 499);
+          if (error) return respond({ error: "Could not load shared music likes" }, 500);
+          likesRows.push(...(data || []));
+          if (!data || data.length < 500) break;
+        }
+        for (let from = 0; ; from += 500) {
+          const { data, error } = await supabase.from("shared_song_replies")
+            .select("id, shared_song_id, user_id, message, created_at")
+            .in("shared_song_id", batch).order("created_at", { ascending: true })
+            .range(from, from + 499);
+          if (error) return respond({ error: "Could not load shared music replies" }, 500);
+          repliesRows.push(...(data || []));
+          if (!data || data.length < 500) break;
+        }
+      }
+
       const likes: Record<string, any[]> = {};
-      for (const l of likesResult.data || []) (likes[l.shared_song_id] ||= []).push(l);
+      for (const l of likesRows) (likes[l.shared_song_id] ||= []).push(l);
       const replies: Record<string, any[]> = {};
-      for (const r of repliesResult.data || []) {
+      for (const r of repliesRows) {
         const author = people[r.user_id];
         (replies[r.shared_song_id] ||= []).push({
           id: r.id, message: r.message, date: r.created_at,
@@ -135,7 +152,8 @@ Deno.serve(async (req) => {
           message: row.message || "",
           from: sent ? undefined : other?.username || "Friend",
           username: other?.username || "Friend",
-          fromAvatar: sent ? "" : other?.avatar_url || "",
+          displayLabel: sent ? `To @${other?.username || "Friend"}` : `@${other?.username || "Friend"}`,
+          fromAvatar: other?.avatar_url || "",
           to: sent ? other?.username || "Friend" : undefined,
           date: row.created_at,
           url: `https://open.spotify.com/${row.item_type}/${row.item_id}`,
