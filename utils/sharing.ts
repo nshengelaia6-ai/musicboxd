@@ -34,6 +34,7 @@ export async function sendMusicToFriend(
       recipient_id: recipientId,
       item_type: item.type,
       item_id: item.id,
+      album_id: item.albumId || (item.type === 'album' ? item.id : null),
       item_name: item.name,
       artist_name: item.artist || '',
       cover_url: item.cover || '',
