@@ -1,5 +1,6 @@
 
 import { useAppTheme } from '@/context/ThemeContext';
+import { clearSpotifySession } from '@/utils/spotify';
 import { supabase } from '@/utils/supabase';
 import { flushPendingActivities } from '@/utils/activity';
 import AsyncStorage from '@react-native-async-storage/async-storage';
