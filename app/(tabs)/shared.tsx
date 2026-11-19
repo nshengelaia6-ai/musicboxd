@@ -184,12 +184,16 @@ export default function Shared() {
     }
     const nextLiked = !likedSongs[key];
     setLikedSongs((current) => ({ ...current, [key]: nextLiked }));
-    const { data, error } = await supabase.functions.invoke('swift-service', {
-      body: { action: 'like', share_id: item.shareId, liked: nextLiked },
-    });
-    if (error || !data?.success) {
+    try {
+      const { data, error } = await supabase.functions.invoke('swift-service', {
+        body: { action: 'like', share_id: item.shareId, liked: nextLiked },
+      });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || 'Please try again.');
+      }
+    } catch (e) {
       setLikedSongs((current) => ({ ...current, [key]: !nextLiked }));
-      Alert.alert('Could not update like', data?.error || error?.message || 'Please try again.');
+      Alert.alert('Could not update like', e instanceof Error ? e.message : 'Please try again.');
     }
   }
 
