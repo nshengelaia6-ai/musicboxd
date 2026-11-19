@@ -47,6 +47,10 @@ export default function RootLayout() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
+            name="track/[id]"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
             name="review/new"
             options={{ headerShown: false }}
           />
