@@ -270,11 +270,10 @@ export default function Lists() {
         style: 'destructive',
         onPress: async () => {
           const updated = lists.filter((item) => item.id !== selectedList.id);
-          await AsyncStorage.setItem('lists', JSON.stringify(updated));
-          setLists(updated);
 
           try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user }, error: userError } = await supabase.auth.getUser();
+            if (userError) throw userError;
             if (user) {
               const [{ error: profileDeleteError }, { error: activityDeleteError }] = await Promise.all([
                 supabase.from('public_profile_items').delete()
@@ -285,14 +284,16 @@ export default function Lists() {
               if (profileDeleteError) throw profileDeleteError;
               if (activityDeleteError) throw activityDeleteError;
             }
-          } catch (syncError) {
-            console.error('List deletion sync failed:', syncError);
-            Alert.alert('Sync warning', 'The list was deleted on this device, but its public copy may take time to disappear.');
-          }
 
-          setShowListMenu(false);
-          setShowListDetail(false);
-          setSelectedList(null);
+            await AsyncStorage.setItem('lists', JSON.stringify(updated));
+            setLists(updated);
+            setShowListMenu(false);
+            setShowListDetail(false);
+            setSelectedList(null);
+          } catch (syncError) {
+            console.error('List deletion failed:', syncError);
+            Alert.alert('Could not delete list', 'The list was kept on this device because its cloud copy could not be removed. Please try again.');
+          }
         },
       },
     ]);
