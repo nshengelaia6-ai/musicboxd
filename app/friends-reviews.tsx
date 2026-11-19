@@ -44,8 +44,15 @@ export default function FriendsReviews() {
         if (usersResult.error) throw usersResult.error;
 
         const userMap = new Map((usersResult.data || []).map((user: any) => [user.id, user]));
+        const seenReviews = new Set<string>();
         const rows = (reviewsResult.data || [])
           .filter((row: any) => row.data?.type === 'track' && (row.data?.review || Number(row.data?.rating) > 0))
+          .filter((row: any) => {
+            const key = String(row.user_id) + ':' + String(row.item_key);
+            if (seenReviews.has(key)) return false;
+            seenReviews.add(key);
+            return true;
+          })
           .map((row: any) => ({
             ...row,
             updated_at: row.created_at,
