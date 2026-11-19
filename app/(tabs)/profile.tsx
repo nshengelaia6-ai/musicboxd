@@ -509,10 +509,19 @@ if (Array.isArray(sourceAlbums)) {
         }
       }
 
-      const { error: authUpdateError } = await supabase.auth.updateUser({
-        data: { username: cleanUsername },
-      });
-      if (authUpdateError) throw authUpdateError;
+      // The database profile is the source of truth. A failure to mirror the
+      // username into Auth metadata must not report a failed profile save after
+      // the users row has already been saved successfully.
+      try {
+        const { error: authUpdateError } = await supabase.auth.updateUser({
+          data: { username: cleanUsername },
+        });
+        if (authUpdateError) {
+          console.warn('Could not sync username to Auth metadata:', authUpdateError);
+        }
+      } catch (metadataError) {
+        console.warn('Could not sync username to Auth metadata:', metadataError);
+      }
 
       await AsyncStorage.setItem(
         'profile',
