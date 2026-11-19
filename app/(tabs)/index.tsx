@@ -86,9 +86,12 @@ export default function Home() {
 
   // Re-load everything when the Spotify account changes (new login / switch).
   useEffect(() => {
-    return subscribeToSpotifySession(() => {
+    const unsubscribe = subscribeToSpotifySession(() => {
       setSessionVersion((v) => v + 1);
     });
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // Load Monthly Favs shared by friends only.
