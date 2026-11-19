@@ -22,3 +22,26 @@ create index if not exists shared_song_likes_shared_song_id_idx
   on public.shared_song_likes(shared_song_id);
 create index if not exists shared_song_replies_shared_song_id_created_at_idx
   on public.shared_song_replies(shared_song_id, created_at);
+
+-- Interactions are accessed through the authenticated swift-service Edge Function.
+alter table public.shared_song_likes enable row level security;
+alter table public.shared_song_replies enable row level security;
+
+-- Keep the Shared screen in sync when either participant interacts.
+do $$
+begin
+  alter publication supabase_realtime add table public.shared_songs;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.shared_song_likes;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.shared_song_replies;
+exception when duplicate_object then null;
+end $$;
