@@ -52,7 +52,7 @@ create policy "Owners can manage their music lists"
 
 drop policy if exists "Public and mutual friends can view music lists" on public.music_lists;
 create policy "Public and mutual friends can view music lists"
-  on public.music_lists for select to authenticated
+  on public.music_lists for select to anon, authenticated
   using (
     privacy = 'public'
     or user_id = auth.uid()
@@ -63,6 +63,7 @@ create policy "Public and mutual friends can view music lists"
   );
 
 revoke all on public.music_lists from anon;
+grant select on public.music_lists to anon;
 grant select, insert, update, delete on public.music_lists to authenticated;
 grant all on public.music_lists to service_role;
 
