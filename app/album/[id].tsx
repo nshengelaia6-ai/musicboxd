@@ -264,14 +264,14 @@ export default function AlbumPage() {
 
       const { data, error } = await supabase
         .from('friendships')
-        .select('friend_id')
-        .eq('user_id', myId);
+        .select('user_id, friend_id')
+        .or(`user_id.eq.${myId},friend_id.eq.${myId}`);
 
       if (error) throw error;
 
-      const friendIds = (data || [])
-        .map((row: any) => row.friend_id)
-        .filter(Boolean);
+      const friendIds = [...new Set((data || [])
+        .map((row: any) => row.user_id === myId ? row.friend_id : row.user_id)
+        .filter(Boolean))];
 
       if (friendIds.length === 0) {
         setShareError('No friends found. Follow people first.');
