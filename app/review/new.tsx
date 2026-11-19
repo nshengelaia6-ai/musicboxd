@@ -239,7 +239,7 @@ export default function ReviewPage() {
 
       router.back();
     } catch (e) {
-      console.error('Ã¡Æ’Â¨Ã¡Æ’â€Ã¡Æ’Å“Ã¡Æ’ÂÃ¡Æ’Â®Ã¡Æ’â€¢Ã¡Æ’Â Ã¡Æ’â€¢Ã¡Æ’â€Ã¡Æ’Â  Ã¡Æ’â€ºÃ¡Æ’ÂÃ¡Æ’Â®Ã¡Æ’â€Ã¡Æ’Â Ã¡Æ’Â®Ã¡Æ’â€œÃ¡Æ’Â', e);
+      console.error('Could not save review:', e);
     }
   }
 
