@@ -184,16 +184,60 @@ export default function Lists() {
       await AsyncStorage.setItem('lists', JSON.stringify(updated));
       setLists(updated);
 
-      if (!existingList) {
-        await recordActivity('created_list', String(updatedList.id), {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const listData = {
           id: String(updatedList.id),
           name: updatedList.name,
           description: updatedList.description,
           privacy: updatedList.privacy,
           itemCount: updatedList.albums.length,
+          albums: updatedList.albums,
           type: 'list',
           createdAt: updatedList.createdAt,
-        });
+        };
+
+        if (updatedList.privacy === 'public') {
+          const { error: profileSyncError } = await supabase
+            .from('public_profile_items')
+            .upsert({
+              user_id: user.id,
+              section: 'lists',
+              item_key: String(updatedList.id),
+              data: listData,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id,section,item_key' });
+          if (profileSyncError) throw profileSyncError;
+
+          const { data: existingActivity, error: activityLookupError } = await supabase
+            .from('user_activity')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('activity_type', 'created_list')
+            .eq('item_key', String(updatedList.id))
+            .order('created_at', { ascending: false })
+            .limit(1);
+          if (activityLookupError) throw activityLookupError;
+
+          if (existingActivity?.[0]?.id) {
+            const { error: activityUpdateError } = await supabase
+              .from('user_activity')
+              .update({ data: listData, created_at: new Date().toISOString() })
+              .eq('id', existingActivity[0].id);
+            if (activityUpdateError) throw activityUpdateError;
+          } else {
+            await recordActivity('created_list', String(updatedList.id), listData);
+          }
+        } else {
+          const [{ error: profileDeleteError }, { error: activityDeleteError }] = await Promise.all([
+            supabase.from('public_profile_items').delete()
+              .eq('user_id', user.id).eq('section', 'lists').eq('item_key', String(updatedList.id)),
+            supabase.from('user_activity').delete()
+              .eq('user_id', user.id).eq('activity_type', 'created_list').eq('item_key', String(updatedList.id)),
+          ]);
+          if (profileDeleteError) throw profileDeleteError;
+          if (activityDeleteError) throw activityDeleteError;
+        }
       }
 
       if (existingList) setSelectedList(updatedList);
@@ -228,6 +272,24 @@ export default function Lists() {
           const updated = lists.filter((item) => item.id !== selectedList.id);
           await AsyncStorage.setItem('lists', JSON.stringify(updated));
           setLists(updated);
+
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              const [{ error: profileDeleteError }, { error: activityDeleteError }] = await Promise.all([
+                supabase.from('public_profile_items').delete()
+                  .eq('user_id', user.id).eq('section', 'lists').eq('item_key', String(selectedList.id)),
+                supabase.from('user_activity').delete()
+                  .eq('user_id', user.id).eq('activity_type', 'created_list').eq('item_key', String(selectedList.id)),
+              ]);
+              if (profileDeleteError) throw profileDeleteError;
+              if (activityDeleteError) throw activityDeleteError;
+            }
+          } catch (syncError) {
+            console.error('List deletion sync failed:', syncError);
+            Alert.alert('Sync warning', 'The list was deleted on this device, but its public copy may take time to disappear.');
+          }
+
           setShowListMenu(false);
           setShowListDetail(false);
           setSelectedList(null);
