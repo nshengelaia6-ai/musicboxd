@@ -164,25 +164,6 @@ export default function Profile() {
             setDraftFavoriteAlbums(albums.slice(0, 4));
           }
 
-          const profileData = await AsyncStorage.getItem('profile');
-          const p = profileData ? JSON.parse(profileData) : {};
-
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
-
-          const authUsername =
-            user?.user_metadata?.username?.trim() ||
-            user?.email?.split('@')[0] ||
-            '';
-
-          if (active) {
-            // Supabase username takes priority over old local username.
-            setEditUsername(authUsername || p.username || '');
-            setEditBio(p.bio || '');
-            setEditAvatar(p.avatar || null);
-          }
-
           if (active) {
             setShowSettings(true);
             await AsyncStorage.removeItem('returnToSettings');
@@ -312,7 +293,7 @@ if (Array.isArray(sourceAlbums)) {
               body: JSON.stringify({
                 id: spotifyId,
                 username: finalUsername,
-                avatar: p.avatar || null,
+                avatar: finalAvatar,
                 bio: finalBio,
               }),
             });
