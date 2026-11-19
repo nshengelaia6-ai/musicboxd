@@ -1,6 +1,6 @@
 
 import { Stack, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -36,7 +36,7 @@ export default function PrivacySettings() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  const loadBlockedUsers = async () => {
+  const loadBlockedUsers = useCallback(async () => {
     setBlockedUsersLoading(true);
     setBlockedUsersError('');
     try {
@@ -70,7 +70,7 @@ export default function PrivacySettings() {
     } finally {
       setBlockedUsersLoading(false);
     }
-  };
+  }, []);
 
   async function unblockUser(userId: string) {
     setUnblockingId(userId);
@@ -115,7 +115,7 @@ export default function PrivacySettings() {
     }
     loadUser();
     void loadBlockedUsers();
-  }, []);
+  }, [loadBlockedUsers]);
 
   async function changePassword() {
     setMessage('');
