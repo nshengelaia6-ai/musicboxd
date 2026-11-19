@@ -2,6 +2,7 @@ import { useAppTheme } from '@/context/ThemeContext';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
+import { flushPendingActivities } from '@/utils/activity';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ActivityIndicator,
@@ -125,6 +126,7 @@ export default function Activity() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
 
   const loadAll = useCallback(async (showLoader = true) => {
     if (showLoader) setLoading(true);
@@ -135,12 +137,16 @@ export default function Activity() {
       if (authError) throw authError;
       const myId = authData.user?.id;
       if (!myId) {
+        setPendingSyncCount(0);
         setYouItems([]);
         setFriendItems([]);
         setIncomingItems([]);
         setProfiles({});
         return;
       }
+
+      const pendingCount = await flushPendingActivities();
+      setPendingSyncCount(pendingCount);
 
       const [followingResult, incomingWithDateResult] = await Promise.all([
         supabase.from('friendships').select('friend_id').eq('user_id', myId),
@@ -250,6 +256,23 @@ export default function Activity() {
   useFocusEffect(
     useCallback(() => {
       loadAll();
+      const channel = supabase
+        .channel('main-activity-live')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'user_activity' },
+          () => { void loadAll(false); }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'friendships' },
+          () => { void loadAll(false); }
+        )
+        .subscribe();
+
+      return () => {
+        void supabase.removeChannel(channel);
+      };
     }, [loadAll])
   );
 
@@ -266,7 +289,10 @@ export default function Activity() {
       return;
     }
     if (entry.activity_type === 'created_list' || item.type === 'list') {
-      router.push('/lists' as any);
+      router.push({
+        pathname: '/lists',
+        params: { userId: entry.user_id },
+      } as any);
       return;
     }
     const albumId = item.type === 'track'
@@ -355,6 +381,11 @@ export default function Activity() {
           </TouchableOpacity>
         ))}
       </View>
+      {pendingSyncCount > 0 && (
+        <Text style={styles.syncWarning}>
+          {pendingSyncCount} activity {pendingSyncCount === 1 ? 'update is' : 'updates are'} waiting to sync. Keep the app online and reopen Activity to retry.
+        </Text>
+      )}
       {loading ? (
         <ActivityIndicator color={accentColor} style={{ marginTop: 32 }} />
       ) : error ? (
@@ -415,4 +446,5 @@ const styles = StyleSheet.create({
   empty: { color: '#777', textAlign: 'center', marginTop: 40, fontSize: 15 },
   retryButton: { padding: 12, marginTop: 8 },
   retryText: { fontSize: 14, fontWeight: '700' },
+  syncWarning: { color: '#e6b85c', fontSize: 12, paddingHorizontal: 20, marginBottom: 10, lineHeight: 17 },
 });
