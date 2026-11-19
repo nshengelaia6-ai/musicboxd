@@ -16,7 +16,8 @@ export default function TrackPage() {
   const { backgroundColor, accentColor } = useAppTheme();
   const [track, setTrack] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
-  const [reviewCount, setReviewCount] = useState(0);\n  const [averageRating, setAverageRating] = useState(0);
+  const [reviewCount, setReviewCount] = useState(0);
+  const [averageRating, setAverageRating] = useState(0);
   const [people, setPeople] = useState<Record<string, any>>({});
   const [liked, setLiked] = useState(false);
   const [listened, setListened] = useState(false);
