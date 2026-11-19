@@ -154,7 +154,7 @@ export default function Activity() {
       const incomingIds = [...new Set(
         (incomingResult.data || []).map((row: any) => row.user_id).filter(Boolean)
       )];
-      const profileIds = [...new Set([...friendIds, ...incomingIds])];
+      const profileIds = [...new Set([...friendIds, ...incomingIds, myId])];
 
       const [ownActivities, friendsActivities, legacyReviews, usersResult] = await Promise.all([
         loadActivityPages([myId]),
