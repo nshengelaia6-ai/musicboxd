@@ -597,7 +597,6 @@ export default function Search() {
         item.id === selected.id &&
         item.type === 'track'
     );
-    let cloudSyncFailed = false;
 
     if (!exists) {
       currentLists[listIndex] = {
@@ -619,55 +618,56 @@ export default function Search() {
         'lists',
         JSON.stringify(currentLists)
       );
+    }
 
-      // Keep public lists in sync so friends see tracks added from Search.
-      const updatedList = currentLists[listIndex];
-      try {
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError) throw authError;
+    // Always retry cloud sync, even if this track was already in the local list.
+    const updatedList = currentLists[listIndex];
+    let cloudSyncFailed = false;
 
-        if (!user) {
-          cloudSyncFailed = updatedList.privacy === 'public';
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+
+      if (!user) {
+        cloudSyncFailed = updatedList.privacy === 'public';
+      } else {
+        const itemKey = String(updatedList.id);
+
+        if (updatedList.privacy === 'public') {
+          const { error } = await supabase
+            .from('public_profile_items')
+            .upsert({
+              user_id: user.id,
+              section: 'lists',
+              item_key: itemKey,
+              data: {
+                id: itemKey,
+                name: updatedList.name,
+                description: updatedList.description || '',
+                privacy: updatedList.privacy,
+                itemCount: updatedList.albums.length,
+                albums: updatedList.albums,
+                type: 'list',
+                createdAt: updatedList.createdAt,
+              },
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id,section,item_key' });
+
+          if (error) throw error;
         } else {
-          const itemKey = String(updatedList.id);
+          const { error } = await supabase
+            .from('public_profile_items')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('section', 'lists')
+            .eq('item_key', itemKey);
 
-          if (updatedList.privacy === 'public') {
-            const { error } = await supabase
-              .from('public_profile_items')
-              .upsert({
-                user_id: user.id,
-                section: 'lists',
-                item_key: itemKey,
-                data: {
-                  id: itemKey,
-                  name: updatedList.name,
-                  description: updatedList.description || '',
-                  privacy: updatedList.privacy,
-                  itemCount: updatedList.albums.length,
-                  albums: updatedList.albums,
-                  type: 'list',
-                  createdAt: updatedList.createdAt,
-                },
-                updated_at: new Date().toISOString(),
-              }, { onConflict: 'user_id,section,item_key' });
-
-            if (error) throw error;
-          } else {
-            const { error } = await supabase
-              .from('public_profile_items')
-              .delete()
-              .eq('user_id', user.id)
-              .eq('section', 'lists')
-              .eq('item_key', itemKey);
-
-            if (error) throw error;
-          }
+          if (error) throw error;
         }
-      } catch (error) {
-        cloudSyncFailed = true;
-        console.error('Search list cloud sync failed:', error);
       }
-
+    } catch (error) {
+      cloudSyncFailed = true;
+      console.error('Search list cloud sync failed:', error);
     }
 
     setLists(currentLists);
