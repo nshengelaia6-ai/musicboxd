@@ -161,6 +161,8 @@ export default function FriendsMusicScreen() {
               artist_name:
                 activity.data?.artist_name ||
                 activity.data?.artistName ||
+                activity.data?.artist ||
+                activity.data?.artists ||
                 '',
               cover_url:
                 activity.data?.cover ||
