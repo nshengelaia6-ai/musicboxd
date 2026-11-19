@@ -893,6 +893,11 @@ export default function Search() {
               },
             ]}
             onPress={() => {
+              if (searchDebounce.current) {
+                clearTimeout(searchDebounce.current);
+                searchDebounce.current = null;
+              }
+              ++requestId.current;
               setTab('music');
 
               if (query.trim().length >= 2) {
@@ -923,6 +928,11 @@ export default function Search() {
               },
             ]}
             onPress={() => {
+              if (searchDebounce.current) {
+                clearTimeout(searchDebounce.current);
+                searchDebounce.current = null;
+              }
+              ++requestId.current;
               setTab('people');
 
               if (query.trim().length >= 2) {
