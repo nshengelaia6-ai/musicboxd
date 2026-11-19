@@ -72,6 +72,7 @@ export default function Search() {
   }, []);
 
   useEffect(() => {
+    let active = true;
     ++requestId.current;
     setRecentSearches([]);
     setRecentPeople([]);
@@ -87,9 +88,30 @@ export default function Search() {
       searchDebounce.current = null;
     }
 
-    if (!currentUserId) return;
-    void loadRecent(currentUserId);
-    void loadRecentPeople(currentUserId);
+    if (currentUserId) {
+      void Promise.all([
+        AsyncStorage.getItem(`recent_searches:${currentUserId}`),
+        AsyncStorage.getItem(`recent_people:${currentUserId}`),
+      ]).then(([searchData, peopleData]) => {
+        if (!active) return;
+
+        try {
+          setRecentSearches(searchData ? JSON.parse(searchData) : []);
+        } catch {
+          setRecentSearches([]);
+        }
+
+        try {
+          setRecentPeople(peopleData ? JSON.parse(peopleData) : []);
+        } catch {
+          setRecentPeople([]);
+        }
+      });
+    }
+
+    return () => {
+      active = false;
+    };
   }, [currentUserId]);
 
   useEffect(() => {
@@ -99,18 +121,6 @@ export default function Search() {
 
     return () => clearTimeout(timer);
   }, [feedback]);
-
-  async function loadRecent(userId: string) {
-    const data = await AsyncStorage.getItem(`recent_searches:${userId}`);
-
-    if (data) {
-      try {
-        setRecentSearches(JSON.parse(data));
-      } catch {
-        setRecentSearches([]);
-      }
-    }
-  }
 
   async function saveRecent(item: any) {
     if (!currentUserId) return;
@@ -143,17 +153,6 @@ export default function Search() {
   async function clearAllRecent() {
     setRecentSearches([]);
     if (recentSearchesKey) await AsyncStorage.removeItem(recentSearchesKey);
-  }
-
-  async function loadRecentPeople(userId: string) {
-    const data = await AsyncStorage.getItem(`recent_people:${userId}`);
-    if (data) {
-      try {
-        setRecentPeople(JSON.parse(data));
-      } catch {
-        setRecentPeople([]);
-      }
-    }
   }
 
   async function saveRecentPerson(person: any) {
