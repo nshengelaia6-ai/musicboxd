@@ -180,6 +180,10 @@ export default function ReviewDetail() {
             .eq('user_id', user.id).eq('section', 'reviews').eq('item_key', String(albumId)),
           supabase.from('user_activity').delete()
             .eq('user_id', user.id).eq('activity_type', 'reviewed').eq('item_key', String(albumId)),
+          supabase.from('music_reviews').delete()
+            .eq('user_id', user.id)
+            .eq('item_id', String(albumId))
+            .eq('item_type', reviewToDelete?.itemType === 'track' || reviewToDelete?.type === 'track' ? 'track' : 'album'),
         ]);
         if (profileDeleteError) throw profileDeleteError;
         if (activityDeleteError) throw activityDeleteError;
