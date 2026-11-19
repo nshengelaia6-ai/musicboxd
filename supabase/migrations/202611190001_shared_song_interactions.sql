@@ -45,3 +45,29 @@ begin
   alter publication supabase_realtime add table public.shared_song_replies;
 exception when duplicate_object then null;
 end $$;
+
+-- Permit realtime SELECT events only to the two participants in a share.
+alter table public.shared_songs enable row level security;
+
+drop policy if exists "Shared participants can view shared songs" on public.shared_songs;
+create policy "Shared participants can view shared songs"
+  on public.shared_songs for select to authenticated
+  using (user_id = auth.uid() or recipient_id = auth.uid());
+
+drop policy if exists "Shared participants can view likes" on public.shared_song_likes;
+create policy "Shared participants can view likes"
+  on public.shared_song_likes for select to authenticated
+  using (exists (
+    select 1 from public.shared_songs s
+    where s.id = shared_song_id
+      and (s.user_id = auth.uid() or s.recipient_id = auth.uid())
+  ));
+
+drop policy if exists "Shared participants can view replies" on public.shared_song_replies;
+create policy "Shared participants can view replies"
+  on public.shared_song_replies for select to authenticated
+  using (exists (
+    select 1 from public.shared_songs s
+    where s.id = shared_song_id
+      and (s.user_id = auth.uid() or s.recipient_id = auth.uid())
+  ));
