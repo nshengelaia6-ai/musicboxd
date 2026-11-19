@@ -1,5 +1,4 @@
 import { useAppTheme } from '@/context/ThemeContext';
-import { getValidSpotifyToken } from '@/utils/spotify';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -45,14 +44,10 @@ export default function Likes() {
       return;
     }
 
-    // Older liked tracks (saved before albumId was tracked) — look it up from Spotify.
-    const token = await getValidSpotifyToken();
-    if (!token) return;
+    // Older liked tracks may not have an albumId; resolve it through catalog search.
     try {
-      const res = await fetch(`https://api.spotify.com/v1/tracks/${item.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
+      const { getSpotifyTrack } = await import('@/utils/spotifyCatalog');
+      const data = await getSpotifyTrack(item.id);
       const albumId = data.album?.id;
       if (!albumId) return;
 
