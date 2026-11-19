@@ -707,8 +707,6 @@ if (Array.isArray(sourceAlbums)) {
             { label: 'Lists', route: '/lists' },
             { label: 'Want to Listen', route: '/wanttolisten' },
             { label: 'Likes', route: '/likes' },
-            { label: 'Following', route: '/following' },
-            { label: 'Followers', route: '/followers' },
             { label: 'Artists', route: '/artists' },
           ].map((item) => (
             <Pressable
