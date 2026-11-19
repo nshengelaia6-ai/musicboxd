@@ -46,7 +46,7 @@ export default function AlbumPage() {
   const [albumReviewPeople, setAlbumReviewPeople] = useState<Record<string, any>>({});
   const [albumReviewCount, setAlbumReviewCount] = useState(0);
   const [albumAverageRating, setAlbumAverageRating] = useState(0);
-  const [trackReviews, setTrackReviews] = useState<any[]  const [  const [loading, setLoading] = useState(true);
+  const [trackReviews, setTrackReviews] = useState<any[]>([]);
   const [loadError, setLoadError] = useState('');
 
   const [menuVisible, setMenuVisible] = useState(false);
@@ -1547,17 +1547,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   actionBtn: { alignItems: 'center' },
-  actionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#2a2a2a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
   actionEmoji: { fontSize: 24 },
-  actionText: { color: '#aaa', fontSize: 12 },
   rateSection: { alignItems: 'center', marginBottom: 24 },
   rateLabel: { color: '#888', fontSize: 13, marginBottom: 10 },
   menuItem: {
