@@ -118,21 +118,52 @@ export default function Home() {
 
           if (!active) return;
 
-          if (rawFavorite) {
-            const parsed = JSON.parse(rawFavorite);
+          const parsedLocal = rawFavorite ? JSON.parse(rawFavorite) : [];
+          const localFavorites = (Array.isArray(parsedLocal)
+            ? parsedLocal
+            : parsedLocal
+              ? [parsedLocal]
+              : []).slice(0, 3);
 
-            const favorites = Array.isArray(parsed)
-              ? parsed
-              : parsed
-                ? [parsed]
-                : [];
+          let favorites = localFavorites;
 
-            setMonthlyFavs(favorites.slice(0, 3));
-          } else {
-            setMonthlyFavs([]);
+          // Restore this month's favorites from the account when available.
+          if (user?.id) {
+            const { data: cloudFavorites, error: cloudError } = await supabase
+              .from('monthly_favorites')
+              .select('slot_index,track_id,track_name,artist_name,cover_url,spotify_url,comment,picked_at')
+              .eq('user_id', user.id)
+              .eq('month_key', getMonthKey())
+              .order('slot_index', { ascending: true });
+
+            if (cloudError) throw cloudError;
+
+            if (cloudFavorites?.length) {
+              const merged = [...localFavorites];
+              cloudFavorites.forEach((item: any) => {
+                const slot = Number(item.slot_index);
+                if (slot < 0 || slot > 2) return;
+                merged[slot] = {
+                  id: item.track_id,
+                  name: item.track_name,
+                  artist: item.artist_name || '',
+                  cover: item.cover_url || '',
+                  spotifyUrl: item.spotify_url || '',
+                  comment: item.comment || '',
+                  pickedAt: item.picked_at,
+                };
+              });
+              favorites = merged.slice(0, 3);
+              await AsyncStorage.setItem(
+                `monthly_fav_${getMonthKey()}`,
+                JSON.stringify(favorites)
+              );
+            }
           }
 
-          setCurrentUserId(userId);
+          if (active) setMonthlyFavs(favorites);
+
+          setCurrentUserId(user?.id || userId);
           setAuthUserId(user?.id || null);
 
           if (profileRaw) {
@@ -305,6 +336,8 @@ export default function Home() {
             artist_name:
               activity.data?.artist_name ||
               activity.data?.artistName ||
+              activity.data?.artist ||
+              activity.data?.artists ||
               '',
             cover_url:
               activity.data?.cover ||
