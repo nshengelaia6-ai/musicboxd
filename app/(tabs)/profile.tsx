@@ -126,10 +126,6 @@ export default function Profile() {
     favoriteAlbums: (any | null)[];
   } | null>(null);
 
-  const writtenReviewsCount = reviews.filter(
-    (r: any) => r.review && String(r.review).trim().length > 0
-  ).length;
-
   // Load profile data when opening the screen.
   useFocusEffect(
     useCallback(() => {
