@@ -144,7 +144,7 @@ export default function PrivacyScreen() {
           devices you do not control.
         </Text>
 
-        <Text style={styles.heading}>10. Children's privacy</Text>
+        <Text style={styles.heading}>10. Children&apos;s privacy</Text>
         <Text style={styles.paragraph}>
           musicboxd is not intended for children who are below
           the minimum age required to use the service under
