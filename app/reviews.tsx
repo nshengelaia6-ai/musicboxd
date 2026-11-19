@@ -41,8 +41,14 @@ export default function Reviews() {
         else {
           const {data:follows,error:followsError}=await supabase.from('friendships').select('friend_id').eq('user_id',uid);
           if(followsError) throw followsError;
-          const ids=new Set((follows||[]).map((row:any)=>row.friend_id));
-          rows=rows.filter(row=>ids.has(row.user_id)||row.user_id===uid);
+          const followedIds=(follows||[]).map((row:any)=>row.friend_id);
+          let mutualIds=new Set<string>();
+          if(followedIds.length){
+            const {data:reciprocal,error:reciprocalError}=await supabase.from('friendships').select('user_id').eq('friend_id',uid).in('user_id',followedIds);
+            if(reciprocalError) throw reciprocalError;
+            mutualIds=new Set((reciprocal||[]).map((row:any)=>row.user_id));
+          }
+          rows=rows.filter(row=>mutualIds.has(row.user_id)||row.user_id===uid);
         }
       }
       const userIds=[...new Set(rows.map(row=>row.user_id))];
@@ -64,7 +70,7 @@ export default function Reviews() {
     <View style={styles.header}>
       <TouchableOpacity onPress={()=>router.back()}><Text style={styles.back}>‹</Text></TouchableOpacity>
       <Text style={styles.heading}>REVIEWS</Text>
-      <TouchableOpacity onPress={writeReview}><Text style={[styles.write,{color:accentColor}]}>＋ Review</Text></TouchableOpacity>
+      {itemId ? <TouchableOpacity onPress={writeReview}><Text style={[styles.write,{color:accentColor}]}>＋ Review</Text></TouchableOpacity> : <View style={{width:70}} />}
     </View>
     <View style={styles.itemHeader}>
       {params.coverUrl?<Image source={{uri:params.coverUrl}} style={styles.cover}/>:<View style={styles.cover}/>}
