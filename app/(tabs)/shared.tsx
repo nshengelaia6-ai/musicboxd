@@ -51,6 +51,7 @@ function getUsername(item: any) {
     item.from ||
     'Friend';
 
+  if (item.displayLabel) return String(item.displayLabel);
   return String(name).startsWith('@') ? String(name) : `@${name}`;
 }
 
@@ -171,10 +172,10 @@ export default function Shared() {
         void loadShared(false);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_song_likes' }, () => {
-        void loadShared();
+        void loadShared(false);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shared_song_replies' }, () => {
-        void loadShared();
+        void loadShared(false);
       })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
