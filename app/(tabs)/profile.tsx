@@ -550,6 +550,25 @@ if (Array.isArray(sourceAlbums)) {
           <Text style={styles.username}>{username}</Text>
           <Text style={styles.bio}>{bio}</Text>
 
+          <View style={styles.stats}>
+            <TouchableOpacity
+              style={styles.stat}
+              onPress={() => router.push('/following' as any)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.statNum}>{followingCount}</Text>
+              <Text style={styles.statLabel}>Following</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.stat}
+              onPress={() => router.push('/followers' as any)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.statNum}>{followersCount}</Text>
+              <Text style={styles.statLabel}>Followers</Text>
+            </TouchableOpacity>
+          </View>
+
         </View>
 
         {favoriteAlbums.some((album) => album != null) && (
