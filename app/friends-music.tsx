@@ -14,6 +14,30 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
+async function loadFriendActivityRows(friendIds: string[]) {
+  const rows: any[] = [];
+  const pageSize = 500;
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('user_activity')
+      .select('id,user_id,activity_type,item_key,data,created_at')
+      .in('user_id', friendIds)
+      .in('activity_type', ['listened', 'reviewed'])
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+    const page = data || [];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return rows;
+}
+
 export default function FriendsMusicScreen() {
   const router = useRouter();
   const { type } = useLocalSearchParams<{ type?: string }>();
@@ -75,13 +99,7 @@ export default function FriendsMusicScreen() {
         { data: activities, error: activitiesError },
         { data: users, error: usersError },
       ] = await Promise.all([
-        supabase
-          .from('user_activity')
-          .select('id,user_id,activity_type,item_key,data,created_at')
-          .in('user_id', friendIds)
-          .in('activity_type', ['listened', 'reviewed'])
-          .order('created_at', { ascending: false })
-          .limit(100),
+        loadFriendActivityRows(friendIds),
 
         supabase
           .from('users')
