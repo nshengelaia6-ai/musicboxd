@@ -597,6 +597,7 @@ export default function Search() {
         item.id === selected.id &&
         item.type === 'track'
     );
+    let cloudSyncFailed = false;
 
     if (!exists) {
       currentLists[listIndex] = {
@@ -621,8 +622,6 @@ export default function Search() {
 
       // Keep public lists in sync so friends see tracks added from Search.
       const updatedList = currentLists[listIndex];
-      let cloudSyncFailed = false;
-
       try {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError) throw authError;
@@ -669,15 +668,14 @@ export default function Search() {
         console.error('Search list cloud sync failed:', error);
       }
 
-      if (cloudSyncFailed) {
-        setFeedback('Added on this device, but cloud sync failed. Please try again.');
-      }
     }
 
     setLists(currentLists);
     setShowListPicker(false);
 
-    if (!feedback) {
+    if (cloudSyncFailed) {
+      setFeedback('Added on this device, but cloud sync failed. Please try again.');
+    } else {
       setFeedback(
         `Added to ${currentLists[listIndex].name}.`
       );
