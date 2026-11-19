@@ -390,6 +390,7 @@ export default function AlbumPage() {
     const itemData = {
       id: selectedTrack?.id,
       name: selectedTrack?.name,
+      artist: selectedTrack?.artists?.map((artist: any) => artist.name).join(', ') || '',
       cover: album?.images?.[0]?.url,
       type: 'track',
       albumId: album?.id,
