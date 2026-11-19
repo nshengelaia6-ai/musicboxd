@@ -1,8 +1,5 @@
 
 import { useAppTheme } from '@/context/ThemeContext';
-import { API_BASE } from '@/utils/api';
-import { getCurrentUserId, getCurrentSpotifyProfile } from '@/utils/currentUser';
-import { clearSpotifySession, useSpotifyAuth, exchangeSpotifyCode } from '@/utils/spotify';
 import { supabase } from '@/utils/supabase';
 import { flushPendingActivities } from '@/utils/activity';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -30,72 +27,6 @@ const EMPTY_ALBUMS = [null, null, null, null];
 export default function Profile() {
   const router = useRouter();
   const { backgroundColor, accentColor } = useAppTheme();
-  const {
-    request: spotifyRequest,
-    response: spotifyResponse,
-    promptAsync: promptSpotify,
-    redirectUri: spotifyRedirectUri,
-  } = useSpotifyAuth();
-
-  const [spotifyConnected, setSpotifyConnected] = useState(false);
-  const [spotifyConnecting, setSpotifyConnecting] = useState(false);
-  const [spotifyAuthError, setSpotifyAuthError] = useState('');
-
-  useEffect(() => {
-    getCurrentUserId().then(id => setSpotifyConnected(!!id));
-  }, []);
-
-  useEffect(() => {
-    if (spotifyResponse?.type !== 'success') return;
-
-    const code = spotifyResponse.params.code;
-    const verifier = spotifyRequest?.codeVerifier;
-
-    if (!code || !verifier) {
-      setSpotifyAuthError('Spotify authorization could not be completed.');
-      setSpotifyConnecting(false);
-      return;
-    }
-
-    let active = true;
-
-    async function finishSpotifyLogin() {
-      try {
-        const token = await exchangeSpotifyCode(
-          code,
-          verifier!,
-          spotifyRedirectUri
-        );
-
-        const profile = await getCurrentSpotifyProfile(token);
-
-        if (!profile) {
-          throw new Error('Could not load Spotify profile.');
-        }
-
-        if (active) {
-          setSpotifyConnected(true);
-          setSpotifyAuthError('');
-          setSpotifyConnecting(false);
-        }
-      } catch (error) {
-        console.error('Spotify login failed:', error);
-        if (active) {
-          setSpotifyAuthError(
-            error instanceof Error ? error.message : 'Spotify login failed.'
-          );
-          setSpotifyConnecting(false);
-        }
-      }
-    }
-
-    finishSpotifyLogin();
-
-    return () => {
-      active = false;
-    };
-  }, [spotifyResponse, spotifyRequest, spotifyRedirectUri]);
-
   const [reviews, setReviews] = useState<any[]>([]);
   const [showShare, setShowShare] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -356,27 +287,6 @@ if (Array.isArray(sourceAlbums)) {
 
       // Public profile items are synced by the individual feature flows.
       // Do not rebuild them from device-local caches when opening Profile.
-      if (user) {
-        try {
-          // Keep the legacy backend profile keyed by Spotify ID.
-          const spotifyId = await getCurrentUserId();
-          if (spotifyId) {
-            await fetch(`${API_BASE}/users`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                id: spotifyId,
-                username: finalUsername,
-                avatar: finalAvatar,
-                bio: finalBio,
-              }),
-            });
-          }
-
-        } catch (error) {
-          console.error('Could not load follow counts:', error);
-        }
-      }
     } catch (error) {
       console.error('Could not load profile data:', error);
     }
@@ -540,27 +450,6 @@ if (Array.isArray(sourceAlbums)) {
       setFavoriteAlbums(savedAlbums);
       setShowSettings(false);
 
-      // The legacy backend user record is keyed by Spotify ID, not Supabase Auth ID.
-      try {
-        const spotifyId = await getCurrentUserId();
-        if (spotifyId) {
-          const response = await fetch(`${API_BASE}/users`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: spotifyId,
-              username: cleanUsername,
-              avatar: avatarUrl,
-              bio: editBio,
-            }),
-          });
-          if (!response.ok) {
-            console.warn('Legacy backend profile sync failed:', response.status);
-          }
-        }
-      } catch (backendError) {
-        console.warn('Legacy backend profile sync failed:', backendError);
-      }
     } catch (error) {
       console.error('Could not save profile:', error);
       Alert.alert(
@@ -973,39 +862,6 @@ if (Array.isArray(sourceAlbums)) {
             >
               <Text style={styles.sheetOptionText}>Customize</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.sheetOption}
-              disabled={!spotifyRequest || spotifyConnecting}
-              onPress={async () => {
-                setSpotifyAuthError('');
-                setSpotifyConnecting(true);
-
-                try {
-                  await promptSpotify();
-                } catch (error) {
-                  setSpotifyAuthError(
-                    error instanceof Error ? error.message : 'Spotify login failed.'
-                  );
-                } finally {
-                  setSpotifyConnecting(false);
-                }
-              }}
-            >
-              <Text style={styles.sheetOptionText}>
-                {spotifyConnecting
-                  ? 'Connecting to Spotify...'
-                  : spotifyConnected
-                    ? 'Spotify Connected ✓'
-                    : 'Connect Spotify'}
-              </Text>
-            </TouchableOpacity>
-
-            {spotifyAuthError ? (
-              <Text style={{ color: '#E06B6B', fontSize: 12, marginTop: 6 }}>
-                {spotifyAuthError}
-              </Text>
-            ) : null}
 
             <TouchableOpacity
               style={[
