@@ -175,7 +175,7 @@ export default function ReviewDetail() {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw userError;
       if (user && albumId) {
-        const [{ error: profileDeleteError }, { error: activityDeleteError }] = await Promise.all([
+        const [{ error: profileDeleteError }, { error: activityDeleteError }, { error: publicReviewDeleteError }] = await Promise.all([
           supabase.from('public_profile_items').delete()
             .eq('user_id', user.id).eq('section', 'reviews').eq('item_key', String(albumId)),
           supabase.from('user_activity').delete()
@@ -187,6 +187,7 @@ export default function ReviewDetail() {
         ]);
         if (profileDeleteError) throw profileDeleteError;
         if (activityDeleteError) throw activityDeleteError;
+        if (publicReviewDeleteError) throw publicReviewDeleteError;
       }
 
       await AsyncStorage.setItem(
