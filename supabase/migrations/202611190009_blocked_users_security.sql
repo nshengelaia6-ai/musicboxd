@@ -1,0 +1,33 @@
+-- Enforce ownership and visibility for block relationships.
+create table if not exists public.blocked_users (
+  blocker_id uuid not null references public.users(id) on delete cascade,
+  blocked_id uuid not null references public.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint blocked_users_not_self check (blocker_id <> blocked_id)
+);
+
+create unique index if not exists blocked_users_blocker_blocked_uidx
+  on public.blocked_users (blocker_id, blocked_id);
+create index if not exists blocked_users_blocked_blocker_idx
+  on public.blocked_users (blocked_id, blocker_id);
+
+alter table public.blocked_users enable row level security;
+
+drop policy if exists "Users can view blocks involving themselves" on public.blocked_users;
+create policy "Users can view blocks involving themselves"
+  on public.blocked_users for select to authenticated
+  using (blocker_id = auth.uid() or blocked_id = auth.uid());
+
+drop policy if exists "Users can create their own blocks" on public.blocked_users;
+create policy "Users can create their own blocks"
+  on public.blocked_users for insert to authenticated
+  with check (blocker_id = auth.uid() and blocker_id <> blocked_id);
+
+drop policy if exists "Users can remove their own blocks" on public.blocked_users;
+create policy "Users can remove their own blocks"
+  on public.blocked_users for delete to authenticated
+  using (blocker_id = auth.uid());
+
+revoke all on public.blocked_users from anon;
+grant select, insert, delete on public.blocked_users to authenticated;
+grant all on public.blocked_users to service_role;
