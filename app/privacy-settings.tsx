@@ -331,7 +331,7 @@ export default function PrivacySettings() {
       ) : null}
 
       <View style={styles.section}>
-        <Text style={styles.heading}>Account</Text>
+        <Text style={styles.heading}>Account & Security</Text>
 
         <Text style={styles.label}>Current email</Text>
         <Text style={styles.value}>{email || 'Loading...'}</Text>
@@ -427,22 +427,15 @@ export default function PrivacySettings() {
       <View style={styles.section}>
         <Text style={styles.heading}>Privacy</Text>
         <Text style={styles.description}>
-          Privacy controls will be available here.
+          Review how Musicboxd handles profile information, activity, and connected services.
         </Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.heading}>Notifications</Text>
-        <Text style={styles.description}>
-          Notification preferences will be available here.
-        </Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.heading}>Security</Text>
-        <Text style={styles.description}>
-          Account security and blocked users.
-        </Text>
+        <TouchableOpacity
+          style={styles.option}
+          onPress={() => router.push('/privacy' as any)}
+        >
+          <Text style={styles.optionText}>Read Privacy Policy</Text>
+          <Text style={styles.arrow}>›</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
