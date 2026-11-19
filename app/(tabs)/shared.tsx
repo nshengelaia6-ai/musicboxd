@@ -403,7 +403,7 @@ export default function Shared() {
     return (
       <View style={[styles.loadingScreen, { backgroundColor }]}>
         <Text style={styles.emptyText}>{error}</Text>
-        <TouchableOpacity onPress={loadShared} style={styles.retryButton}>
+        <TouchableOpacity onPress={() => void loadShared()} style={styles.retryButton}>
           <Text style={styles.retryText}>Try again</Text>
         </TouchableOpacity>
       </View>
