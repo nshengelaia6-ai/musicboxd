@@ -163,8 +163,10 @@ export default function Activity() {
       const friendIds = [...new Set(
         (followingResult.data || []).map((row: any) => row.friend_id).filter(Boolean)
       )];
-      const incomingIds = [...new Set(
-        (incomingResult.data || []).map((row: any) => row.user_id).filter(Boolean)
+      const incomingIds: string[] = [...new Set<string>(
+        incomingRowsData
+          .map((row: any) => row.user_id)
+          .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
       )];
       const profileIds = [...new Set([...friendIds, ...incomingIds, myId])];
 
@@ -225,8 +227,8 @@ export default function Activity() {
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       ));
       setFriendItems(friendsActivities);
-      const incomingRows = new Map(
-        incomingRowsData.map((row: any) => [row.user_id, row])
+      const incomingRows = new Map<string, any>(
+        incomingRowsData.map((row: any) => [String(row.user_id), row])
       );
       setIncomingItems(incomingIds.map((id) => ({
         id,
