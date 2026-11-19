@@ -18,6 +18,29 @@ $$;
 revoke all on function public.are_users_blocked(uuid, uuid) from public;
 grant execute on function public.are_users_blocked(uuid, uuid) to authenticated;
 
+-- Remove any older permissive SELECT policies; PostgreSQL combines permissive
+-- policies with OR, so leaving one behind could bypass the block restriction.
+do $
+declare
+  existing_policy record;
+begin
+  for existing_policy in
+    select schemaname, tablename, policyname
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('shared_songs', 'shared_song_likes', 'shared_song_replies')
+      and cmd = 'SELECT'
+  loop
+    execute format(
+      'drop policy %I on %I.%I',
+      existing_policy.policyname,
+      existing_policy.schemaname,
+      existing_policy.tablename
+    );
+  end loop;
+end;
+$;
+
 drop policy if exists "Shared participants can view shared songs" on public.shared_songs;
 create policy "Unblocked shared participants can view shared songs"
   on public.shared_songs for select to authenticated
