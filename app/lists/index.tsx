@@ -181,10 +181,8 @@ export default function Lists() {
           )
         : [updatedList, ...lists];
 
-      await AsyncStorage.setItem('lists', JSON.stringify(updated));
-      setLists(updated);
-
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
       if (user) {
         const listData = {
           id: String(updatedList.id),
@@ -239,6 +237,10 @@ export default function Lists() {
           if (activityDeleteError) throw activityDeleteError;
         }
       }
+
+      // Commit the local list only after the cloud privacy/publication changes succeed.
+      await AsyncStorage.setItem('lists', JSON.stringify(updated));
+      setLists(updated);
 
       if (existingList) setSelectedList(updatedList);
       handleCancel();
