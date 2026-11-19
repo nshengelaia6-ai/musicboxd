@@ -107,6 +107,7 @@ export default function Profile() {
 
   const [editAvatar, setEditAvatar] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<string | null>(null);
+  const [pendingAvatar, setPendingAvatar] = useState<{ base64: string; mimeType: string } | null>(null);
 
   const [favoriteAlbums, setFavoriteAlbums] =
     useState<(any | null)[]>([...EMPTY_ALBUMS]);
@@ -253,9 +254,25 @@ export default function Profile() {
       const profileData = await AsyncStorage.getItem('profile');
       const p = profileData ? JSON.parse(profileData) : {};
 
-      // Supabase username takes priority over old local username.
+      // Read the cloud profile so avatar and bio stay consistent across devices.
+      let cloudProfile: { bio?: string | null; avatar_url?: string | null; favorite_albums?: any[] | null } | null = null;
+      if (user) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('bio, avatar_url, favorite_albums')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (error) {
+          console.warn('Could not load cloud profile:', error);
+        } else {
+          cloudProfile = data;
+        }
+      }
+
+      // Supabase profile data takes priority over device-local cached values.
       const finalUsername = authUsername || p.username || '';
-      const finalBio = p.bio || '';
+      const finalBio = cloudProfile?.bio ?? p.bio ?? '';
+      const finalAvatar = cloudProfile?.avatar_url ?? p.avatar ?? null;
 
       setUsername(finalUsername);
       setBio(finalBio);
@@ -263,8 +280,8 @@ export default function Profile() {
       setEditUsername(finalUsername);
       setEditBio(finalBio);
 
-      setAvatar(p.avatar || null);
-      setEditAvatar(p.avatar || null);
+      setAvatar(finalAvatar);
+      setEditAvatar(finalAvatar);
 
       const pendingAlbumsData = await AsyncStorage.getItem(
   'pendingFavoriteAlbums'
@@ -336,10 +353,20 @@ if (Array.isArray(sourceAlbums)) {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
+      base64: true,
     });
 
     if (!result.canceled) {
-      setEditAvatar(result.assets[0].uri);
+      const asset = result.assets[0];
+      if (!asset.base64) {
+        Alert.alert('Could not select photo', 'Please choose another image.');
+        return;
+      }
+      setEditAvatar(asset.uri);
+      setPendingAvatar({
+        base64: asset.base64,
+        mimeType: asset.mimeType || 'image/jpeg',
+      });
     }
   }
 
@@ -379,6 +406,30 @@ if (Array.isArray(sourceAlbums)) {
       if (!user) throw new Error('User not found');
 
       const savedAlbums = [...draftFavoriteAlbums];
+      let avatarUrl = editAvatar;
+
+      // Upload a newly selected photo to the shared Supabase Storage bucket.
+      if (pendingAvatar) {
+        const binary = globalThis.atob(pendingAvatar.base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        const extension = pendingAvatar.mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+        const filePath = `${user.id}/${Date.now()}.${extension}`;
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, bytes, {
+            contentType: pendingAvatar.mimeType,
+            cacheControl: '3600',
+            upsert: false,
+          });
+        if (uploadError) throw uploadError;
+        const { data: publicUrlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+        avatarUrl = publicUrlData.publicUrl;
+      }
 
       const { error: authUpdateError } = await supabase.auth.updateUser({
         data: { username: cleanUsername },
@@ -390,7 +441,7 @@ if (Array.isArray(sourceAlbums)) {
         .update({
           username: cleanUsername,
           bio: editBio,
-          avatar_url: editAvatar,
+          avatar_url: avatarUrl,
           favorite_albums: savedAlbums,
         })
         .eq('id', user.id);
@@ -402,7 +453,7 @@ if (Array.isArray(sourceAlbums)) {
         JSON.stringify({
           username: cleanUsername,
           bio: editBio,
-          avatar: editAvatar,
+          avatar: avatarUrl,
           favoriteAlbums: savedAlbums,
         })
       );
@@ -412,7 +463,9 @@ if (Array.isArray(sourceAlbums)) {
 
       setUsername(cleanUsername);
       setBio(editBio);
-      setAvatar(editAvatar);
+      setAvatar(avatarUrl);
+      setEditAvatar(avatarUrl);
+      setPendingAvatar(null);
       setFavoriteAlbums(savedAlbums);
       setShowSettings(false);
 
@@ -426,7 +479,7 @@ if (Array.isArray(sourceAlbums)) {
             body: JSON.stringify({
               id: spotifyId,
               username: cleanUsername,
-              avatar: editAvatar,
+              avatar: avatarUrl,
               bio: editBio,
             }),
           });
@@ -460,6 +513,7 @@ if (Array.isArray(sourceAlbums)) {
       setEditUsername(username);
       setEditBio(bio);
       setEditAvatar(avatar);
+      setPendingAvatar(null);
       return;
     }
 
@@ -469,6 +523,7 @@ if (Array.isArray(sourceAlbums)) {
     setEditBio(snapshot.bio);
     setAvatar(snapshot.avatar);
     setEditAvatar(snapshot.avatar);
+    setPendingAvatar(null);
     setFavoriteAlbums([...snapshot.favoriteAlbums]);
     setDraftFavoriteAlbums([...snapshot.favoriteAlbums]);
   }
@@ -484,6 +539,7 @@ if (Array.isArray(sourceAlbums)) {
     setEditUsername(username);
     setEditBio(bio);
     setEditAvatar(avatar);
+    setPendingAvatar(null);
     setDraftFavoriteAlbums([...favoriteAlbums]);
     setShowSettings(true);
   }
