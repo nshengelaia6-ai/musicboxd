@@ -1,4 +1,5 @@
 import { useAppTheme } from '@/context/ThemeContext';
+import * as Crypto from 'expo-crypto';
 import { supabase } from '@/utils/supabase';
 import { recordActivity } from '@/utils/activity';
 import { getValidSpotifyToken } from '@/utils/spotify';
@@ -246,6 +247,9 @@ export default function Lists() {
             id: String(updatedList.id), user_id: user.id,
             name: updatedList.name, description: updatedList.description,
             privacy: updatedList.privacy, items: updatedList.albums,
+            share_token: existingList?.privacy === updatedList.privacy && existingList?.shareToken
+              ? existingList.shareToken
+              : Crypto.randomUUID(),
             created_at: updatedList.createdAt, updated_at: new Date().toISOString(),
           }, { onConflict: 'id' })
           .select('share_token')
