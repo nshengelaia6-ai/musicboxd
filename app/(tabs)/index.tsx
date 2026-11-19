@@ -23,13 +23,6 @@ function getMonthKey() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function getMonthLabel() {
-  return new Date().toLocaleDateString('en-US', {
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
 function countWords(value: string) {
   return value.trim().split(/\s+/).filter(Boolean).length;
 }
@@ -64,11 +57,9 @@ export default function Home() {
 
   const [displayName, setDisplayName] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [authUserId, setAuthUserId] = useState<string | null>(null);
 
   const [newFromFriends, setNewFromFriends] = useState<any[]>([]);
   const [popularWithFriends, setPopularWithFriends] = useState<any[]>([]);
-  const [showAllNewFromFriends, setShowAllNewFromFriends] = useState(false);
   const [friendFeedLoading, setFriendFeedLoading] = useState(true);
   const [friendFeedError, setFriendFeedError] = useState('');
   const friendIdsRef = useRef<Set<string>>(new Set());
@@ -99,6 +90,57 @@ export default function Home() {
       setSessionVersion((v) => v + 1);
     });
   }, []);
+
+  // Load Monthly Favs shared by friends only.
+  const loadPublicMonthlyFavs = useCallback(async (userId: string | null) => {
+    setFriendsMonthlyLoading(true);
+    setFriendsMonthlyError('');
+
+    try {
+      if (!userId) {
+        setFriendsMonthlyFavs([]);
+        return;
+      }
+
+      const { data: friendships, error: friendshipsError } = await supabase
+        .from('friendships')
+        .select('friend_id')
+        .eq('user_id', userId);
+
+      if (friendshipsError) throw friendshipsError;
+
+      const friendIds = [
+        ...new Set((friendships || []).map((row: any) => row.friend_id).filter(Boolean)),
+      ];
+
+      if (friendIds.length === 0) {
+        setFriendsMonthlyFavs([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('monthly_favorites')
+        .select(
+          'id,user_id,username,month_key,slot_index,track_id,track_name,artist_name,cover_url,spotify_url,comment,picked_at'
+        )
+        .eq('month_key', getMonthKey())
+        .in('user_id', friendIds)
+        .order('picked_at', { ascending: false });
+
+      if (error) throw error;
+
+      setFriendsMonthlyFavs(data || []);
+    } catch (error) {
+      console.log('Public Monthly Favs failed:', error);
+      setFriendsMonthlyFavs([]);
+      setFriendsMonthlyError(
+        'Monthly favorites are temporarily unavailable.'
+      );
+    } finally {
+      setFriendsMonthlyLoading(false);
+    }
+  }, []);
+
 
   // Load own favorites, profile and authenticated user
   useFocusEffect(
@@ -167,7 +209,6 @@ export default function Home() {
           if (active) setMonthlyFavs(favorites);
 
           setCurrentUserId(user?.id || userId);
-          setAuthUserId(user?.id || null);
 
           if (profileRaw) {
             const profile = JSON.parse(profileRaw);
@@ -189,58 +230,8 @@ export default function Home() {
       return () => {
         active = false;
       };
-    }, [sessionVersion])
+    }, [sessionVersion, loadPublicMonthlyFavs])
   );
-
-  // Load Monthly Favs shared by friends only.
-  const loadPublicMonthlyFavs = useCallback(async (userId: string | null) => {
-    setFriendsMonthlyLoading(true);
-    setFriendsMonthlyError('');
-
-    try {
-      if (!userId) {
-        setFriendsMonthlyFavs([]);
-        return;
-      }
-
-      const { data: friendships, error: friendshipsError } = await supabase
-        .from('friendships')
-        .select('friend_id')
-        .eq('user_id', userId);
-
-      if (friendshipsError) throw friendshipsError;
-
-      const friendIds = [
-        ...new Set((friendships || []).map((row: any) => row.friend_id).filter(Boolean)),
-      ];
-
-      if (friendIds.length === 0) {
-        setFriendsMonthlyFavs([]);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('monthly_favorites')
-        .select(
-          'id,user_id,username,month_key,slot_index,track_id,track_name,artist_name,cover_url,spotify_url,comment,picked_at'
-        )
-        .eq('month_key', getMonthKey())
-        .in('user_id', friendIds)
-        .order('picked_at', { ascending: false });
-
-      if (error) throw error;
-
-      setFriendsMonthlyFavs(data || []);
-    } catch (error) {
-      console.log('Public Monthly Favs failed:', error);
-      setFriendsMonthlyFavs([]);
-      setFriendsMonthlyError(
-        'Monthly favorites are temporarily unavailable.'
-      );
-    } finally {
-      setFriendsMonthlyLoading(false);
-    }
-  }, []);
 
   // Load friends activity from user_activity
   const loadFriendsActivity = useCallback(async (userId: string) => {
@@ -573,7 +564,6 @@ export default function Home() {
           return;
         }
 
-        setAuthUserId(user.id);
         await loadPublicMonthlyFavs(user.id);
       }
 
@@ -771,7 +761,7 @@ export default function Home() {
 
         {/* FRIENDS' MONTHLY FAVS */}
         <View style={styles.headingRow}>
-          <Text style={styles.headingInline}>Friends' Monthly Favs</Text>
+          <Text style={styles.headingInline}>Friends&apos; Monthly Favs</Text>
           <TouchableOpacity onPress={() => router.push('/friends-monthly-favs' as any)} accessibilityRole="button" hitSlop={10}>
             <Text style={{ color: accentColor, fontSize: 25, fontWeight: '400' }}>›</Text>
           </TouchableOpacity>
@@ -788,7 +778,7 @@ export default function Home() {
         ) : friendsMonthlyFavs.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              Your friends' monthly favorites will appear here.
+              Your friends&apos; monthly favorites will appear here.
             </Text>
           </View>
         ) : (
@@ -855,7 +845,7 @@ export default function Home() {
         ) : newFromFriends.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              Your friends' music activity will appear here.
+              Your friends&apos; music activity will appear here.
             </Text>
 
             <TouchableOpacity
