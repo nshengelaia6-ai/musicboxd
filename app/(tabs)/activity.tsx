@@ -2,6 +2,7 @@ import { useAppTheme } from '@/context/ThemeContext';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ActivityIndicator,
   Image,
@@ -159,15 +160,15 @@ export default function Activity() {
       const [ownActivities, friendsActivities, legacyReviews, usersResult] = await Promise.all([
         loadActivityPages([myId]),
         loadActivityPages(friendIds),
-        import('@react-native-async-storage/async-storage').then(async (module) => {
-          const raw = await module.default.getItem('reviews');
+        (async () => {
+          const raw = await AsyncStorage.getItem('reviews');
           try {
             const parsed = raw ? JSON.parse(raw) : [];
             return Array.isArray(parsed) ? parsed : [];
           } catch {
             return [];
           }
-        }),
+        })(),
         profileIds.length
           ? supabase.from('users').select('id,username,avatar_url').in('id', profileIds)
           : Promise.resolve({ data: [], error: null } as any),
