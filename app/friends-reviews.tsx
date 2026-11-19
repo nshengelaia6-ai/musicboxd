@@ -31,10 +31,12 @@ export default function FriendsReviews() {
         }
 
         const [reviewsResult, usersResult] = await Promise.all([
-          supabase.from('public_profile_items')
-            .select('id,user_id,item_key,data,updated_at')
-            .eq('section', 'reviews').in('user_id', ids)
-            .order('updated_at', { ascending: false }).limit(100),
+          supabase.from('user_activity')
+            .select('id,user_id,item_key,data,created_at')
+            .eq('activity_type', 'reviewed')
+            .in('user_id', ids)
+            .order('created_at', { ascending: false })
+            .limit(100),
           supabase.from('users').select('id,username,avatar_url').in('id', ids),
         ]);
         if (reviewsResult.error) throw reviewsResult.error;
@@ -42,8 +44,12 @@ export default function FriendsReviews() {
 
         const userMap = new Map((usersResult.data || []).map((user: any) => [user.id, user]));
         const rows = (reviewsResult.data || [])
-          .filter((row: any) => row.data?.itemType === 'track' && (row.data?.review || Number(row.data?.rating) > 0))
-          .map((row: any) => ({ ...row, profile: userMap.get(row.user_id) }));
+          .filter((row: any) => row.data?.type === 'track' && (row.data?.review || Number(row.data?.rating) > 0))
+          .map((row: any) => ({
+            ...row,
+            updated_at: row.created_at,
+            profile: userMap.get(row.user_id),
+          }));
         if (active) setItems(rows);
       } catch (e: any) {
         if (active) setError(e?.message || 'Could not load friends’ reviews.');
