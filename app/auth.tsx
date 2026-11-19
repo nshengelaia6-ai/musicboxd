@@ -1,6 +1,5 @@
 
 import { supabase } from '@/utils/supabase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import { createElement, useState } from 'react';
@@ -143,8 +142,6 @@ export default function AuthScreen() {
           });
 
         if (authError) throw authError;
-
-        await AsyncStorage.removeItem('musicboxd_test_mode');
         router.replace('/(tabs)');
       } else {
         const { data, error: authError } =
@@ -162,7 +159,6 @@ export default function AuthScreen() {
         if (authError) throw authError;
 
         if (data.session) {
-          await AsyncStorage.removeItem('musicboxd_test_mode');
           router.replace('/(tabs)');
         } else {
           setMessage(
