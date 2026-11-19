@@ -392,9 +392,10 @@ export default function AlbumPage() {
   }
 
   async function openTrack(track: any) {
-    await WebBrowser.openBrowserAsync(
-      `https://open.spotify.com/track/${track.id}`
-    );
+    router.push({
+      pathname: '/track/[id]',
+      params: { id: String(track.id) },
+    } as any);
   }
 
   async function openListPicker() {
