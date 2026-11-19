@@ -393,16 +393,22 @@ export default function Home() {
         .on(
           'postgres_changes',
           {
-            event: 'INSERT',
+            event: '*',
             schema: 'public',
             table: 'user_activity',
           },
           (payload) => {
             const activity = payload.new as any;
+            const previousActivity = payload.old as any;
+            const activityUserId = activity?.user_id || previousActivity?.user_id;
 
+            // Reload for friend inserts/updates/deletes. For deletes, Postgres may
+            // send only the primary key unless REPLICA IDENTITY FULL is enabled,
+            // so an unknown user ID also triggers a safe refresh.
             if (
-              activity.user_id !== currentUserId &&
-              friendIdsRef.current.has(activity.user_id)
+              !activityUserId ||
+              (activityUserId !== currentUserId &&
+                friendIdsRef.current.has(activityUserId))
             ) {
               loadFriendsActivity(currentUserId);
             }
