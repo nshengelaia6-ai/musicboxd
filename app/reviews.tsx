@@ -4,7 +4,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-type Review = { id:string; user_id:string; item_type:'album'|'track'; item_id:string; parent_album_id:string|null; item_name:string; artist_name:string; cover_url:string; rating:number; review_text:string; created_at:string; };
+type Review = { id:string; user_id:string; item_type:'album'|'track'; item_id:string; parent_album_id:string|null; item_name:string; artist_name:string; cover_url:string; rating:number; review_text:string; created_at:string; updated_at:string; };
 type Person = { id:string; username:string|null; avatar_url:string|null };
 const filters = ['Recent','Friends'] as const;
 
@@ -31,7 +31,7 @@ export default function Reviews() {
       const {data:auth,error:authError}=await supabase.auth.getUser();
       if(authError) throw authError;
       const uid=auth.user?.id||''; setMyId(uid);
-      let request=supabase.from('music_reviews').select('id,user_id,item_type,item_id,parent_album_id,item_name,artist_name,cover_url,rating,review_text,created_at').eq('item_type',itemType).order('created_at',{ascending:false}).limit(100);
+      let request=supabase.from('music_reviews').select('id,user_id,item_type,item_id,parent_album_id,item_name,artist_name,cover_url,rating,review_text,created_at,updated_at').eq('item_type',itemType).order('updated_at',{ascending:false}).limit(100);
       if(itemId) request=request.eq('item_id',itemId);
       const {data,error:reviewError}=await request;
       if(reviewError) throw reviewError;
@@ -88,7 +88,7 @@ export default function Reviews() {
               </TouchableOpacity>
               <View style={{flex:1}}>
                 <TouchableOpacity onPress={()=>router.push({pathname:'/user/[id]',params:{id:review.user_id}} as any)}><Text style={styles.username}>@{person?.username||'listener'}</Text></TouchableOpacity>
-                <Text style={styles.date}>{new Date(review.created_at).toLocaleDateString()}</Text>
+                <Text style={styles.date}>{new Date(review.updated_at || review.created_at).toLocaleDateString()}</Text>
               </View>
               {own&&<TouchableOpacity onPress={()=>router.push({pathname:'/review/new',params:{albumId:review.item_id,albumName:review.item_name,albumArtist:review.artist_name,albumCover:review.cover_url,currentRating:String(review.rating),itemType:review.item_type,parentAlbumId:review.parent_album_id||''}} as any)}><Text style={[styles.edit,{color:accentColor}]}>Edit</Text></TouchableOpacity>}
             </View>
