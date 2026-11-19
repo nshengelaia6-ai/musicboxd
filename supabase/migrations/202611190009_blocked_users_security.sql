@@ -53,9 +53,10 @@ end;
 $;
 
 drop policy if exists "Users can view blocks involving themselves" on public.blocked_users;
-create policy "Users can view blocks involving themselves"
+drop policy if exists "Users can view their own blocks" on public.blocked_users;
+create policy "Users can view their own blocks"
   on public.blocked_users for select to authenticated
-  using (blocker_id = auth.uid() or blocked_id = auth.uid());
+  using (blocker_id = auth.uid());
 
 drop policy if exists "Users can create their own blocks" on public.blocked_users;
 create policy "Users can create their own blocks"
