@@ -213,14 +213,16 @@ export default function ReviewPage() {
             .eq('activity_type', 'reviewed')
             .eq('item_key', String(albumId))
             .order('created_at', { ascending: false })
-            .limit(1);
+            .limit(100);
           if (activityLookupError) throw activityLookupError;
 
-          if (activityRows?.[0]?.id) {
+          if (activityRows?.length) {
             const { error: activityUpdateError } = await supabase
               .from('user_activity')
               .update({ data: reviewData, created_at: new Date().toISOString() })
-              .eq('id', activityRows[0].id);
+              .eq('user_id', user.id)
+              .eq('activity_type', 'reviewed')
+              .eq('item_key', String(albumId));
             if (activityUpdateError) throw activityUpdateError;
           } else {
             await recordActivity('reviewed', String(albumId), reviewData);
