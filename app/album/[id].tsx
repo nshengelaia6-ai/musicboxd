@@ -555,20 +555,11 @@ export default function AlbumPage() {
           <View style={styles.tracklistHeader}>
             <Text style={styles.sectionTitle}>Tracklist</Text>
             <View style={styles.ratingBlock}>
-              <View style={styles.ratingHeading}>
-                <Text style={styles.ratingHeadingTitle}>RATINGS</Text>
-                <Text style={styles.ratingFans}>
-                  {albumRatingCount >= 1000
-                    ? `${(albumRatingCount / 1000).toFixed(1).replace(/\\.0$/, '')}K`
-                    : albumRatingCount}
-                </Text>
-              </View>
               <View style={styles.ratingOverview}>
-                <Text style={styles.ratingLeadingStar}>★</Text>
                 <View style={styles.ratingHistogram}>
                   {albumRatingDistribution.slice().reverse().map(item => {
                     const maxCount = Math.max(...albumRatingDistribution.map(row => row.count), 1);
-                    const barHeight = item.count > 0 ? Math.max(1, (item.count / maxCount) * 27) : 1;
+                    const barHeight = item.count > 0 ? Math.max(1, (item.count / maxCount) * 30) : 1;
                     return (
                       <View key={item.rating} style={styles.histogramColumn}>
                         <View style={[styles.histogramBar, { height: barHeight }]} />
@@ -1466,15 +1457,11 @@ const styles = StyleSheet.create({
   reviewText: { color: '#E5E9EC', fontSize: 14, lineHeight: 21, marginTop: 11 },
   tracklistHeader: { paddingHorizontal: 18, paddingVertical: 10, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#2C3440', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   ratingBlock: { width: 148, marginLeft: 12 },
-  ratingHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 3 },
-  ratingHeadingTitle: { color: '#AAB4BF', fontSize: 8, letterSpacing: 1.1, fontWeight: '500' },
-  ratingFans: { color: '#687583', fontSize: 8, letterSpacing: 0.5, fontWeight: '500' },
-  ratingOverview: { flexDirection: 'row', alignItems: 'flex-end', gap: 5, marginTop: 2, height: 30 },
-  ratingLeadingStar: { color: '#00C853', fontSize: 12, lineHeight: 14, width: 10, textAlign: 'left', paddingBottom: 1 },
-  ratingHistogram: { flex: 1, height: 28, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 1, paddingBottom: 1, borderBottomWidth: 1, borderBottomColor: '#52616F' },
-  histogramColumn: { flex: 1, height: 27, justifyContent: 'flex-end', alignItems: 'stretch' },
+  ratingOverview: { flexDirection: 'row', alignItems: 'flex-end', gap: 7, height: 34 },
+  ratingHistogram: { flex: 1, height: 32, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 1, paddingBottom: 1, borderBottomWidth: 1, borderBottomColor: '#52616F' },
+  histogramColumn: { flex: 1, height: 31, justifyContent: 'flex-end', alignItems: 'stretch' },
   histogramBar: { width: '100%', backgroundColor: '#526575', borderTopLeftRadius: 1, borderTopRightRadius: 1 },
-  ratingOverviewDetails: { width: 37, alignItems: 'flex-start', justifyContent: 'flex-end', paddingBottom: 0 },
+  ratingOverviewDetails: { width: 39, alignItems: 'flex-start', justifyContent: 'flex-end', paddingBottom: 0 },
   ratingAverage: { color: '#AAB4BF', fontSize: 14, lineHeight: 15, fontWeight: '400', fontVariant: ['tabular-nums'] },
   ratingStars: { color: '#00C853', fontSize: 7, letterSpacing: 0, marginTop: 0 },
   row: {
