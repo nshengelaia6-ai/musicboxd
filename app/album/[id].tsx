@@ -140,6 +140,28 @@ export default function AlbumPage() {
         return;
       }
 
+      // Migrate this account's existing device-only album statuses when it opens the page.
+      const [localListenedRaw, localWantRaw] = await Promise.all([
+        AsyncStorage.getItem('listened'),
+        AsyncStorage.getItem('wantToListen'),
+      ]);
+      const localListened = localListenedRaw ? JSON.parse(localListenedRaw) : [];
+      const localWant = localWantRaw ? JSON.parse(localWantRaw) : [];
+      const legacyStatuses = [
+        ...(localListened.some((item: any) => String(item.id) === String(albumId) && (item.type || 'album') === 'album')
+          ? [{ user_id: user.id, album_id: String(albumId), status: 'listened' }]
+          : []),
+        ...(localWant.some((item: any) => String(item.id) === String(albumId) && (item.type || 'album') === 'album')
+          ? [{ user_id: user.id, album_id: String(albumId), status: 'wants_to_listen' }]
+          : []),
+      ];
+      if (legacyStatuses.length) {
+        const { error: migrationError } = await supabase
+          .from('music_album_status')
+          .upsert(legacyStatuses, { onConflict: 'user_id,album_id,status' });
+        if (migrationError) throw migrationError;
+      }
+
       const [followingResult, followersResult] = await Promise.all([
         supabase.from('friendships').select('friend_id').eq('user_id', user.id),
         supabase.from('friendships').select('user_id').eq('friend_id', user.id),
