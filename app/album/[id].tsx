@@ -553,36 +553,27 @@ export default function AlbumPage() {
 
         {album && (
           <View style={styles.tracklistHeader}>
-            <View style={styles.tracklistTitleRow}>
-              <Text style={styles.sectionTitle}>Tracklist</Text>
-              <View style={styles.ratingSummary}>
-                <Text style={styles.ratingStar}>★</Text>
-                <Text style={styles.ratingAverage}>
-                  {albumRatingAverage > 0 ? albumRatingAverage.toFixed(2) : '—'}
-                </Text>
-                <Text style={styles.ratingTotal}>{albumRatingCount} ratings</Text>
-              </View>
-            </View>
-            {albumRatingDistribution.some(item => item.count > 0) && (
-              <View style={styles.ratingDistribution}>
-                {albumRatingDistribution.map(item => {
-                  const total = albumRatingDistribution.reduce((sum, row) => sum + row.count, 0);
+            <Text style={styles.sectionTitle}>Tracklist</Text>
+            <View style={styles.ratingOverview}>
+              <View style={styles.ratingHistogram}>
+                {albumRatingDistribution.slice().reverse().map(item => {
+                  const maxCount = Math.max(...albumRatingDistribution.map(row => row.count), 1);
+                  const barHeight = item.count > 0 ? Math.max(3, (item.count / maxCount) * 58) : 2;
                   return (
-                    <View key={item.rating} style={styles.ratingBarRow}>
-                      <Text style={styles.ratingBarLabel}>{item.rating.toFixed(1)}</Text>
-                      <View style={styles.ratingBarTrack}>
-                        <View
-                          style={[
-                            styles.ratingBarFill,
-                            { width: `${total ? (item.count / total) * 100 : 0}%` },
-                          ]}
-                        />
-                      </View>
+                    <View key={item.rating} style={styles.histogramColumn}>
+                      <View style={[styles.histogramBar, { height: barHeight }]} />
                     </View>
                   );
                 })}
               </View>
-            )}
+              <View style={styles.ratingOverviewDetails}>
+                <Text style={styles.ratingAverage}>
+                  {albumRatingAverage > 0 ? albumRatingAverage.toFixed(2) : '—'}
+                </Text>
+                <Text style={styles.ratingStars}>★★★★★</Text>
+                <Text style={styles.ratingTotal}>{albumRatingCount} ratings</Text>
+              </View>
+            </View>
           </View>
         )}
 
@@ -1464,16 +1455,14 @@ const styles = StyleSheet.create({
   stars: { fontSize: 14, fontWeight: '700' },
   reviewText: { color: '#E5E9EC', fontSize: 14, lineHeight: 21, marginTop: 11 },
   tracklistHeader: { paddingHorizontal: 18, paddingVertical: 16, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#2C3440' },
-  tracklistTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  ratingSummary: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  ratingStar: { color: '#A8B4BE', fontSize: 18 },
-  ratingAverage: { color: '#E5E9EC', fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  ratingTotal: { color: '#9BA7B2', fontSize: 10, marginLeft: 3 },
-  ratingDistribution: { gap: 3 },
-  ratingBarRow: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 8 },
-  ratingBarLabel: { color: '#89949E', fontSize: 8, width: 20, textAlign: 'right', fontVariant: ['tabular-nums'] },
-  ratingBarTrack: { flex: 1, height: 4, backgroundColor: '#303740', borderRadius: 3, overflow: 'hidden' },
-  ratingBarFill: { height: 4, backgroundColor: '#A8B4BE', borderRadius: 3 },
+  ratingOverview: { flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 13, minHeight: 68 },
+  ratingHistogram: { flex: 1, height: 66, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 4, paddingBottom: 2 },
+  histogramColumn: { flex: 1, height: 62, justifyContent: 'flex-end', alignItems: 'center' },
+  histogramBar: { width: '100%', maxWidth: 15, backgroundColor: '#00A94F', borderTopLeftRadius: 2, borderTopRightRadius: 2, opacity: 0.92 },
+  ratingOverviewDetails: { minWidth: 92, alignItems: 'flex-start', justifyContent: 'center' },
+  ratingAverage: { color: '#F0F2F4', fontSize: 25, lineHeight: 29, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  ratingStars: { color: '#00A94F', fontSize: 12, letterSpacing: 1.2, marginTop: 1 },
+  ratingTotal: { color: '#9BA7B2', fontSize: 10, marginTop: 3 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
