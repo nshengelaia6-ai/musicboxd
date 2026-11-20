@@ -48,7 +48,6 @@ export default function AlbumPage() {
   const [albumReviewPeople, setAlbumReviewPeople] = useState<Record<string, any>>({});
   const [albumReviewCount, setAlbumReviewCount] = useState(0);
   const [albumRatingAverage, setAlbumRatingAverage] = useState(0);
-  const [albumRatingCount, setAlbumRatingCount] = useState(0);
   const [albumRatingDistribution, setAlbumRatingDistribution] = useState<{ rating: number; count: number }[]>([]);
   const [listenedByFriends, setListenedByFriends] = useState<Friend[]>([]);
   const [wantToListenFriends, setWantToListenFriends] = useState<Friend[]>([]);
@@ -293,7 +292,6 @@ export default function AlbumPage() {
           ? ratingValues.reduce((sum: number, value: number) => sum + value, 0) / ratingValues.length
           : 0;
         setAlbumRatingAverage(average);
-        setAlbumRatingCount(ratingValues.length);
         setAlbumRatingDistribution(
           Array.from({ length: 10 }, (_, index) => {
             const value = 5 - index * 0.5;
@@ -319,7 +317,6 @@ export default function AlbumPage() {
         setAlbumReviewPeople({});
         setAlbumReviewCount(0);
         setAlbumRatingAverage(0);
-        setAlbumRatingCount(0);
         setAlbumRatingDistribution([]);
       }
 
