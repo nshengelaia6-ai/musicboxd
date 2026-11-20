@@ -554,24 +554,34 @@ export default function AlbumPage() {
         {album && (
           <View style={styles.tracklistHeader}>
             <Text style={styles.sectionTitle}>Tracklist</Text>
-            <View style={styles.ratingOverview}>
-              <View style={styles.ratingHistogram}>
-                {albumRatingDistribution.slice().reverse().map(item => {
-                  const maxCount = Math.max(...albumRatingDistribution.map(row => row.count), 1);
-                  const barHeight = item.count > 0 ? Math.max(3, (item.count / maxCount) * 58) : 2;
-                  return (
-                    <View key={item.rating} style={styles.histogramColumn}>
-                      <View style={[styles.histogramBar, { height: barHeight }]} />
-                    </View>
-                  );
-                })}
-              </View>
-              <View style={styles.ratingOverviewDetails}>
-                <Text style={styles.ratingAverage}>
-                  {albumRatingAverage > 0 ? albumRatingAverage.toFixed(2) : '—'}
+            <View style={styles.ratingBlock}>
+              <View style={styles.ratingHeading}>
+                <Text style={styles.ratingHeadingTitle}>RATINGS</Text>
+                <Text style={styles.ratingFans}>
+                  {albumRatingCount >= 1000
+                    ? `${(albumRatingCount / 1000).toFixed(1).replace(/\\.0$/, '')}K FANS`
+                    : `${albumRatingCount} FANS`}
                 </Text>
-                <Text style={styles.ratingStars}>★★★★★</Text>
-                <Text style={styles.ratingTotal}>{albumRatingCount} ratings</Text>
+              </View>
+              <View style={styles.ratingOverview}>
+                <Text style={styles.ratingLeadingStar}>★</Text>
+                <View style={styles.ratingHistogram}>
+                  {albumRatingDistribution.slice().reverse().map(item => {
+                    const maxCount = Math.max(...albumRatingDistribution.map(row => row.count), 1);
+                    const barHeight = item.count > 0 ? Math.max(2, (item.count / maxCount) * 58) : 2;
+                    return (
+                      <View key={item.rating} style={styles.histogramColumn}>
+                        <View style={[styles.histogramBar, { height: barHeight }]} />
+                      </View>
+                    );
+                  })}
+                </View>
+                <View style={styles.ratingOverviewDetails}>
+                  <Text style={styles.ratingAverage}>
+                    {albumRatingAverage > 0 ? albumRatingAverage.toFixed(1) : '—'}
+                  </Text>
+                  <Text style={styles.ratingStars}>★★★★★</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -1455,14 +1465,18 @@ const styles = StyleSheet.create({
   stars: { fontSize: 14, fontWeight: '700' },
   reviewText: { color: '#E5E9EC', fontSize: 14, lineHeight: 21, marginTop: 11 },
   tracklistHeader: { paddingHorizontal: 18, paddingVertical: 16, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#2C3440' },
-  ratingOverview: { flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 13, minHeight: 68 },
-  ratingHistogram: { flex: 1, height: 66, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 4, paddingBottom: 2 },
-  histogramColumn: { flex: 1, height: 62, justifyContent: 'flex-end', alignItems: 'center' },
-  histogramBar: { width: '100%', maxWidth: 15, backgroundColor: '#00A94F', borderTopLeftRadius: 2, borderTopRightRadius: 2, opacity: 0.92 },
-  ratingOverviewDetails: { minWidth: 92, alignItems: 'flex-start', justifyContent: 'center' },
-  ratingAverage: { color: '#F0F2F4', fontSize: 25, lineHeight: 29, fontWeight: '600', fontVariant: ['tabular-nums'] },
-  ratingStars: { color: '#00A94F', fontSize: 12, letterSpacing: 1.2, marginTop: 1 },
-  ratingTotal: { color: '#9BA7B2', fontSize: 10, marginTop: 3 },
+  ratingBlock: { marginTop: 18 },
+  ratingHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#46515D' },
+  ratingHeadingTitle: { color: '#AAB4BF', fontSize: 13, letterSpacing: 2, fontWeight: '500' },
+  ratingFans: { color: '#687583', fontSize: 12, letterSpacing: 1.5, fontWeight: '500' },
+  ratingOverview: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginTop: 13, minHeight: 76 },
+  ratingLeadingStar: { color: '#00C853', fontSize: 24, lineHeight: 28, width: 26, textAlign: 'left', paddingBottom: 1 },
+  ratingHistogram: { flex: 1, height: 66, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 3, paddingBottom: 1, borderBottomWidth: 1, borderBottomColor: '#52616F' },
+  histogramColumn: { flex: 1, height: 62, justifyContent: 'flex-end', alignItems: 'stretch' },
+  histogramBar: { width: '100%', backgroundColor: '#526575', borderTopLeftRadius: 2, borderTopRightRadius: 2 },
+  ratingOverviewDetails: { width: 92, alignItems: 'flex-start', justifyContent: 'flex-end', paddingBottom: 0 },
+  ratingAverage: { color: '#AAB4BF', fontSize: 27, lineHeight: 30, fontWeight: '400', fontVariant: ['tabular-nums'] },
+  ratingStars: { color: '#00C853', fontSize: 17, letterSpacing: 0, marginTop: 0 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
