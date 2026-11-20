@@ -50,6 +50,8 @@ export default function AlbumPage() {
   const [albumRatingAverage, setAlbumRatingAverage] = useState(0);
   const [albumRatingCount, setAlbumRatingCount] = useState(0);
   const [albumRatingDistribution, setAlbumRatingDistribution] = useState<{ rating: number; count: number }[]>([]);
+  const [listenedByFriends, setListenedByFriends] = useState<Friend[]>([]);
+  const [wantToListenFriends, setWantToListenFriends] = useState<Friend[]>([]);
   const [trackReviews, setTrackReviews] = useState<any[]>([]);
   const [trackReviewPeople, setTrackReviewPeople] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
@@ -128,6 +130,69 @@ export default function AlbumPage() {
     }
   }, []);
 
+  async function loadFriendAlbumStatuses(albumId: string) {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) {
+        setListenedByFriends([]);
+        setWantToListenFriends([]);
+        return;
+      }
+
+      const [followingResult, followersResult] = await Promise.all([
+        supabase.from('friendships').select('friend_id').eq('user_id', user.id),
+        supabase.from('friendships').select('user_id').eq('friend_id', user.id),
+      ]);
+      if (followingResult.error) throw followingResult.error;
+      if (followersResult.error) throw followersResult.error;
+
+      const followingIds = new Set((followingResult.data || []).map((row: any) => String(row.friend_id)));
+      const friendIds = [...new Set((followersResult.data || [])
+        .map((row: any) => String(row.user_id))
+        .filter((friendId: string) => followingIds.has(friendId)))];
+
+      if (!friendIds.length) {
+        setListenedByFriends([]);
+        setWantToListenFriends([]);
+        return;
+      }
+
+      const { data: statuses, error: statusesError } = await supabase
+        .from('music_album_status')
+        .select('user_id,status')
+        .eq('album_id', String(albumId))
+        .in('user_id', friendIds);
+      if (statusesError) throw statusesError;
+
+      const peopleIds = [...new Set((statuses || []).map((row: any) => String(row.user_id)))];
+      const { data: people, error: peopleError } = peopleIds.length
+        ? await supabase.from('users').select('id,username,avatar_url').in('id', peopleIds)
+        : { data: [], error: null };
+      if (peopleError) throw peopleError;
+
+      const peopleMap: Record<string, Friend> = {};
+      (people || []).forEach((person: any) => {
+        peopleMap[String(person.id)] = {
+          id: String(person.id),
+          username: person.username || null,
+          avatar_url: person.avatar_url || null,
+        };
+      });
+
+      setListenedByFriends((statuses || [])
+        .filter((row: any) => row.status === 'listened' && peopleMap[String(row.user_id)])
+        .map((row: any) => peopleMap[String(row.user_id)]));
+      setWantToListenFriends((statuses || [])
+        .filter((row: any) => row.status === 'wants_to_listen' && peopleMap[String(row.user_id)])
+        .map((row: any) => peopleMap[String(row.user_id)]));
+    } catch (error) {
+      console.warn('Could not load friends album statuses:', error);
+      setListenedByFriends([]);
+      setWantToListenFriends([]);
+    }
+  }
+
   // Load album through Supabase instead of the user's Spotify account.
   const loadAlbum = useCallback(async () => {
     setLoading(true);
@@ -164,6 +229,7 @@ export default function AlbumPage() {
 
       setAlbum(data);
       setTracks(data.tracks?.items || []);
+      await loadFriendAlbumStatuses(String(data.id));
       setArtist(null);
       const primaryArtistId = data.artists?.[0]?.id;
       if (primaryArtistId) {
@@ -458,8 +524,7 @@ export default function AlbumPage() {
 
   async function toggleAlbumCollection(kind: 'liked' | 'listened' | 'wantToListen') {
     if (!album) return;
-    const key = kind;
-    const stored = await AsyncStorage.getItem(key);
+    const stored = await AsyncStorage.getItem(kind);
     const items = stored ? JSON.parse(stored) : [];
     const exists = items.some((item: any) => String(item.id) === String(album.id) && (item.type || 'album') === 'album');
     const next = !exists;
@@ -474,10 +539,32 @@ export default function AlbumPage() {
     const updated = next
       ? [item, ...items]
       : items.filter((entry: any) => !(String(entry.id) === String(album.id) && (entry.type || 'album') === 'album'));
-    await AsyncStorage.setItem(key, JSON.stringify(updated));
+    await AsyncStorage.setItem(kind, JSON.stringify(updated));
+
     if (kind === 'liked') setLiked(next);
     if (kind === 'listened') setListened(next);
     if (kind === 'wantToListen') setWantToListen(next);
+
+    if (kind === 'listened' || kind === 'wantToListen') {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (user) {
+        const status = kind === 'listened' ? 'listened' : 'wants_to_listen';
+        const statusQuery = supabase.from('music_album_status');
+        const { error } = next
+          ? await statusQuery.upsert(
+              { user_id: user.id, album_id: String(album.id), status },
+              { onConflict: 'user_id,album_id,status' }
+            )
+          : await statusQuery.delete()
+              .eq('user_id', user.id)
+              .eq('album_id', String(album.id))
+              .eq('status', status);
+        if (error) throw error;
+        await loadFriendAlbumStatuses(String(album.id));
+      }
+    }
+
     if (next) {
       await recordActivity(kind === 'liked' ? 'liked' : kind === 'listened' ? 'listened' : 'wants_to_listen', String(album.id), item);
     }
@@ -629,6 +716,41 @@ export default function AlbumPage() {
           })}
         </View>
 
+        {(listenedByFriends.length > 0 || wantToListenFriends.length > 0) && (
+          <View style={styles.friendStatusSection}>
+            {listenedByFriends.length > 0 && (
+              <View style={styles.friendStatusGroup}>
+                <Text style={styles.friendStatusTitle}>LISTENED BY</Text>
+                <View style={styles.friendAvatarRow}>
+                  {listenedByFriends.map((person) => (
+                    <TouchableOpacity key={person.id} style={styles.friendAvatarItem} onPress={() => router.push(`/user/${person.id}` as any)} accessibilityRole="button" accessibilityLabel={`Open ${person.username || 'friend'} profile`}>
+                      {person.avatar_url
+                        ? <Image source={{ uri: person.avatar_url }} style={styles.friendStatusAvatar} />
+                        : <View style={styles.friendStatusAvatarFallback}><Text style={styles.friendStatusInitial}>{(person.username || 'U').slice(0, 1).toUpperCase()}</Text></View>}
+                      <Text style={styles.friendStatusName} numberOfLines={1}>{person.username || 'User'}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+            {wantToListenFriends.length > 0 && (
+              <View style={styles.friendStatusGroup}>
+                <Text style={styles.friendStatusTitle}>WANTS TO LISTEN</Text>
+                <View style={styles.friendAvatarRow}>
+                  {wantToListenFriends.map((person) => (
+                    <TouchableOpacity key={person.id} style={styles.friendAvatarItem} onPress={() => router.push(`/user/${person.id}` as any)} accessibilityRole="button" accessibilityLabel={`Open ${person.username || 'friend'} profile`}>
+                      {person.avatar_url
+                        ? <Image source={{ uri: person.avatar_url }} style={styles.friendStatusAvatar} />
+                        : <View style={styles.friendStatusAvatarFallback}><Text style={styles.friendStatusInitial}>{(person.username || 'U').slice(0, 1).toUpperCase()}</Text></View>}
+                      <Text style={styles.friendStatusName} numberOfLines={1}>{person.username || 'User'}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
         {album && (
           <View style={styles.reviewsSection}>
             <View style={styles.sectionHeader}>
@@ -707,33 +829,7 @@ export default function AlbumPage() {
           <View style={styles.sheetActions}>
             <TouchableOpacity
               style={styles.actionBtn}
-              onPress={async () => {
-                const newVal = !listened;
-                setListened(newVal);
-
-                const existing = await AsyncStorage.getItem('listened');
-                const list = existing ? JSON.parse(existing) : [];
-
-                if (newVal) {
-                  if (!list.find((i: any) => i.id === album.id)) {
-                    list.unshift({
-                      id: album.id,
-                      name: album.name,
-                      cover: album.images?.[0]?.url,
-                      type: 'album',
-                      rating,
-                      date: new Date().toISOString(),
-                    });
-                    await recordActivity('listened', album.id, list[0]);
-}
-                } else {
-                  const idx = list.findIndex((i: any) => i.id === album.id);
-                  if (idx !== -1) list.splice(idx, 1);
-                  setRating(0);
-                }
-
-                await AsyncStorage.setItem('listened', JSON.stringify(list));
-              }}
+              onPress={() => toggleAlbumCollection('listened')}
             >
               <View
                 style={[
@@ -789,30 +885,7 @@ export default function AlbumPage() {
 
             <TouchableOpacity
               style={styles.actionBtn}
-              onPress={async () => {
-                const newVal = !wantToListen;
-                setWantToListen(newVal);
-
-                const existing = await AsyncStorage.getItem('wantToListen');
-                const list = existing ? JSON.parse(existing) : [];
-
-                if (newVal) {
-                  if (!list.find((i: any) => i.id === album.id)) {
-                    list.unshift({
-                      id: album.id,
-                      name: album.name,
-                      cover: album.images?.[0]?.url,
-                      type: 'album',
-                    });
-                    await recordActivity('wants_to_listen', album.id, list[0]);
-}
-                } else {
-                  const idx = list.findIndex((i: any) => i.id === album.id);
-                  if (idx !== -1) list.splice(idx, 1);
-                }
-
-                await AsyncStorage.setItem('wantToListen', JSON.stringify(list));
-              }}
+              onPress={() => toggleAlbumCollection('wantToListen')}
             >
               <View
                 style={[
@@ -1437,6 +1510,15 @@ const styles = StyleSheet.create({
   actionActive: { backgroundColor: '#3A4653' },
   actionIcon: { color: '#D5DADF', fontSize: 21, marginBottom: 5 },
   actionText: { color: '#D5DADF', fontSize: 10, fontWeight: '600' },
+  friendStatusSection: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#2C3440' },
+  friendStatusGroup: { marginBottom: 16 },
+  friendStatusTitle: { color: '#9BA7B2', fontSize: 10, fontWeight: '800', letterSpacing: 1.5, marginBottom: 10 },
+  friendAvatarRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  friendAvatarItem: { width: 54, alignItems: 'center' },
+  friendStatusAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#3A4653' },
+  friendStatusAvatarFallback: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#3A4653', alignItems: 'center', justifyContent: 'center' },
+  friendStatusInitial: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  friendStatusName: { color: '#AEB8C2', fontSize: 10, marginTop: 5, maxWidth: 54, textAlign: 'center' },
   reviewsSection: { marginTop: 6 },
   sectionHeader: { paddingHorizontal: 18, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#2C3440' },
   sectionTitle: { color: '#fff', fontSize: 19, fontWeight: '800' },
