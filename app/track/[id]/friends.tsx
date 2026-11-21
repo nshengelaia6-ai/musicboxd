@@ -41,7 +41,11 @@ export default function TrackFriendsPage() {
           body: {
             action: 'track-members',
             item_id: String(id),
-            relationship: isWantList ? 'wants_to_listen' : filter === 'liked' ? 'liked' : 'listened',
+            relationship: isWantList
+              ? 'wants_to_listen'
+              : section === 'members'
+                ? filter === 'liked' ? 'liked' : 'member'
+                : filter === 'liked' ? 'liked' : 'listened',
             scope: filter === 'friends' ? 'friends' : 'everyone',
           },
         });
