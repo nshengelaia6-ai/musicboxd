@@ -596,7 +596,7 @@ export default function TrackPage() {
             </View>
             <View style={styles.trackDetailRow}>
               <Text style={styles.trackDetailLabel}>GENRES</Text>
-              <Text style={styles.trackDetailValue}>{Array.isArray(artistData?.genres) && artistData.genres.length ? artistData.genres.map((genre: string) => genre.replace(/\\b\\w/g, letter => letter.toUpperCase())).join(' · ') : '—'}</Text>
+              <Text style={styles.trackDetailValue}>{Array.isArray(artistData?.genres) && artistData.genres.length ? artistData.genres.map((genre: string) => genre.replace(/\b\w/g, letter => letter.toUpperCase())).join(' · ') : '—'}</Text>
             </View>
             <View style={styles.trackDetailRow}>
               <Text style={styles.trackDetailLabel}>DURATION</Text>
@@ -612,7 +612,7 @@ export default function TrackPage() {
             </View>
             <View style={styles.trackDetailRow}>
               <Text style={styles.trackDetailLabel}>RELEASE TYPE</Text>
-              <Text style={styles.trackDetailValue}>{track.album?.album_type ? track.album.album_type.replace(/\\b\\w/g, (letter: string) => letter.toUpperCase()) : '—'}</Text>
+              <Text style={styles.trackDetailValue}>{track.album?.album_type ? track.album.album_type.replace(/\b\w/g, (letter: string) => letter.toUpperCase()) : '—'}</Text>
             </View>
             {track.explicit ? (
               <View style={styles.trackDetailRow}>
