@@ -561,13 +561,18 @@ export default function TrackPage() {
         </View>
 
         <View style={styles.reviewsSection}>
-          <TouchableOpacity style={styles.reviewsHeaderCard} onPress={openReviews} accessibilityRole="button" accessibilityLabel="Open all song reviews">
-            <View>
-              <Text style={styles.sectionTitle}>Reviews</Text>
-              <Text style={styles.sectionSub}>{reviewCount} reviews</Text>
-            </View>
-            <Text style={[styles.seeAll, { color: accentColor }]}>See all ›</Text>
-          </TouchableOpacity>
+          <View style={styles.trackTopNav}>
+            <TouchableOpacity style={styles.trackTopNavItem} onPress={() => openFriendStatuses('listened')}>
+              <Text style={styles.trackTopNavText}>MEMBERS</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.trackTopNavItem, styles.trackTopNavActive]} onPress={openReviews}>
+              <Text style={[styles.trackTopNavText, styles.trackTopNavActiveText]}>REVIEWS</Text>
+              <Text style={styles.trackTopNavCount}>{reviewCount}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.trackTopNavItem} onPress={() => router.push('/lists' as any)}>
+              <Text style={styles.trackTopNavText}>LISTS</Text>
+            </TouchableOpacity>
+          </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {reviews.length === 0 ? (
@@ -700,6 +705,12 @@ const styles = StyleSheet.create({
   ratingOverviewDetails: { width: 48, alignItems: 'flex-start', justifyContent: 'flex-end', paddingBottom: 0 },
   ratingAverage: { color: '#AAB4BF', fontSize: 14, lineHeight: 15, fontWeight: '400', fontVariant: ['tabular-nums'] },
   ratingStars: { color: '#00C853', fontSize: 7, letterSpacing: 0, marginTop: 0 },
+  trackTopNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#30343A', marginBottom: 18, paddingHorizontal: 4 },
+  trackTopNavItem: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
+  trackTopNavActive: { borderBottomWidth: 2, borderBottomColor: '#FFFFFF' },
+  trackTopNavText: { color: '#858B92', fontSize: 12, fontWeight: '700', letterSpacing: 1 },
+  trackTopNavActiveText: { color: '#FFFFFF' },
+  trackTopNavCount: { color: '#9299A1', fontSize: 11, fontWeight: '600' },
   reviewsHeaderCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#292D32', borderRadius: 7, paddingHorizontal: 14, paddingVertical: 13, marginBottom: 12 },
   reviewsSection: { marginTop: 6 },
   sectionHeader: { paddingHorizontal: 18, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#2C3440' },
