@@ -25,6 +25,7 @@ export default function TrackPage() {
   const [artistData, setArtistData] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewCount, setReviewCount] = useState(0);
+  const [ratingCount, setRatingCount] = useState(0);
   const [averageRating, setAverageRating] = useState(0);
   const [ratingDistribution, setRatingDistribution] = useState<{ rating: number; count: number }[]>([]);
   const [listenedByFriends, setListenedByFriends] = useState<TrackFriend[]>([]);
@@ -121,6 +122,7 @@ export default function TrackPage() {
     setReviews([]);
     setPeople({});
     setReviewCount(0);
+    setRatingCount(0);
     setAverageRating(0);
     setRatingDistribution([]);
     setMyActivity([]);
@@ -201,6 +203,7 @@ export default function TrackPage() {
       const ratings = ratingRows || [];
       setReviewCount(count || 0);
       const ratedReviews = ratings.filter((row: any) => Number(row.rating) > 0);
+      setRatingCount(ratedReviews.length);
       setAverageRating(ratedReviews.length
         ? ratedReviews.reduce((sum: number, row: any) => sum + Number(row.rating), 0) / ratedReviews.length
         : 0);
@@ -473,6 +476,26 @@ export default function TrackPage() {
         </View>
 
 
+        <View style={styles.ratingsSection}>
+          <View style={styles.ratingsHeadingRow}>
+            <Text style={styles.ratingsTitle}>RATINGS</Text>
+            <Text style={styles.ratingsCount}>{ratingCount.toLocaleString()} ratings</Text>
+          </View>
+          <View style={styles.ratingOverview}>
+            <View style={styles.ratingHistogram}>
+              {ratingDistribution.slice().reverse().map(item => {
+                const maxCount = Math.max(...ratingDistribution.map(row => row.count), 1);
+                const barHeight = item.count > 0 ? Math.max(2, (item.count / maxCount) * 48) : 1;
+                return <View key={item.rating} style={styles.histogramColumn}><View style={[styles.histogramBar, { height: barHeight }]} /></View>;
+              })}
+            </View>
+            <View style={styles.ratingOverviewDetails}>
+              <Text style={styles.ratingAverage}>{averageRating > 0 ? averageRating.toFixed(1) : '—'}</Text>
+              <Text style={styles.ratingStars}>★★★★★</Text>
+            </View>
+          </View>
+        </View>
+
         <View style={styles.friendStatusSection}>
           <View style={styles.friendStatusGroup}>
             <View style={styles.friendStatusHeader}>
@@ -525,21 +548,6 @@ export default function TrackPage() {
               <Text style={styles.sectionTitle}>Reviews</Text>
               <Text style={styles.sectionSub}>{reviewCount} reviews</Text>
             </View>
-            <View style={styles.ratingBlock}>
-              <View style={styles.ratingOverview}>
-                <View style={styles.ratingHistogram}>
-                  {ratingDistribution.slice().reverse().map(item => {
-                    const maxCount = Math.max(...ratingDistribution.map(row => row.count), 1);
-                    const barHeight = item.count > 0 ? Math.max(1, (item.count / maxCount) * 30) : 1;
-                    return <View key={item.rating} style={styles.histogramColumn}><View style={[styles.histogramBar, { height: barHeight }]} /></View>;
-                  })}
-                </View>
-                <View style={styles.ratingOverviewDetails}>
-                  <Text style={styles.ratingAverage}>{averageRating > 0 ? averageRating.toFixed(1) : '—'}</Text>
-                  <Text style={styles.ratingStars}>★★★★★</Text>
-                </View>
-              </View>
-            </View>
             <TouchableOpacity onPress={openReviews}>
               <Text style={[styles.seeAll, { color: accentColor }]}>See all ›</Text>
             </TouchableOpacity>
@@ -572,11 +580,6 @@ export default function TrackPage() {
         })}
         </View>
 
-        <TouchableOpacity style={styles.albumRow} onPress={() => router.push(`/album/${track.album?.id}` as any)}>
-          {cover ? <Image source={{ uri: cover }} style={styles.albumCover} /> : <View style={styles.albumCover} />}
-          <View style={{ flex: 1 }}><Text style={styles.albumEyebrow}>FROM THE ALBUM</Text><Text style={styles.albumName}>{track.album?.name}</Text><Text style={styles.albumArtist}>{artist}</Text></View>
-          <Text style={styles.albumArrow}>›</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       <Modal visible={menuVisible} transparent animationType="slide" onRequestClose={() => setMenuVisible(false)}>
@@ -670,12 +673,15 @@ const styles = StyleSheet.create({
   listenButton: { backgroundColor: '#30343A', borderWidth: 1, borderColor: '#555B63', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 5 },
   listenButtonText: { color: '#E1E4E8', fontSize: 11, fontWeight: '700', letterSpacing: 1.5 },
   durationText: { color: '#AEB8C2', fontSize: 13, fontWeight: '600' },
-  ratingBlock: { width: 148, marginLeft: 12 },
-  ratingOverview: { flexDirection: 'row', alignItems: 'flex-end', gap: 7, height: 34 },
-  ratingHistogram: { flex: 1, height: 32, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 1, paddingBottom: 1, borderBottomWidth: 1, borderBottomColor: '#52616F' },
-  histogramColumn: { flex: 1, height: 31, justifyContent: 'flex-end', alignItems: 'stretch' },
+  ratingsSection: { paddingHorizontal: 18, paddingTop: 17, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#2C3440' },
+  ratingsHeadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  ratingsTitle: { color: '#AAB4BF', fontSize: 12, fontWeight: '500', letterSpacing: 1.4 },
+  ratingsCount: { color: '#9BA7B2', fontSize: 10, fontWeight: '500' },
+  ratingOverview: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, height: 52 },
+  ratingHistogram: { flex: 1, height: 50, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, paddingBottom: 1, borderBottomWidth: 1, borderBottomColor: '#52616F' },
+  histogramColumn: { flex: 1, height: 49, justifyContent: 'flex-end', alignItems: 'stretch' },
   histogramBar: { width: '100%', backgroundColor: '#526575', borderTopLeftRadius: 1, borderTopRightRadius: 1 },
-  ratingOverviewDetails: { width: 39, alignItems: 'flex-start', justifyContent: 'flex-end', paddingBottom: 0 },
+  ratingOverviewDetails: { width: 48, alignItems: 'flex-start', justifyContent: 'flex-end', paddingBottom: 0 },
   ratingAverage: { color: '#AAB4BF', fontSize: 14, lineHeight: 15, fontWeight: '400', fontVariant: ['tabular-nums'] },
   ratingStars: { color: '#00C853', fontSize: 7, letterSpacing: 0, marginTop: 0 },
   reviewsSection: { marginTop: 6 },
