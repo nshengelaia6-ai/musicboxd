@@ -13,8 +13,9 @@ const STARS_WIDTH = STAR_SIZE * 5 + STAR_GAP * 4;
 // Converts a finger position (px from the left edge of the stars) into a rating in 0.5 steps.
 function ratingFromX(x: number) {
   const clamped = Math.max(0, Math.min(x, STARS_WIDTH));
-  const value = Math.ceil((clamped / STAR_SLOT) * 2) / 2;
-  return Math.max(0.5, Math.min(5, value));
+  const starIndex = Math.min(4, Math.floor(clamped / STAR_SLOT));
+  const withinStar = Math.min(STAR_SIZE, clamped - starIndex * STAR_SLOT);
+  return starIndex + (withinStar >= STAR_SIZE / 2 ? 1 : 0.5);
 }
 
 export default function ReviewPage() {
@@ -50,22 +51,50 @@ export default function ReviewPage() {
   ).current;
 
   useEffect(() => {
+    let active = true;
     async function loadExisting() {
-      if (!albumId) { setLoaded(true); return; }
-      const existing = await AsyncStorage.getItem('reviews');
-      const reviews = existing ? JSON.parse(existing) : [];
-      const found = reviews.find((r: any) => r.albumId === albumId);
-      if (found) {
-        setRating(found.rating || 0);
-        setReview(found.review || '');
-      } else if (currentRating && parseFloat(currentRating as string) > 0) {
-        setRating(parseFloat(currentRating as string));
+      const incomingRating = currentRating ? Number.parseFloat(String(currentRating)) : 0;
+      try {
+        if (albumId) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: remoteReview, error: remoteError } = await supabase
+              .from('music_reviews')
+              .select('rating,review_text')
+              .eq('user_id', user.id)
+              .eq('item_type', resolvedType)
+              .eq('item_id', String(albumId))
+              .maybeSingle();
+            if (!remoteError && remoteReview) {
+              if (active) {
+                setRating(Number(remoteReview.rating) || 0);
+                setReview(remoteReview.review_text || '');
+              }
+              return;
+            }
+          }
+          const existing = await AsyncStorage.getItem('reviews');
+          const reviews = existing ? JSON.parse(existing) : [];
+          const found = reviews.find((r: any) => String(r.albumId) === String(albumId));
+          if (found && active) {
+            setRating(Number.isFinite(incomingRating) && incomingRating > 0 ? incomingRating : (found.rating || 0));
+            setReview(found.review || '');
+          } else if (active && Number.isFinite(incomingRating) && incomingRating > 0) {
+            setRating(incomingRating);
+          }
+        } else if (active && Number.isFinite(incomingRating) && incomingRating > 0) {
+          setRating(incomingRating);
+        }
+      } catch (error) {
+        console.warn('Could not load existing review:', error);
+        if (active && Number.isFinite(incomingRating) && incomingRating > 0) setRating(incomingRating);
+      } finally {
+        if (active) setLoaded(true);
       }
-      setLoaded(true);
     }
-    loadExisting();
-  }, [albumId, currentRating]);
-
+    void loadExisting();
+    return () => { active = false; };
+  }, [albumId, currentRating, resolvedType]);
   function renderStars() {
     return (
       <View style={{ width: STARS_WIDTH, height: STAR_SIZE }}>
