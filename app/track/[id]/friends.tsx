@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-type FriendStatus = {
+type MemberStatus = {
   id: string;
   username: string | null;
   avatar_url: string | null;
@@ -12,16 +12,20 @@ type FriendStatus = {
   created_at: string;
 };
 
+type Filter = 'everyone' | 'liked' | 'friends';
+
 export default function TrackFriendsPage() {
-  const { id, itemName, artistName } = useLocalSearchParams<{
+  const { id, itemName, artistName, section } = useLocalSearchParams<{
     id: string;
     itemName?: string;
     artistName?: string;
+    section?: 'listened' | 'wants_to_listen';
   }>();
   const router = useRouter();
   const { backgroundColor, accentColor } = useAppTheme();
-  const [listened, setListened] = useState<FriendStatus[]>([]);
-  const [wantToListen, setWantToListen] = useState<FriendStatus[]>([]);
+  const isWantList = section === 'wants_to_listen';
+  const [filter, setFilter] = useState<Filter>('everyone');
+  const [members, setMembers] = useState<MemberStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -31,141 +35,81 @@ export default function TrackFriendsPage() {
       setLoading(true);
       setError('');
       try {
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError) throw authError;
-        if (!user) throw new Error('Please sign in to see friends’ activity.');
-
-        const [followingResult, followersResult] = await Promise.all([
-          supabase.from('friendships').select('friend_id').eq('user_id', user.id),
-          supabase.from('friendships').select('user_id').eq('friend_id', user.id),
-        ]);
-        if (followingResult.error) throw followingResult.error;
-        if (followersResult.error) throw followersResult.error;
-
-        const followingIds = new Set((followingResult.data || []).map((row: any) => String(row.friend_id)));
-        const friendIds = [...new Set((followersResult.data || [])
-          .map((row: any) => String(row.user_id))
-          .filter((friendId: string) => followingIds.has(friendId)))];
-
-        if (!friendIds.length) {
-          if (active) {
-            setListened([]);
-            setWantToListen([]);
-          }
-          return;
-        }
-
-        const { data: activityRows, error: activityError } = await supabase
-          .from('user_activity')
-          .select('user_id,activity_type,created_at')
-          .eq('item_key', String(id))
-          .in('user_id', friendIds)
-          .in('activity_type', ['listened', 'wants_to_listen'])
-          .order('created_at', { ascending: false });
-        if (activityError) throw activityError;
-
-        const latestByUser: Record<string, any> = {};
-        (activityRows || []).forEach((row: any) => {
-          const uid = String(row.user_id);
-          if (!latestByUser[uid] || new Date(row.created_at).getTime() > new Date(latestByUser[uid].created_at).getTime()) {
-            latestByUser[uid] = row;
-          }
+        const { data, error: invokeError } = await supabase.functions.invoke('swift-service', {
+          body: {
+            action: 'track-members',
+            item_id: String(id),
+            relationship: isWantList ? 'wants_to_listen' : filter === 'liked' ? 'liked' : 'listened',
+            scope: filter === 'friends' ? 'friends' : 'everyone',
+          },
         });
-
-        const userIds = Object.keys(latestByUser);
-        if (!userIds.length) {
-          if (active) {
-            setListened([]);
-            setWantToListen([]);
-          }
-          return;
-        }
-
-        const [{ data: profiles, error: profilesError }, { data: ratings, error: ratingsError }] = await Promise.all([
-          supabase.from('users').select('id,username,avatar_url').in('id', userIds),
-          supabase.from('music_reviews').select('user_id,rating')
-            .eq('item_type', 'track').eq('item_id', String(id)).in('user_id', userIds),
-        ]);
-        if (profilesError) throw profilesError;
-        if (ratingsError) throw ratingsError;
-
-        const ratingByUser: Record<string, number> = {};
-        (ratings || []).forEach((row: any) => { ratingByUser[String(row.user_id)] = Number(row.rating) || 0; });
-        const profileById: Record<string, FriendStatus> = {};
-        (profiles || []).forEach((person: any) => {
-          const uid = String(person.id);
-          profileById[uid] = {
-            id: uid,
-            username: person.username || null,
-            avatar_url: person.avatar_url || null,
-            rating: ratingByUser[uid] || null,
-            created_at: latestByUser[uid]?.created_at || '',
-          };
-        });
-
-        const listenedRows = userIds
-          .filter(uid => latestByUser[uid]?.activity_type === 'listened' && profileById[uid])
-          .map(uid => profileById[uid])
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        const wantRows = userIds
-          .filter(uid => latestByUser[uid]?.activity_type === 'wants_to_listen' && profileById[uid])
-          .map(uid => profileById[uid])
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-        if (active) {
-          setListened(listenedRows);
-          setWantToListen(wantRows);
-        }
+        if (invokeError) throw invokeError;
+        if (!data?.success) throw new Error(data?.error || 'Could not load members.');
+        if (active) setMembers(Array.isArray(data.members) ? data.members : []);
       } catch (e: any) {
-        if (active) setError(e?.message || 'Could not load friends’ activity.');
+        if (active) setError(e?.message || 'Could not load members.');
       } finally {
         if (active) setLoading(false);
       }
     }
-    void load();
+    if (id) void load();
     return () => { active = false; };
-  }, [id]);
+  }, [id, filter, isWantList]);
 
-  function renderFriend(person: FriendStatus, showRating: boolean) {
+  function renderMember(person: MemberStatus) {
     return (
-      <TouchableOpacity key={person.id} style={styles.friendRow} onPress={() => router.push(`/user/${person.id}` as any)}>
+      <TouchableOpacity key={person.id} style={styles.memberRow} onPress={() => router.push(`/user/${person.id}` as any)}>
         {person.avatar_url
           ? <Image source={{ uri: person.avatar_url }} style={styles.avatar} />
           : <View style={styles.avatarFallback}><Text style={styles.avatarInitial}>{(person.username || 'U').slice(0, 1).toUpperCase()}</Text></View>}
-        <View style={styles.friendInfo}>
+        <View style={styles.memberInfo}>
           <Text style={styles.username}>@{person.username || 'listener'}</Text>
           <Text style={styles.date}>{person.created_at ? new Date(person.created_at).toLocaleDateString() : ''}</Text>
         </View>
-        {showRating && person.rating ? <Text style={styles.rating}>{'★'.repeat(Math.floor(person.rating))}{person.rating % 1 ? '½' : ''}</Text> : null}
+        {person.rating ? <Text style={styles.rating}>{'★'.repeat(Math.floor(person.rating))}{person.rating % 1 ? '½' : ''}</Text> : null}
         <Text style={styles.chevron}>›</Text>
       </TouchableOpacity>
     );
   }
+
+  const heading = isWantList ? 'WANTS TO LISTEN' : 'LISTENED BY';
 
   return (
     <View style={[styles.screen, { backgroundColor }]}>
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}><Text style={styles.back}>‹</Text></TouchableOpacity>
         <View style={styles.heading}>
-          <Text style={styles.title}>FRIENDS’ ACTIVITY</Text>
+          <Text style={styles.title}>{heading}</Text>
           {!!itemName && <Text style={styles.subtitle} numberOfLines={1}>{itemName}{artistName ? ` · ${artistName}` : ''}</Text>}
         </View>
         <View style={{ width: 34 }} />
+      </View>
+      <View style={styles.filters}>
+        <TouchableOpacity onPress={() => setFilter('everyone')} style={styles.filterButton}>
+          <Text style={[styles.filterText, filter === 'everyone' && styles.filterActive]}>EVERYONE</Text>
+          {filter === 'everyone' && <View style={[styles.filterUnderline, { backgroundColor: accentColor }]} />}
+        </TouchableOpacity>
+        {!isWantList && (
+          <TouchableOpacity onPress={() => setFilter('liked')} style={styles.filterButton}>
+            <Text style={[styles.filterText, filter === 'liked' && styles.filterActive]}>LIKED</Text>
+            {filter === 'liked' && <View style={[styles.filterUnderline, { backgroundColor: accentColor }]} />}
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity onPress={() => setFilter('friends')} style={styles.filterButton}>
+          <Text style={[styles.filterText, filter === 'friends' && styles.filterActive]}>FRIENDS</Text>
+          {filter === 'friends' && <View style={[styles.filterUnderline, { backgroundColor: accentColor }]} />}
+        </TouchableOpacity>
       </View>
       {loading ? <ActivityIndicator color={accentColor} style={{ marginTop: 60 }} /> : error ? (
         <Text style={styles.message}>{error}</Text>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>LISTENED BY</Text>
-            <View style={styles.rule} />
-            {listened.length ? listened.map(person => renderFriend(person, true)) : <Text style={styles.empty}>No friends have listened to this song yet.</Text>}
-          </View>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>WANTS TO LISTEN</Text>
-            <View style={styles.rule} />
-            {wantToListen.length ? wantToListen.map(person => renderFriend(person, false)) : <Text style={styles.empty}>No friends have added this song to their want-to-listen list.</Text>}
-          </View>
+          <Text style={styles.resultCount}>{members.length.toLocaleString()} {members.length === 1 ? 'MEMBER' : 'MEMBERS'}</Text>
+          {members.length ? members.map(renderMember) : (
+            <Text style={styles.empty}>
+              {filter === 'liked' ? 'No members have liked this song yet.' : filter === 'friends' ? 'No friends found in this section yet.' : isWantList ? 'No members have added this song to their want-to-listen list yet.' : 'No members have marked this song as listened yet.'}
+            </Text>
+          )}
         </ScrollView>
       )}
     </View>
@@ -180,19 +124,22 @@ const styles = StyleSheet.create({
   heading: { flex: 1, alignItems: 'center' },
   title: { color: '#E5E9EC', fontSize: 12, fontWeight: '800', letterSpacing: 1.8 },
   subtitle: { color: '#89949F', fontSize: 11, marginTop: 5, maxWidth: '95%' },
+  filters: { flexDirection: 'row', justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: '#252D36', gap: 28 },
+  filterButton: { minHeight: 46, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3 },
+  filterText: { color: '#75808B', fontSize: 11, fontWeight: '700', letterSpacing: 1.1 },
+  filterActive: { color: '#E5E9EC' },
+  filterUnderline: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, borderRadius: 1 },
   content: { paddingHorizontal: 18, paddingBottom: 48 },
-  section: { paddingTop: 24 },
-  sectionTitle: { color: '#AAB4BF', fontSize: 12, fontWeight: '600', letterSpacing: 1.5, marginBottom: 12 },
-  rule: { height: 1, backgroundColor: '#303943', marginBottom: 4 },
-  friendRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#252D36', gap: 13 },
+  resultCount: { color: '#7F8B96', fontSize: 10, fontWeight: '700', letterSpacing: 1.3, paddingTop: 19, paddingBottom: 8 },
+  memberRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#252D36', gap: 13 },
   avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#3A4653' },
   avatarFallback: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#3A4653', alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  friendInfo: { flex: 1 },
+  memberInfo: { flex: 1 },
   username: { color: '#E5E9EC', fontSize: 13, fontWeight: '700' },
   date: { color: '#7F8B96', fontSize: 10, marginTop: 4 },
   rating: { color: '#00E054', fontSize: 13, letterSpacing: 0.5 },
   chevron: { color: '#89949F', fontSize: 22, paddingLeft: 5 },
-  empty: { color: '#7F8B96', fontSize: 12, paddingVertical: 15, lineHeight: 18 },
+  empty: { color: '#7F8B96', fontSize: 12, paddingVertical: 22, lineHeight: 18 },
   message: { color: '#ff8585', textAlign: 'center', padding: 24, fontSize: 13 },
 });
