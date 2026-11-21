@@ -136,9 +136,14 @@ Deno.serve(async (req) => {
         selectedIds = selectedIds.filter((id) => mutualIds.has(id));
       }
 
+      const latestMemberActivityTime = (entry: Record<string, any>) => {
+        const activities = relationship === "member"
+          ? [entry.liked, entry.listened, entry.wants_to_listen].filter(Boolean)
+          : [entry[relationship]].filter(Boolean);
+        return Math.max(0, ...activities.map((activity: any) => new Date(activity.created_at).getTime()));
+      };
       selectedIds.sort((a, b) =>
-        new Date(latestByUser[b][relationship].created_at).getTime() -
-        new Date(latestByUser[a][relationship].created_at).getTime()
+        latestMemberActivityTime(latestByUser[b]) - latestMemberActivityTime(latestByUser[a])
       );
       const people: any[] = [];
       for (let i = 0; i < selectedIds.length; i += 500) {
