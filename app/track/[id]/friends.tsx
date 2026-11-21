@@ -2,6 +2,7 @@ import { useAppTheme } from '@/context/ThemeContext';
 import { supabase } from '@/utils/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { FontAwesome } from '@expo/vector-icons';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type MemberStatus = {
@@ -68,8 +69,8 @@ export default function TrackFriendsPage() {
         </View>
         <View style={styles.memberIndicators}>
           {person.rating != null && person.rating > 0 ? <Text style={styles.rating}>{'★'.repeat(Math.floor(person.rating))}{person.rating % 1 ? '½' : ''}</Text> : null}
-          {person.liked ? <Text style={styles.likeIcon}>♥</Text> : null}
-          {person.has_review ? <Text style={styles.reviewIcon}>📝</Text> : null}
+          {person.liked ? <FontAwesome name="heart" size={14} color="#FF5B75" /> : null}
+          {person.has_review ? <FontAwesome name="comment" size={14} color="#AAB4BF" /> : null}
         </View>
       </TouchableOpacity>
     );
@@ -142,8 +143,6 @@ const styles = StyleSheet.create({
   username: { color: '#E5E9EC', fontSize: 13, fontWeight: '700' },
   memberIndicators: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 9 },
   rating: { color: '#00E054', fontSize: 13, letterSpacing: 0.5 },
-  likeIcon: { color: '#FF5B75', fontSize: 16, fontWeight: '800' },
-  reviewIcon: { color: '#AAB4BF', fontSize: 17, fontWeight: '700' },
   empty: { color: '#7F8B96', fontSize: 12, paddingVertical: 22, lineHeight: 18 },
   message: { color: '#ff8585', textAlign: 'center', padding: 24, fontSize: 13 },
 });
