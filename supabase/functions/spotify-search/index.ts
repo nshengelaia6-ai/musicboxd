@@ -159,11 +159,16 @@ serve(async (req) => {
       let pages = 0;
 
       while (nextUrl && pages < 5) {
-        const tracksResponse = await fetch(nextUrl, {
+        const tracksResponse: Response = await fetch(nextUrl, {
           method: "GET",
           headers: { Authorization: `Bearer ${token}` },
         });
-        const tracksPage = await tracksResponse.json();
+        const tracksPage: {
+          items?: unknown[];
+          total?: number;
+          next?: string | null;
+          error?: { message?: string };
+        } = await tracksResponse.json();
         if (!tracksResponse.ok) {
           throw new Error(
             tracksPage.error?.message || "Could not load the album tracklist."
