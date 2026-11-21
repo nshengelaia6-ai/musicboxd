@@ -237,6 +237,16 @@ export default function AlbumPage() {
   const loadAlbum = useCallback(async () => {
     setLoading(true);
     setLoadError('');
+    setAlbum(null);
+    setArtist(null);
+    setTracks([]);
+    setAlbumReviews([]);
+    setAlbumReviewPeople({});
+    setAlbumReviewCount(0);
+    setAlbumRatingAverage(0);
+    setAlbumRatingDistribution([]);
+    setListenedByFriends([]);
+    setWantToListenFriends([]);
 
     try {
       const albumId = Array.isArray(id) ? id[0] : id;
