@@ -269,6 +269,14 @@ export default function TrackPage() {
     },
   })).current;
 
+  function openFriendStatuses() {
+    if (!track) return;
+    router.push({
+      pathname: '/track/[id]/friends',
+      params: { id: String(track.id), itemName: track.name, artistName: artist },
+    } as any);
+  }
+
   function openReviews() {
     if (!track) return;
     router.push({
@@ -498,10 +506,10 @@ export default function TrackPage() {
 
         <View style={styles.friendStatusSection}>
           <View style={styles.friendStatusGroup}>
-            <View style={styles.friendStatusHeader}>
+            <TouchableOpacity style={styles.friendStatusHeader} onPress={openFriendStatuses} accessibilityRole="button" accessibilityLabel="See everyone who listened">
               <Text style={styles.friendStatusTitle}>LISTENED BY</Text>
-              <Text style={styles.friendStatusCount}>{listenedByFriends.length}</Text>
-            </View>
+              <Text style={styles.friendStatusArrow}>›</Text>
+            </TouchableOpacity>
             <View style={styles.friendStatusRule} />
             {listenedByFriends.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendAvatarRow}>
@@ -520,10 +528,10 @@ export default function TrackPage() {
             )}
           </View>
           <View style={[styles.friendStatusGroup, { marginBottom: 13 }]}>
-            <View style={styles.friendStatusHeader}>
+            <TouchableOpacity style={styles.friendStatusHeader} onPress={openFriendStatuses} accessibilityRole="button" accessibilityLabel="See everyone who wants to listen">
               <Text style={styles.friendStatusTitle}>WANTS TO LISTEN</Text>
-              <Text style={styles.friendStatusCount}>{wantToListenFriends.length}</Text>
-            </View>
+              <Text style={styles.friendStatusArrow}>›</Text>
+            </TouchableOpacity>
             <View style={styles.friendStatusRule} />
             {wantToListenFriends.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendAvatarRow}>
@@ -741,7 +749,7 @@ const styles = StyleSheet.create({
   friendStatusGroup: { marginBottom: 17 },
   friendStatusHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
   friendStatusTitle: { color: '#AAB4BF', fontSize: 12, fontWeight: '500', letterSpacing: 1.4 },
-  friendStatusCount: { color: '#9BA7B2', fontSize: 10, fontWeight: '500', letterSpacing: 0.7 },
+  friendStatusArrow: { color: '#AAB4BF', fontSize: 25, lineHeight: 25, fontWeight: '300', paddingHorizontal: 4 },
   friendStatusRule: { height: 1, backgroundColor: '#303943', marginBottom: 13 },
   friendStatusEmpty: { color: '#7F8B96', fontSize: 12, paddingVertical: 7 },
   friendAvatarRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 17, paddingRight: 8 },
