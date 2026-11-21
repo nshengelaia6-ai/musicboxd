@@ -12,7 +12,7 @@ type MusicListItem = {
 };
 
 function isSameItem(left: any, right: MusicListItem) {
-  return String(left?.id) === String(right.id) && left?.type === right.type;
+  return String(left?.id) === String(right.id) && (left?.type || 'album') === right.type;
 }
 
 /**
