@@ -29,6 +29,13 @@ export default function TrackPage() {
   const [error, setError] = useState('');
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuRatingSelection, setMenuRatingSelection] = useState(0);
+  const menuRatingSelectionRef = useRef(0);
+  const menuRatingStartX = useRef(0);
+  const updateMenuRating = (value: number) => {
+    const next = Math.max(0, Math.min(5, Math.round(value * 2) / 2));
+    menuRatingSelectionRef.current = next;
+    setMenuRatingSelection(next);
+  };
   const [listsVisible, setListsVisible] = useState(false);
   const [userLists, setUserLists] = useState<any[]>([]);
   const [shareVisible, setShareVisible] = useState(false);
@@ -124,23 +131,13 @@ export default function TrackPage() {
     onMoveShouldSetPanResponder: () => true,
     onPanResponderTerminationRequest: () => false,
     onPanResponderGrant: (event) => {
-      const x = Math.max(0, Math.min(event.nativeEvent.locationX, menuStarsWidth));
-      setMenuRatingSelection(Math.max(0.5, Math.min(5, Math.ceil((x / (menuStarWidth + menuStarGap)) * 2) / 2)));
+      menuRatingStartX.current = event.nativeEvent.locationX;
+      const x = Math.max(0, Math.min(menuRatingStartX.current, menuStarsWidth));
+      updateMenuRating(Math.max(0.5, Math.min(5, Math.ceil((x / (menuStarWidth + menuStarGap)) * 2) / 2)));
     },
     onPanResponderMove: (_event, gesture) => {
-      const x = Math.max(0, Math.min(gesture.x0 + gesture.dx, menuStarsWidth));
-      setMenuRatingSelection(Math.max(0.5, Math.min(5, Math.ceil((x / (menuStarWidth + menuStarGap)) * 2) / 2)));
-    },
-    onPanResponderRelease: () => {
-      if (menuRatingSelection > 0 && track) {
-        const selected = menuRatingSelection;
-        setMenuVisible(false);
-        router.push({ pathname: '/review/new', params: {
-          albumId: String(track.id), albumName: track.name, albumArtist: artist,
-          albumCover: cover || '', itemType: 'track',
-          parentAlbumId: String(track.album?.id || ''), currentRating: String(selected),
-        } } as any);
-      }
+      const x = Math.max(0, Math.min(menuRatingStartX.current + gesture.dx, menuStarsWidth));
+      updateMenuRating(Math.max(0.5, Math.min(5, Math.ceil((x / (menuStarWidth + menuStarGap)) * 2) / 2)));
     },
   })).current;
 
@@ -440,8 +437,24 @@ export default function TrackPage() {
               })}
             </View>
             <Text style={styles.menuRatingHint}>
-              {menuRatingSelection > 0 ? `${menuRatingSelection.toFixed(1)} / 5 · Release to continue` : 'Slide to choose a rating · Half-stars supported'}
+              {menuRatingSelection > 0 ? `${menuRatingSelection.toFixed(1)} / 5` : 'Slide to choose a rating · Half-stars supported'}
             </Text>
+            {menuRatingSelection > 0 && (
+              <TouchableOpacity
+                style={styles.menuRateButton}
+                onPress={() => {
+                  const selected = menuRatingSelectionRef.current;
+                  setMenuVisible(false);
+                  router.push({ pathname: '/review/new', params: {
+                    albumId: String(track.id), albumName: track.name, albumArtist: artist,
+                    albumCover: cover || '', itemType: 'track',
+                    parentAlbumId: String(track.album?.id || ''), currentRating: String(selected),
+                  } } as any);
+                }}
+              >
+                <Text style={styles.menuRateButtonText}>RATE {menuRatingSelection.toFixed(1)}</Text>
+              </TouchableOpacity>
+            )}
           </View>
           <View style={styles.menuQuickActions}>
             <TouchableOpacity style={styles.menuQuickAction} onPress={() => void toggleCollection('listened')}><Text style={[styles.menuActionIcon, listened && { color: accentColor }]}>◉</Text><Text style={styles.menuActionLabel}>{listened ? 'Listened' : 'Listen'}</Text></TouchableOpacity>
@@ -572,4 +585,6 @@ const styles = StyleSheet.create({
   menuRatingStar: { color: '#555B63', fontSize: 30, lineHeight: 36 },
   menuRatingStarActive: { color: '#D7DDE3', fontSize: 30, lineHeight: 36 },
   menuRatingHint: { color: '#777', fontSize: 10, textAlign: 'center', marginTop: 5 },
+  menuRateButton: { alignSelf: 'center', backgroundColor: '#30343A', borderRadius: 6, paddingHorizontal: 18, paddingVertical: 9, marginTop: 10 },
+  menuRateButtonText: { color: '#E1E4E8', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
 });
