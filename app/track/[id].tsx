@@ -561,15 +561,13 @@ export default function TrackPage() {
         </View>
 
         <View style={styles.reviewsSection}>
-          <View style={styles.sectionHeader}>
+          <TouchableOpacity style={styles.reviewsHeaderCard} onPress={openReviews} accessibilityRole="button" accessibilityLabel="Open all song reviews">
             <View>
               <Text style={styles.sectionTitle}>Reviews</Text>
               <Text style={styles.sectionSub}>{reviewCount} reviews</Text>
             </View>
-            <TouchableOpacity onPress={openReviews}>
-              <Text style={[styles.seeAll, { color: accentColor }]}>See all ›</Text>
-            </TouchableOpacity>
-          </View>
+            <Text style={[styles.seeAll, { color: accentColor }]}>See all ›</Text>
+          </TouchableOpacity>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {reviews.length === 0 ? (
@@ -702,6 +700,7 @@ const styles = StyleSheet.create({
   ratingOverviewDetails: { width: 48, alignItems: 'flex-start', justifyContent: 'flex-end', paddingBottom: 0 },
   ratingAverage: { color: '#AAB4BF', fontSize: 14, lineHeight: 15, fontWeight: '400', fontVariant: ['tabular-nums'] },
   ratingStars: { color: '#00C853', fontSize: 7, letterSpacing: 0, marginTop: 0 },
+  reviewsHeaderCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#292D32', borderRadius: 7, paddingHorizontal: 14, paddingVertical: 13, marginBottom: 12 },
   reviewsSection: { marginTop: 6 },
   sectionHeader: { paddingHorizontal: 18, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#2C3440' },
   sectionTitle: { color: '#fff', fontSize: 19, fontWeight: '800' },
