@@ -513,7 +513,6 @@ export default function TrackPage() {
               <Text style={styles.friendStatusTitle}>LISTENED BY</Text>
               <Text style={styles.friendStatusArrow}>›</Text>
             </TouchableOpacity>
-            <View style={styles.friendStatusRule} />
             {listenedByFriends.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendAvatarRow}>
                 {listenedByFriends.map(person => (
@@ -753,7 +752,6 @@ const styles = StyleSheet.create({
   friendStatusHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
   friendStatusTitle: { color: '#AAB4BF', fontSize: 12, fontWeight: '500', letterSpacing: 1.4 },
   friendStatusArrow: { color: '#AAB4BF', fontSize: 25, lineHeight: 25, fontWeight: '300', paddingHorizontal: 4 },
-  friendStatusRule: { height: 1, backgroundColor: '#303943', marginBottom: 13 },
   friendStatusEmpty: { color: '#7F8B96', fontSize: 12, paddingVertical: 7 },
   friendAvatarRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 17, paddingRight: 8 },
   friendAvatarItem: { width: 76, alignItems: 'center' },
