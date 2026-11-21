@@ -182,14 +182,59 @@ export async function loadUserMusicLists() {
     .order('updated_at', { ascending: false });
   if (rowsError) throw rowsError;
 
-  const mapped = (rows || []).map((row: any) => ({
-    id: String(row.id),
-    name: row.name,
-    description: row.description,
-    privacy: row.privacy,
-    albums: Array.isArray(row.items) ? row.items : [],
-    createdAt: row.created_at,
-    shareToken: row.share_token,
+  const localById = new Map(safeLocalLists.map((list: any) => [String(list.id), list]));
+  const mapped = await Promise.all((rows || []).map(async (row: any) => {
+    const localList = localById.get(String(row.id));
+    const cloudItems = Array.isArray(row.items) ? row.items : [];
+    const localItems = Array.isArray(localList?.albums) ? localList.albums : [];
+    const mergedItems: any[] = [];
+    for (const item of [...localItems, ...cloudItems]) {
+      if (!mergedItems.some(existing => isSameItem(existing, item))) mergedItems.push(item);
+    }
+
+    // Preserve items added by older app versions before list actions synced to Supabase.
+    if (mergedItems.length > cloudItems.length) {
+      const now = new Date().toISOString();
+      const { error: mergeError } = await supabase
+        .from('music_lists')
+        .update({ items: mergedItems, updated_at: now })
+        .eq('id', String(row.id))
+        .eq('user_id', user.id);
+      if (mergeError) throw mergeError;
+
+      if (row.privacy === 'public') {
+        const listData = {
+          id: String(row.id),
+          name: row.name,
+          description: row.description || '',
+          privacy: row.privacy,
+          itemCount: mergedItems.length,
+          albums: mergedItems,
+          type: 'list',
+          createdAt: row.created_at,
+        };
+        const { error: profileError } = await supabase
+          .from('public_profile_items')
+          .upsert({
+            user_id: user.id,
+            section: 'lists',
+            item_key: String(row.id),
+            data: listData,
+            updated_at: now,
+          }, { onConflict: 'user_id,section,item_key' });
+        if (profileError) throw profileError;
+      }
+    }
+
+    return {
+      id: String(row.id),
+      name: row.name,
+      description: row.description,
+      privacy: row.privacy,
+      albums: mergedItems,
+      createdAt: row.created_at,
+      shareToken: row.share_token,
+    };
   }));
   await AsyncStorage.setItem('lists', JSON.stringify(mapped));
   return mapped;
