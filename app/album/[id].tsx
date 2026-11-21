@@ -3,7 +3,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useAppTheme } from '@/context/ThemeContext';
 import { sendMusicToFriend, shareMusicItem } from '@/utils/sharing';
 import { recordActivity } from '@/utils/activity';
-import { addMusicItemToList } from '@/utils/musicLists';
+import { addMusicItemToList, loadUserMusicLists } from '@/utils/musicLists';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -581,11 +581,16 @@ export default function AlbumPage() {
   }
 
   async function openListPicker() {
-    const data = await AsyncStorage.getItem('lists');
-    setUserLists(data ? JSON.parse(data) : []);
     setMenuVisible(false);
     setTrackMenuVisible(false);
-    setShowLists(true);
+    try {
+      const lists = await loadUserMusicLists();
+      setUserLists(lists);
+      setShowLists(true);
+    } catch (error: any) {
+      console.error('Could not load music lists:', error);
+      Alert.alert('Could not load lists', error?.message || 'Please try again.');
+    }
   }
 
   async function toggleAlbumCollection(kind: 'liked' | 'listened' | 'wantToListen') {
