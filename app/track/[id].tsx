@@ -49,9 +49,21 @@ export default function TrackPage() {
   const [shareLoading, setShareLoading] = useState(false);
 
   const loadTrack = useCallback(async () => {
-    if (!id) return;
     setLoading(true);
     setError('');
+    setTrack(null);
+    trackRef.current = null;
+    setArtistData(null);
+    setReviews([]);
+    setPeople({});
+    setReviewCount(0);
+    setAverageRating(0);
+    setMyActivity([]);
+    if (!id) {
+      setError('Song ID is missing.');
+      setLoading(false);
+      return;
+    }
     try {
       const [trackData, likedData, listenedData, wantData] = await Promise.all([
         getSpotifyTrack(String(id)),
