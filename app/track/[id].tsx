@@ -10,9 +10,6 @@ import { useCallback, useRef, useState } from 'react';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { ActivityIndicator, Alert, Image, ImageBackground, Linking, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-const HEART = '\u2665';
-const EMPTY_HEART = '\u2661';
-
 type TrackFriend = {
   id: string;
   username: string | null;
@@ -29,7 +26,8 @@ export default function TrackPage() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewCount, setReviewCount] = useState(0);
   const [averageRating, setAverageRating] = useState(0);
-  const [ratingDistribution, setRatingDistribution] = useState<{ rating: number; count: number }[]>([]);\n  const [listenedByFriends, setListenedByFriends] = useState<TrackFriend[]>([]);\n  const [wantToListenFriends, setWantToListenFriends] = useState<TrackFriend[]>([]);
+  const [ratingDistribution, setRatingDistribution] = useState<{ rating: number; count: number }[]>([]);
+  const [listenedByFriends, setListenedByFriends] = useState<TrackFriend[]>([]);\n  const [wantToListenFriends, setWantToListenFriends] = useState<TrackFriend[]>([]);
   const [people, setPeople] = useState<Record<string, any>>({});
   const [liked, setLiked] = useState(false);
   const [listened, setListened] = useState(false);
