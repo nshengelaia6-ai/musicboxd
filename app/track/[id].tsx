@@ -272,11 +272,11 @@ export default function TrackPage() {
     },
   })).current;
 
-  function openFriendStatuses() {
+  function openFriendStatuses(section: 'listened' | 'wants_to_listen' = 'listened') {
     if (!track) return;
     router.push({
       pathname: '/track/[id]/friends',
-      params: { id: String(track.id), itemName: track.name, artistName: artist },
+      params: { id: String(track.id), itemName: track.name, artistName: artist, section },
     } as any);
   }
 
@@ -333,13 +333,21 @@ export default function TrackPage() {
     if (kind === 'liked') setLiked(next);
     if (kind === 'listened') setListened(next);
     if (kind === 'wantToListen') setWantToListen(next);
+    const activityType = kind === 'liked' ? 'liked' : kind === 'listened' ? 'listened' : 'wants_to_listen';
     if (next) {
-      const activityType = kind === 'liked' ? 'liked' : kind === 'listened' ? 'listened' : 'wants_to_listen';
       await recordActivity(activityType, String(track.id), item);
       setMyActivity(current => [
         { id: `local-${Date.now()}`, activity_type: activityType, item_key: String(track.id), created_at: item.date },
         ...current,
       ].slice(0, 20));
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error: removeActivityError } = await supabase.from('user_activity')
+          .delete().eq('user_id', user.id).eq('item_key', String(track.id)).eq('activity_type', activityType);
+        if (removeActivityError) console.warn('Could not remove track activity:', removeActivityError);
+      }
+      setMyActivity(current => current.filter((entry: any) => entry.activity_type !== activityType));
     }
   }
 
@@ -531,7 +539,7 @@ export default function TrackPage() {
           </View>
           <View style={[styles.friendStatusGroup, { marginBottom: 13 }]}>
             <View style={styles.friendStatusTopRule} />
-            <TouchableOpacity style={styles.friendStatusHeader} onPress={openFriendStatuses} accessibilityRole="button" accessibilityLabel="See everyone who wants to listen">
+            <TouchableOpacity style={styles.friendStatusHeader} onPress={() => openFriendStatuses('wants_to_listen')} accessibilityRole="button" accessibilityLabel="See everyone who wants to listen">
               <Text style={styles.friendStatusTitle}>WANTS TO LISTEN</Text>
               <Text style={styles.friendStatusArrow}>›</Text>
             </TouchableOpacity>
