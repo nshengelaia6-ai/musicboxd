@@ -1167,7 +1167,7 @@ export default function AlbumPage() {
                 const list = existing ? JSON.parse(existing) : [];
 
                 if (newVal) {
-                  if (!list.find((i: any) => i.id === selectedTrack.id)) {
+                  if (!list.some((i: any) => String(i.id) === String(selectedTrack.id) && i.type === 'track')) {
                     list.unshift({
                       id: selectedTrack.id,
                       name: selectedTrack.name,
@@ -1179,7 +1179,7 @@ export default function AlbumPage() {
 }
                 } else {
                   const idx = list.findIndex(
-                    (i: any) => i.id === selectedTrack.id
+                    (i: any) => String(i.id) === String(selectedTrack.id) && i.type === 'track'
                   );
                   if (idx !== -1) list.splice(idx, 1);
                 }
