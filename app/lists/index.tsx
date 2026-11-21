@@ -443,6 +443,12 @@ export default function Lists() {
         </TouchableOpacity>}
       </View>
 
+      <View style={styles.siteNav}>
+        <TouchableOpacity onPress={() => router.replace('/members' as any)}><Text style={styles.navText}>MEMBERS</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace('/reviews' as any)}><Text style={styles.navText}>REVIEWS</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace('/lists' as any)}><Text style={[styles.navText, styles.navActive]}>LISTS</Text></TouchableOpacity>
+      </View>
+
       {lists.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyText}>No lists yet</Text>
@@ -736,6 +742,9 @@ export default function Lists() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#141414' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#222' },
+  siteNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, paddingTop: 14, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#292929' },
+  navText: { color: '#777', fontSize: 12, fontWeight: '700', letterSpacing: 1.1 },
+  navActive: { color: '#fff' },
   back: { color: '#fff', fontSize: 32, lineHeight: 36 },
   title: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
   plus: { color: '#1DB954', fontSize: 32, lineHeight: 36 },
