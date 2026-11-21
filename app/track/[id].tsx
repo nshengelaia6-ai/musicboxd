@@ -22,6 +22,7 @@ export default function TrackPage() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewCount, setReviewCount] = useState(0);
   const [averageRating, setAverageRating] = useState(0);
+  const [ratingDistribution, setRatingDistribution] = useState<{ rating: number; count: number }[]>([]);
   const [people, setPeople] = useState<Record<string, any>>({});
   const [liked, setLiked] = useState(false);
   const [listened, setListened] = useState(false);
@@ -58,6 +59,7 @@ export default function TrackPage() {
     setPeople({});
     setReviewCount(0);
     setAverageRating(0);
+    setRatingDistribution([]);
     setMyActivity([]);
     if (!id) {
       setError('Song ID is missing.');
@@ -139,6 +141,10 @@ export default function TrackPage() {
       setAverageRating(ratedReviews.length
         ? ratedReviews.reduce((sum: number, row: any) => sum + Number(row.rating), 0) / ratedReviews.length
         : 0);
+      setRatingDistribution(Array.from({ length: 10 }, (_, index) => {
+        const value = 5 - index * 0.5;
+        return { rating: value, count: ratedReviews.filter((row: any) => Number(row.rating) === value).length };
+      }));
       const userIds = [...new Set((reviewRows || []).map((row: any) => row.user_id))];
       const { data: profiles, error: profilesError } = userIds.length
         ? await supabase.from('users').select('id,username,avatar_url').in('id', userIds)
@@ -403,36 +409,29 @@ export default function TrackPage() {
           </Text>
         </View>
 
-        <View style={styles.ratingPanel}>
-          <Text style={styles.ratingNumber}>{averageRating ? averageRating.toFixed(1) : '—'}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.ratingTitle}>COMMUNITY RATING</Text>
-            <Text style={styles.ratingSub}>{reviewCount ? 'Average community rating' : 'No ratings yet'}</Text>
+        <View style={styles.reviewsHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Reviews</Text>
+            <Text style={styles.sectionSub}>{reviewCount} reviews</Text>
           </View>
-          <TouchableOpacity onPress={openReviews} style={styles.reviewCount}>
-            <Text style={styles.reviewCountNumber}>{reviewCount}</Text>
-            <Text style={styles.reviewCountLabel}>REVIEWS</Text>
+          <View style={styles.ratingBlock}>
+            <View style={styles.ratingOverview}>
+              <View style={styles.ratingHistogram}>
+                {ratingDistribution.slice().reverse().map(item => {
+                  const maxCount = Math.max(...ratingDistribution.map(row => row.count), 1);
+                  const barHeight = item.count > 0 ? Math.max(1, (item.count / maxCount) * 30) : 1;
+                  return <View key={item.rating} style={styles.histogramColumn}><View style={[styles.histogramBar, { height: barHeight }]} /></View>;
+                })}
+              </View>
+              <View style={styles.ratingOverviewDetails}>
+                <Text style={styles.ratingAverage}>{averageRating > 0 ? averageRating.toFixed(1) : '—'}</Text>
+                <Text style={styles.ratingStars}>★★★★★</Text>
+              </View>
+            </View>
+          </View>
+          <TouchableOpacity onPress={openReviews} style={styles.seeAllButton}>
+            <Text style={[styles.seeAll, { color: accentColor }]}>See all ›</Text>
           </TouchableOpacity>
-        </View>
-
-        <View style={styles.actions}>
-          <TouchableOpacity style={[styles.primaryAction, { backgroundColor: accentColor }]} onPress={writeReview}>
-            <Text style={styles.primaryActionText}>＋  Review</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.action, listened && styles.actionActive]} onPress={() => void toggleCollection('listened')}>
-            <Text style={styles.actionIcon}>◉</Text><Text style={styles.actionText}>{listened ? 'Listened' : 'Log'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.action, liked && styles.actionActive]} onPress={() => void toggleCollection('liked')}>
-            <Text style={[styles.actionIcon, liked && { color: accentColor }]}>{liked ? HEART : EMPTY_HEART}</Text><Text style={styles.actionText}>Like</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.action, wantToListen && styles.actionActive]} onPress={() => void toggleCollection('wantToListen')}>
-            <Text style={styles.actionIcon}>＋</Text><Text style={styles.actionText}>Watchlist</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.sectionHeader}>
-          <View><Text style={styles.sectionTitle}>Reviews</Text><Text style={styles.sectionSub}>What people are saying about this song</Text></View>
-          <TouchableOpacity onPress={openReviews}><Text style={[styles.seeAll, { color: accentColor }]}>See all ›</Text></TouchableOpacity>
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -533,13 +532,13 @@ export default function TrackPage() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#090909' },
-  topBar: { paddingTop: 58, paddingHorizontal: 18, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  back: { color: '#fff', fontSize: 30, width: 28 },
-  topTitle: { color: '#fff', fontSize: 13, fontWeight: '800', letterSpacing: 2 },
+  topBar: { paddingTop: 56, paddingHorizontal: 18, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  back: { color: '#fff', fontSize: 32, lineHeight: 34, width: 34 },
+  topTitle: { color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 2 },
   content: { paddingBottom: 44 },
   heroBackground: { height: 440, justifyContent: 'space-between', backgroundColor: '#17191d' },
   heroBackgroundImage: { opacity: 0.72 },
-  heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8, 10, 14, 0.28)' },
+  heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8, 10, 14, 0.48)' },
   heroFade: { position: 'absolute', left: 0, right: 0, bottom: 0, width: '100%', height: 190 },
   hero: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 16, paddingHorizontal: 18, paddingTop: 22, paddingBottom: 24 },
   heroInfo: { flex: 1, alignItems: 'flex-start' },
@@ -553,21 +552,16 @@ const styles = StyleSheet.create({
   listenButton: { backgroundColor: '#30343A', borderWidth: 1, borderColor: '#555B63', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 5 },
   listenButtonText: { color: '#E1E4E8', fontSize: 11, fontWeight: '700', letterSpacing: 1.5 },
   durationText: { color: '#AEB8C2', fontSize: 13, fontWeight: '600' },
-  ratingPanel: { marginHorizontal: 18, padding: 16, backgroundColor: '#171717', borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 14 },
-  ratingNumber: { color: '#fff', fontSize: 30, fontWeight: '800' },
-  ratingTitle: { color: '#ddd', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-  ratingSub: { color: '#777', fontSize: 11, marginTop: 4 },
-  reviewCount: { alignItems: 'center', paddingLeft: 12, borderLeftWidth: 1, borderLeftColor: '#333' },
-  reviewCountNumber: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  reviewCountLabel: { color: '#888', fontSize: 9, letterSpacing: 1, marginTop: 2 },
-  actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 20, gap: 8 },
-  primaryAction: { paddingHorizontal: 15, paddingVertical: 12, borderRadius: 7 },
-  primaryActionText: { color: '#fff', fontSize: 13, fontWeight: '800' },
-  action: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 7, backgroundColor: '#171717' },
-  actionActive: { backgroundColor: '#262626' },
-  actionIcon: { color: '#bbb', fontSize: 17, marginBottom: 4 },
-  actionText: { color: '#bbb', fontSize: 10, fontWeight: '600' },
-  sectionHeader: { marginTop: 8, paddingHorizontal: 18, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#262626' },
+  ratingBlock: { width: 148, marginLeft: 12 },
+  ratingOverview: { flexDirection: 'row', alignItems: 'flex-end', gap: 7, height: 34 },
+  ratingHistogram: { flex: 1, height: 32, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 1, paddingBottom: 1, borderBottomWidth: 1, borderBottomColor: '#52616F' },
+  histogramColumn: { flex: 1, height: 31, justifyContent: 'flex-end', alignItems: 'stretch' },
+  histogramBar: { width: '100%', backgroundColor: '#526575', borderTopLeftRadius: 1, borderTopRightRadius: 1 },
+  ratingOverviewDetails: { width: 39, alignItems: 'flex-start', justifyContent: 'flex-end', paddingBottom: 0 },
+  ratingAverage: { color: '#AAB4BF', fontSize: 14, lineHeight: 15, fontWeight: '400', fontVariant: ['tabular-nums'] },
+  ratingStars: { color: '#00C853', fontSize: 7, letterSpacing: 0, marginTop: 0 },
+  reviewsHeader: { paddingHorizontal: 18, paddingVertical: 10, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#2C3440', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  seeAllButton: { marginLeft: 8 },
   sectionTitle: { color: '#fff', fontSize: 19, fontWeight: '800' },
   sectionSub: { color: '#777', fontSize: 11, marginTop: 4 },
   seeAll: { fontSize: 13, fontWeight: '700' },
