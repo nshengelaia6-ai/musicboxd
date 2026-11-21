@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
 
     if (body.action === "track-members") {
       const itemId = typeof body.item_id === "string" ? body.item_id.trim() : "";
-      const relationship = ["liked", "listened", "wants_to_listen"].includes(body.relationship) ? body.relationship : "listened";
+      const relationship = ["liked", "listened", "wants_to_listen", "member"].includes(body.relationship) ? body.relationship : "listened";
       if (!itemId || itemId.length > 200) return respond({ error: "Invalid track ID" }, 400);
 
       const blockedResult = await supabase.from("blocked_users")
@@ -119,7 +119,10 @@ Deno.serve(async (req) => {
         if (!latestByUser[row.user_id][row.activity_type]) latestByUser[row.user_id][row.activity_type] = row;
       }
       let selectedIds = Object.keys(latestByUser).filter((id) =>
-        !blockedIds.has(id) && Boolean(latestByUser[id][relationship])
+        !blockedIds.has(id) &&
+        (relationship === "member"
+          ? Boolean(latestByUser[id].liked || latestByUser[id].listened || latestByUser[id].wants_to_listen)
+          : Boolean(latestByUser[id][relationship]))
       );
 
       if (body.scope === "friends") {
