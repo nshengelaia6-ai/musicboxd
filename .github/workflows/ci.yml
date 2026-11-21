@@ -42,5 +42,7 @@ jobs:
           deno-version: v2.x
       - name: Check Shared service
         run: deno check supabase/functions/swift-service/index.ts
+      - name: Check Spotify catalog service
+        run: deno check supabase/functions/spotify-search/index.ts
       - name: Check account deletion service
         run: deno check --config supabase/functions/delete-account/deno.json supabase/functions/delete-account/index.ts
