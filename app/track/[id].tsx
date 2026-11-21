@@ -686,7 +686,7 @@ export default function TrackPage() {
                   </View>
                   <Text style={styles.tabListArrow}>›</Text>
                 </TouchableOpacity>
-              )) : <Text style={styles.emptyText}>This song hasn't been added to any visible lists yet.</Text>}
+              )) : <Text style={styles.emptyText}>This song hasn&apos;t been added to any visible lists yet.</Text>}
             </View>
           ) : (
             <View>
