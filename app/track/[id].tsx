@@ -32,6 +32,7 @@ export default function TrackPage() {
   const activityRatingSelectionRef = useRef(0);
   const activityRatingStartX = useRef(0);
   const [myActivity, setMyActivity] = useState<any[]>([]);
+  const trackRef = useRef<any>(null);
   const updateActivityRating = (value: number) => {
     const next = Math.max(0, Math.min(5, Math.round(value * 2) / 2));
     activityRatingSelectionRef.current = next;
@@ -58,6 +59,7 @@ export default function TrackPage() {
         AsyncStorage.getItem('wantToListen'),
       ]);
       setTrack(trackData);
+      trackRef.current = trackData;
       setArtistData(null);
       const primaryArtistId = trackData?.artists?.[0]?.id;
       if (primaryArtistId) {
@@ -76,6 +78,20 @@ export default function TrackPage() {
       const likedItems = likedData ? JSON.parse(likedData) : [];
       const listenedItems = listenedData ? JSON.parse(listenedData) : [];
       const wantItems = wantData ? JSON.parse(wantData) : [];
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) {
+        const { data: activityRows, error: activityError } = await supabase
+          .from('user_activity')
+          .select('id,activity_type,item_key,created_at')
+          .eq('user_id', currentUser.id)
+          .eq('item_key', String(id))
+          .order('created_at', { ascending: false })
+          .limit(20);
+        if (activityError) throw activityError;
+        setMyActivity(activityRows || []);
+      } else {
+        setMyActivity([]);
+      }
       setLiked(likedItems.some((item: any) => String(item.id) === String(id) && item.type === 'track'));
       setListened(listenedItems.some((item: any) => String(item.id) === String(id) && item.type === 'track'));
       setWantToListen(wantItems.some((item: any) => String(item.id) === String(id) && item.type === 'track'));
@@ -142,12 +158,12 @@ export default function TrackPage() {
     },
     onPanResponderRelease: () => {
       const selected = activityRatingSelectionRef.current;
-      if (selected <= 0) return;
-      setMenuVisible(false);
+      const currentTrack = trackRef.current;
+      if (selected <= 0 || !currentTrack) return;
       router.push({ pathname: '/review/new', params: {
-        albumId: String(track?.id), albumName: track?.name, albumArtist: (track?.artists || []).map((person: any) => person.name).join(', '),
-        albumCover: track?.album?.images?.[0]?.url || '', itemType: 'track',
-        parentAlbumId: String(track?.album?.id || ''), currentRating: String(selected),
+        albumId: String(currentTrack.id), albumName: currentTrack.name, albumArtist: (currentTrack.artists || []).map((person: any) => person.name).join(', '),
+        albumCover: currentTrack.album?.images?.[0]?.url || '', itemType: 'track',
+        parentAlbumId: String(currentTrack.album?.id || ''), currentRating: String(selected),
       } } as any);
     },
   })).current;
