@@ -36,6 +36,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+      - name: Install npm dependencies for Deno checks
+        run: npm ci
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
