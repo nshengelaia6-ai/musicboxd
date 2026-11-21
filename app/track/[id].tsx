@@ -1,13 +1,14 @@
 import { useAppTheme } from '@/context/ThemeContext';
 import { recordActivity } from '@/utils/activity';
 import { getSpotifyTrack } from '@/utils/spotifyCatalog';
+import { addMusicItemToList } from '@/utils/musicLists';
 import { sendMusicToFriend, shareMusicItem } from '@/utils/sharing';
 import { supabase } from '@/utils/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { ActivityIndicator, Image, ImageBackground, Linking, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, ImageBackground, Linking, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const HEART = '\u2665';
 const EMPTY_HEART = '\u2661';
@@ -251,18 +252,20 @@ export default function TrackPage() {
   }
 
   async function addTrackToList(listId: string) {
-    const raw = await AsyncStorage.getItem('lists');
-    const lists = raw ? JSON.parse(raw) : [];
-    const index = lists.findIndex((entry: any) => String(entry.id) === listId);
-    if (index >= 0) {
-      const items = Array.isArray(lists[index].albums) ? lists[index].albums : [];
-      if (!items.some((entry: any) => String(entry.id) === String(track.id) && entry.type === 'track')) {
-        items.push({ id: String(track.id), name: track.name, artist, cover: cover || '', albumId: track.album?.id || '', type: 'track' });
-        lists[index].albums = items;
-        await AsyncStorage.setItem('lists', JSON.stringify(lists));
-      }
+    try {
+      await addMusicItemToList(listId, {
+        id: String(track.id),
+        name: track.name,
+        artist,
+        cover: cover || '',
+        albumId: String(track.album?.id || ''),
+        type: 'track',
+      });
+      setListsVisible(false);
+    } catch (error: any) {
+      console.error('Could not add track to list:', error);
+      Alert.alert('Could not add to list', error?.message || 'Please try again.');
     }
-    setListsVisible(false);
   }
 
   async function openFriendShare() {
