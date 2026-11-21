@@ -147,6 +147,46 @@ serve(async (req) => {
 
     const data = await spotifyResponse.json();
 
+    if (action === "album" && spotifyResponse.ok) {
+      const tracksUrl = new URL(
+        `https://api.spotify.com/v1/albums/${encodeURIComponent(id)}/tracks`
+      );
+      tracksUrl.searchParams.set("limit", "50");
+
+      const allTracks: unknown[] = [];
+      let nextUrl: string | null = tracksUrl.toString();
+      let totalTracks = 0;
+      let pages = 0;
+
+      while (nextUrl && pages < 5) {
+        const tracksResponse = await fetch(nextUrl, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const tracksPage = await tracksResponse.json();
+        if (!tracksResponse.ok) {
+          throw new Error(
+            tracksPage.error?.message || "Could not load the album tracklist."
+          );
+        }
+
+        allTracks.push(...(Array.isArray(tracksPage.items) ? tracksPage.items : []));
+        totalTracks = Number(tracksPage.total) || allTracks.length;
+        nextUrl = tracksPage.next || null;
+        pages += 1;
+        if (allTracks.length >= totalTracks) break;
+      }
+
+      data.tracks = {
+        ...(data.tracks || {}),
+        items: allTracks,
+        total: totalTracks || allTracks.length,
+        limit: 50,
+        offset: 0,
+        next: null,
+      };
+    }
+
     if (!spotifyResponse.ok) {
       console.error("Spotify API error:", data);
 
