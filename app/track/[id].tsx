@@ -533,7 +533,6 @@ export default function TrackPage() {
             </View>
             <View style={styles.ratingOverviewDetails}>
               <Text style={styles.ratingAverage}>{averageRating > 0 ? averageRating.toFixed(1) : '—'}</Text>
-              <Text style={styles.ratingStars}>★★★★★</Text>
             </View>
           </View>
         </View>
@@ -766,7 +765,6 @@ const styles = StyleSheet.create({
   histogramBar: { width: '100%', backgroundColor: '#526575', borderTopLeftRadius: 1, borderTopRightRadius: 1 },
   ratingOverviewDetails: { width: 48, alignItems: 'flex-start', justifyContent: 'flex-end', paddingBottom: 0 },
   ratingAverage: { color: '#AAB4BF', fontSize: 14, lineHeight: 15, fontWeight: '400', fontVariant: ['tabular-nums'] },
-  ratingStars: { color: '#00C853', fontSize: 7, letterSpacing: 0, marginTop: 0 },
   trackTopNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#30343A', marginBottom: 18, paddingHorizontal: 4 },
   trackTopNavItem: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
   trackTopNavActive: { borderBottomWidth: 2, borderBottomColor: '#FFFFFF' },
