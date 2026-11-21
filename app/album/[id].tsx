@@ -759,12 +759,16 @@ export default function AlbumPage() {
                   <Text style={styles.friendStatusTitle}>YOUR FRIENDS</Text>
                   <Text style={styles.friendStatusCount}>{listenedByFriends.length} LISTENED</Text>
                 </View>
+                <View style={styles.friendStatusRule} />
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendAvatarRow}>
                   {listenedByFriends.map((person) => (
                     <TouchableOpacity key={person.id} style={styles.friendAvatarItem} onPress={() => router.push(`/user/${person.id}` as any)} accessibilityRole="button" accessibilityLabel={`${person.username || 'Friend'} listened to this album`}>
-                      {person.avatar_url
-                        ? <Image source={{ uri: person.avatar_url }} style={styles.friendStatusAvatar} />
-                        : <View style={styles.friendStatusAvatarFallback}><Text style={styles.friendStatusInitial}>{(person.username || 'U').slice(0, 1).toUpperCase()}</Text></View>}
+                      <View style={styles.friendAvatarWrap}>
+                        {person.avatar_url
+                          ? <Image source={{ uri: person.avatar_url }} style={styles.friendStatusAvatar} />
+                          : <View style={styles.friendStatusAvatarFallback}><Text style={styles.friendStatusInitial}>{(person.username || 'U').slice(0, 1).toUpperCase()}</Text></View>}
+                        <View style={styles.friendAvatarMenu}><Text style={styles.friendAvatarMenuText}>≡</Text></View>
+                      </View>
                       <View style={styles.friendRatingStars}>
                         {Array.from({ length: 5 }, (_, index) => (
                           <Text key={index} style={[styles.friendRatingStar, (person.rating || 0) >= index + 0.5 && styles.friendRatingStarActive]}>★</Text>
@@ -781,12 +785,16 @@ export default function AlbumPage() {
                   <Text style={styles.friendStatusTitle}>WANTS TO LISTEN</Text>
                   <Text style={styles.friendStatusCount}>{wantToListenFriends.length}</Text>
                 </View>
+                <View style={styles.friendStatusRule} />
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendAvatarRow}>
                   {wantToListenFriends.map((person) => (
                     <TouchableOpacity key={person.id} style={styles.friendAvatarItem} onPress={() => router.push(`/user/${person.id}` as any)} accessibilityRole="button" accessibilityLabel={`${person.username || 'Friend'} wants to listen to this album`}>
-                      {person.avatar_url
-                        ? <Image source={{ uri: person.avatar_url }} style={styles.friendStatusAvatar} />
-                        : <View style={styles.friendStatusAvatarFallback}><Text style={styles.friendStatusInitial}>{(person.username || 'U').slice(0, 1).toUpperCase()}</Text></View>}
+                      <View style={styles.friendAvatarWrap}>
+                        {person.avatar_url
+                          ? <Image source={{ uri: person.avatar_url }} style={styles.friendStatusAvatar} />
+                          : <View style={styles.friendStatusAvatarFallback}><Text style={styles.friendStatusInitial}>{(person.username || 'U').slice(0, 1).toUpperCase()}</Text></View>}
+                        <View style={styles.friendAvatarMenu}><Text style={styles.friendAvatarMenuText}>≡</Text></View>
+                      </View>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -1555,18 +1563,22 @@ const styles = StyleSheet.create({
   actionIcon: { color: '#D5DADF', fontSize: 21, marginBottom: 5 },
   actionText: { color: '#D5DADF', fontSize: 10, fontWeight: '600' },
   friendStatusSection: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#2C3440' },
-  friendStatusGroup: { marginBottom: 16 },
-  friendStatusHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 },
-  friendStatusTitle: { color: '#AAB4BF', fontSize: 10, fontWeight: '800', letterSpacing: 1.5 },
-  friendStatusCount: { color: '#687583', fontSize: 9, fontWeight: '700', letterSpacing: 1 },
-  friendAvatarRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 13, paddingRight: 8 },
-  friendAvatarItem: { width: 54, alignItems: 'center' },
-  friendStatusAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#3A4653' },
-  friendStatusAvatarFallback: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#3A4653', alignItems: 'center', justifyContent: 'center' },
-  friendStatusInitial: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  friendRatingStars: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 5 },
-  friendRatingStar: { color: '#53616D', fontSize: 9, lineHeight: 11 },
-  friendRatingStarActive: { color: '#00C853' },
+  friendStatusGroup: { marginBottom: 17 },
+  friendStatusHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
+  friendStatusTitle: { color: '#AAB4BF', fontSize: 12, fontWeight: '500', letterSpacing: 1.4 },
+  friendStatusCount: { color: '#9BA7B2', fontSize: 10, fontWeight: '500', letterSpacing: 0.7 },
+  friendStatusRule: { height: 1, backgroundColor: '#303943', marginBottom: 13 },
+  friendAvatarRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 17, paddingRight: 8 },
+  friendAvatarItem: { width: 76, alignItems: 'center' },
+  friendAvatarWrap: { width: 76, height: 76, position: 'relative', alignItems: 'center', justifyContent: 'center' },
+  friendStatusAvatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#3A4653' },
+  friendStatusAvatarFallback: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#3A4653', alignItems: 'center', justifyContent: 'center' },
+  friendStatusInitial: { color: '#fff', fontSize: 23, fontWeight: '700' },
+  friendAvatarMenu: { position: 'absolute', top: 0, right: 0, width: 23, height: 23, borderRadius: 12, backgroundColor: '#34404B', borderWidth: 2, borderColor: '#17191D', alignItems: 'center', justifyContent: 'center' },
+  friendAvatarMenuText: { color: '#AAB4BF', fontSize: 15, lineHeight: 17, fontWeight: '700' },
+  friendRatingStars: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  friendRatingStar: { color: '#53616D', fontSize: 13, lineHeight: 15 },
+  friendRatingStarActive: { color: '#53616D' },
   reviewsSection: { marginTop: 6 },
   sectionHeader: { paddingHorizontal: 18, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#2C3440' },
   sectionTitle: { color: '#fff', fontSize: 19, fontWeight: '800' },
