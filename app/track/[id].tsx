@@ -57,6 +57,7 @@ export default function TrackPage() {
   const [shareMessage, setShareMessage] = useState('');
   const [shareError, setShareError] = useState('');
   const [shareLoading, setShareLoading] = useState(false);
+  const [detailInfo, setDetailInfo] = useState<{ label: string; value: string; description: string } | null>(null);
 
 
   async function loadFriendTrackStatuses(trackId: string) {
@@ -580,51 +581,48 @@ export default function TrackPage() {
         <View style={styles.trackDetailsSection}>
           <Text style={styles.trackDetailsHeading}>TRACK DETAILS</Text>
           <View style={styles.trackDetailsRows}>
-            <View style={styles.trackDetailRow}>
-              <Text style={styles.trackDetailLabel}>ARTISTS</Text>
-              <Text style={styles.trackDetailValue}>{artist || '—'}</Text>
-            </View>
-            <View style={styles.trackDetailRow}>
-              <Text style={styles.trackDetailLabel}>ALBUM</Text>
-              <TouchableOpacity onPress={() => track.album?.id && router.push(`/album/${track.album.id}` as any)}>
-                <Text style={[styles.trackDetailValue, styles.trackDetailLink]}>{track.album?.name || '—'}</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.trackDetailRow}>
-              <Text style={styles.trackDetailLabel}>RELEASE DATE</Text>
-              <Text style={styles.trackDetailValue}>{releaseDate || '—'}</Text>
-            </View>
-            <View style={styles.trackDetailRow}>
-              <Text style={styles.trackDetailLabel}>GENRES</Text>
-              <Text style={styles.trackDetailValue}>{Array.isArray(artistData?.genres) && artistData.genres.length ? artistData.genres.map((genre: string) => genre.replace(/\b\w/g, letter => letter.toUpperCase())).join(' · ') : '—'}</Text>
-            </View>
-            <View style={styles.trackDetailRow}>
-              <Text style={styles.trackDetailLabel}>DURATION</Text>
-              <Text style={styles.trackDetailValue}>{track.duration_ms ? `${Math.floor(track.duration_ms / 60000)}:${String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '—'}</Text>
-            </View>
-            <View style={styles.trackDetailRow}>
-              <Text style={styles.trackDetailLabel}>TRACK NUMBER</Text>
-              <Text style={styles.trackDetailValue}>{track.track_number ? `${track.track_number} of ${track.album?.total_tracks || '—'}` : '—'}</Text>
-            </View>
-            <View style={styles.trackDetailRow}>
-              <Text style={styles.trackDetailLabel}>DISC</Text>
-              <Text style={styles.trackDetailValue}>{track.disc_number || '—'}</Text>
-            </View>
-            <View style={styles.trackDetailRow}>
-              <Text style={styles.trackDetailLabel}>RELEASE TYPE</Text>
-              <Text style={styles.trackDetailValue}>{track.album?.album_type ? track.album.album_type.replace(/\b\w/g, (letter: string) => letter.toUpperCase()) : '—'}</Text>
-            </View>
-            {track.explicit ? (
-              <View style={styles.trackDetailRow}>
-                <Text style={styles.trackDetailLabel}>CONTENT</Text>
-                <Text style={styles.trackDetailValue}>Explicit</Text>
-              </View>
-            ) : null}
+            <TouchableOpacity style={styles.trackDetailRow} onPress={() => setDetailInfo({ label: 'ARTISTS', value: artist || '—', description: 'The artist or artists credited for this song.' })}>
+              <Text style={styles.trackDetailLabel}>ARTISTS</Text><Text style={styles.trackDetailValue}>{artist || '—'}  ›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.trackDetailRow} onPress={() => track.album?.id ? router.push('/album/' + track.album.id as any) : setDetailInfo({ label: 'ALBUM', value: track.album?.name || '—', description: 'The album this song belongs to.' })}>
+              <Text style={styles.trackDetailLabel}>ALBUM</Text><Text style={[styles.trackDetailValue, styles.trackDetailLink]}>{track.album?.name || '—'}  ›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.trackDetailRow} onPress={() => setDetailInfo({ label: 'RELEASE DATE', value: releaseDate || '—', description: 'The original release date provided by Spotify.' })}>
+              <Text style={styles.trackDetailLabel}>RELEASE DATE</Text><Text style={styles.trackDetailValue}>{releaseDate || '—'}  ›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.trackDetailRow} onPress={() => setDetailInfo({ label: 'GENRES', value: Array.isArray(artistData?.genres) && artistData.genres.length ? artistData.genres.map((genre: string) => genre.replace(/\b\w/g, letter => letter.toUpperCase())).join(' · ') : '—', description: 'Genres are based on the primary artist’s Spotify profile.' })}>
+              <Text style={styles.trackDetailLabel}>GENRES</Text><Text style={styles.trackDetailValue}>{Array.isArray(artistData?.genres) && artistData.genres.length ? artistData.genres.map((genre: string) => genre.replace(/\b\w/g, letter => letter.toUpperCase())).join(' · ') : '—'}  ›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.trackDetailRow} onPress={() => setDetailInfo({ label: 'DURATION', value: track.duration_ms ? Math.floor(track.duration_ms / 60000) + ':' + String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0') : '—', description: 'The total playing time of this song.' })}>
+              <Text style={styles.trackDetailLabel}>DURATION</Text><Text style={styles.trackDetailValue}>{track.duration_ms ? Math.floor(track.duration_ms / 60000) + ':' + String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0') : '—'}  ›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.trackDetailRow} onPress={() => setDetailInfo({ label: 'TRACK NUMBER', value: track.track_number ? track.track_number + ' of ' + (track.album?.total_tracks || '—') : '—', description: 'This song’s position in the album tracklist.' })}>
+              <Text style={styles.trackDetailLabel}>TRACK NUMBER</Text><Text style={styles.trackDetailValue}>{track.track_number ? track.track_number + ' of ' + (track.album?.total_tracks || '—') : '—'}  ›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.trackDetailRow} onPress={() => setDetailInfo({ label: 'DISC', value: String(track.disc_number || '—'), description: 'The disc number on the original release.' })}>
+              <Text style={styles.trackDetailLabel}>DISC</Text><Text style={styles.trackDetailValue}>{track.disc_number || '—'}  ›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.trackDetailRow} onPress={() => setDetailInfo({ label: 'RELEASE TYPE', value: track.album?.album_type ? track.album.album_type.replace(/\b\w/g, (letter: string) => letter.toUpperCase()) : '—', description: 'Spotify classifies the release as an album, single, or compilation.' })}>
+              <Text style={styles.trackDetailLabel}>RELEASE TYPE</Text><Text style={styles.trackDetailValue}>{track.album?.album_type ? track.album.album_type.replace(/\b\w/g, (letter: string) => letter.toUpperCase()) : '—'}  ›</Text>
+            </TouchableOpacity>
+            {track.explicit ? <TouchableOpacity style={styles.trackDetailRow} onPress={() => setDetailInfo({ label: 'CONTENT', value: 'Explicit', description: 'Spotify marks this song as containing explicit language or content.' })}>
+              <Text style={styles.trackDetailLabel}>CONTENT</Text><Text style={styles.trackDetailValue}>Explicit  ›</Text>
+            </TouchableOpacity> : null}
           </View>
         </View>
 
       </ScrollView>
 
+      <Modal visible={!!detailInfo} transparent animationType="fade" onRequestClose={() => setDetailInfo(null)}>
+        <Pressable style={styles.detailInfoOverlay} onPress={() => setDetailInfo(null)}>
+          <Pressable style={styles.detailInfoCard} onPress={() => {}}>
+            <Text style={styles.detailInfoTitle}>{detailInfo?.label}</Text>
+            <Text style={styles.detailInfoValue}>{detailInfo?.value}</Text>
+            <Text style={styles.detailInfoDescription}>{detailInfo?.description}</Text>
+            <TouchableOpacity style={styles.detailInfoDone} onPress={() => setDetailInfo(null)}><Text style={styles.detailInfoDoneText}>CLOSE</Text></TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
       <Modal visible={menuVisible} transparent animationType="slide" onRequestClose={() => setMenuVisible(false)}>
         <Pressable style={styles.menuOverlay} onPress={() => setMenuVisible(false)} />
         <View style={styles.menuSheet}>
@@ -740,6 +738,13 @@ const styles = StyleSheet.create({
   trackDetailLabel: { color: '#77828D', fontSize: 10, fontWeight: '700', letterSpacing: 1.1, flex: 0.85 },
   trackDetailValue: { color: '#D9DEE3', fontSize: 12, fontWeight: '500', textAlign: 'right', flex: 1.4, lineHeight: 18 },
   trackDetailLink: { color: '#FFFFFF', textDecorationLine: 'underline' },
+  detailInfoOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28 },
+  detailInfoCard: { width: '100%', backgroundColor: '#202328', borderRadius: 10, borderWidth: 1, borderColor: '#39414A', padding: 22 },
+  detailInfoTitle: { color: '#8995A1', fontSize: 10, fontWeight: '800', letterSpacing: 1.6 },
+  detailInfoValue: { color: '#F0F2F4', fontSize: 19, fontWeight: '700', lineHeight: 27, marginTop: 12 },
+  detailInfoDescription: { color: '#AAB4BF', fontSize: 12, lineHeight: 19, marginTop: 10 },
+  detailInfoDone: { alignSelf: 'flex-end', paddingVertical: 12, paddingHorizontal: 4, marginTop: 12 },
+  detailInfoDoneText: { color: '#E5E9EC', fontSize: 11, fontWeight: '800', letterSpacing: 1.3 },
   reviewsHeaderCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#292D32', borderRadius: 7, paddingHorizontal: 14, paddingVertical: 13, marginBottom: 12 },
   reviewsSection: { marginTop: 6 },
   sectionHeader: { paddingHorizontal: 18, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#2C3440' },
