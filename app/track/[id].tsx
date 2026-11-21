@@ -539,7 +539,13 @@ export default function TrackPage() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {reviews.length === 0 ? (
-          <View style={styles.empty}><Text style={styles.emptyTitle}>No reviews yet</Text><Text style={styles.emptyText}>Be the first to write about this song.</Text><TouchableOpacity onPress={writeReview}><Text style={[styles.emptyLink, { color: accentColor }]}>Write the first review ›</Text></TouchableOpacity></View>
+          <View style={styles.emptyReviews}>
+            <Text style={styles.emptyTitle}>No reviews yet</Text>
+            <Text style={styles.emptyText}>Be the first to write about this song.</Text>
+            <TouchableOpacity onPress={writeReview}>
+              <Text style={[styles.emptyLink, { color: accentColor }]}>Write the first review ›</Text>
+            </TouchableOpacity>
+          </View>
         ) : reviews.map((review: any) => {
           const person = people[review.user_id];
           return (
@@ -556,6 +562,7 @@ export default function TrackPage() {
             </TouchableOpacity>
           );
         })}
+        </View>
 
         <TouchableOpacity style={styles.albumRow} onPress={() => router.push(`/album/${track.album?.id}` as any)}>
           {cover ? <Image source={{ uri: cover }} style={styles.albumCover} /> : <View style={styles.albumCover} />}
@@ -669,10 +676,10 @@ const styles = StyleSheet.create({
   sectionSub: { color: '#9BA7B2', fontSize: 11, marginTop: 4 },
   seeAll: { fontSize: 13, fontWeight: '700' },
   reviewRating: { color: '#00E054', fontSize: 14, fontWeight: '700', marginTop: 9 },
-  empty: { alignItems: 'center', paddingVertical: 34, paddingHorizontal: 20 },
-  emptyTitle: { color: '#ddd', fontSize: 15, fontWeight: '700' },
-  emptyText: { color: '#888', fontSize: 12, marginTop: 7, textAlign: 'center' },
-  emptyLink: { fontSize: 13, fontWeight: '700', marginTop: 14 },
+  emptyReviews: { alignItems: 'center', paddingVertical: 28, paddingHorizontal: 20 },
+  emptyTitle: { color: '#E5E9EC', fontSize: 15, fontWeight: '700' },
+  emptyText: { color: '#9BA7B2', fontSize: 12, marginTop: 7, textAlign: 'center' },
+  emptyLink: { fontSize: 13, fontWeight: '700', marginTop: 13 },
   reviewCard: { paddingHorizontal: 18, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#2C3440' },
   reviewerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3A4653' },
