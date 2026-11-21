@@ -28,13 +28,14 @@ export default function TrackPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [menuVisible, setMenuVisible] = useState(false);
-  const [menuRatingSelection, setMenuRatingSelection] = useState(0);
-  const menuRatingSelectionRef = useRef(0);
-  const menuRatingStartX = useRef(0);
-  const updateMenuRating = (value: number) => {
+  const [activityRatingSelection, setActivityRatingSelection] = useState(0);
+  const activityRatingSelectionRef = useRef(0);
+  const activityRatingStartX = useRef(0);
+  const [myActivity, setMyActivity] = useState<any[]>([]);
+  const updateActivityRating = (value: number) => {
     const next = Math.max(0, Math.min(5, Math.round(value * 2) / 2));
-    menuRatingSelectionRef.current = next;
-    setMenuRatingSelection(next);
+    activityRatingSelectionRef.current = next;
+    setActivityRatingSelection(next);
   };
   const [listsVisible, setListsVisible] = useState(false);
   const [userLists, setUserLists] = useState<any[]>([]);
@@ -123,24 +124,24 @@ export default function TrackPage() {
   const releaseDate = track?.album?.release_date || '';
   const releaseYear = releaseDate ? releaseDate.slice(0, 4) : '';
 
-  const menuStarWidth = 30;
-  const menuStarGap = 13;
-  const menuStarsWidth = menuStarWidth * 5 + menuStarGap * 4;
-  const menuRatingResponder = useRef(PanResponder.create({
+  const activityStarWidth = 30;
+  const activityStarGap = 13;
+  const activityStarsWidth = activityStarWidth * 5 + activityStarGap * 4;
+  const activityRatingResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
     onPanResponderTerminationRequest: () => false,
     onPanResponderGrant: (event) => {
-      menuRatingStartX.current = event.nativeEvent.locationX;
-      const x = Math.max(0, Math.min(menuRatingStartX.current, menuStarsWidth));
-      updateMenuRating(Math.max(0.5, Math.min(5, Math.ceil((x / (menuStarWidth + menuStarGap)) * 2) / 2)));
+      activityRatingStartX.current = event.nativeEvent.locationX;
+      const x = Math.max(0, Math.min(activityRatingStartX.current, activityStarsWidth));
+      updateActivityRating(Math.max(0.5, Math.min(5, Math.ceil((x / (activityStarWidth + activityStarGap)) * 2) / 2)));
     },
     onPanResponderMove: (_event, gesture) => {
-      const x = Math.max(0, Math.min(menuRatingStartX.current + gesture.dx, menuStarsWidth));
-      updateMenuRating(Math.max(0.5, Math.min(5, Math.ceil((x / (menuStarWidth + menuStarGap)) * 2) / 2)));
+      const x = Math.max(0, Math.min(activityRatingStartX.current + gesture.dx, activityStarsWidth));
+      updateActivityRating(Math.max(0.5, Math.min(5, Math.ceil((x / (activityStarWidth + activityStarGap)) * 2) / 2)));
     },
     onPanResponderRelease: () => {
-      const selected = menuRatingSelectionRef.current;
+      const selected = activityRatingSelectionRef.current;
       if (selected <= 0) return;
       setMenuVisible(false);
       router.push({ pathname: '/review/new', params: {
@@ -372,6 +373,33 @@ export default function TrackPage() {
           </TouchableOpacity>
         </View>
 
+        <View style={styles.pageRatingSection}>
+          <Text style={styles.pageRatingTitle}>YOUR RATING</Text>
+          <View style={styles.pageRatingStars} {...activityRatingResponder.panHandlers} accessibilityRole="adjustable" accessibilityLabel="Your song rating">
+            {[1, 2, 3, 4, 5].map(value => {
+              const fill = Math.max(0, Math.min(1, activityRatingSelection - (value - 1)));
+              return (
+                <View key={value} style={{ width: activityStarWidth, height: 38 }}>
+                  <Text style={styles.menuRatingStar}>★</Text>
+                  {fill > 0 && <View style={{ position: 'absolute', left: 0, top: 0, width: activityStarWidth * fill, height: 38, overflow: 'hidden' }}><Text style={styles.menuRatingStarActive}>★</Text></View>}
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.activitySection}>
+          <Text style={styles.activityTitle}>SHOW YOUR ACTIVITY</Text>
+          {myActivity.length === 0 ? (
+            <Text style={styles.activityEmpty}>Your activity with this song will appear here.</Text>
+          ) : myActivity.map((entry: any) => (
+            <View key={entry.id} style={styles.activityRow}>
+              <Text style={styles.activityRowText}>{entry.activity_type === 'listened' ? 'Listened' : entry.activity_type === 'liked' ? 'Liked' : entry.activity_type === 'wants_to_listen' ? 'Want to listen' : entry.activity_type === 'reviewed' ? 'Reviewed' : entry.activity_type}</Text>
+              <Text style={styles.activityDate}>{new Date(entry.created_at).toLocaleDateString()}</Text>
+            </View>
+          ))}
+        </View>
+
         <View style={styles.sectionHeader}>
           <View><Text style={styles.sectionTitle}>Reviews</Text><Text style={styles.sectionSub}>What people are saying about this song</Text></View>
           <TouchableOpacity onPress={openReviews}><Text style={[styles.seeAll, { color: accentColor }]}>See all ›</Text></TouchableOpacity>
@@ -413,37 +441,6 @@ export default function TrackPage() {
             <View style={{ flex: 1 }}>
               <Text style={styles.menuSongTitle} numberOfLines={1}>{track.name}</Text>
               <Text style={styles.menuSongArtist} numberOfLines={1}>{artist}</Text>
-            </View>
-          </View>
-          <View style={styles.menuRatingSection}>
-            <View style={styles.menuRatingHeading}>
-              <Text style={styles.menuRatingTitle}>YOUR RATING</Text>
-            </View>
-            <View
-              style={styles.menuRatingStars}
-              {...menuRatingResponder.panHandlers}
-              accessibilityRole="adjustable"
-              accessibilityLabel="Your song rating"
-              onAccessibilityAction={(event: any) => {
-                const action = event.nativeEvent.actionName;
-                if (action === 'increment') setMenuRatingSelection(value => Math.min(5, value + 0.5));
-                if (action === 'decrement') setMenuRatingSelection(value => Math.max(0.5, value - 0.5));
-              }}
-            >
-              {[1, 2, 3, 4, 5].map(value => {
-                const selectedRating = menuRatingSelection;
-                const fill = Math.max(0, Math.min(1, selectedRating - (value - 1)));
-                return (
-                  <View key={value} style={{ width: menuStarWidth, height: 38 }}>
-                    <Text style={styles.menuRatingStar}>★</Text>
-                    {fill > 0 && (
-                      <View style={{ position: 'absolute', left: 0, top: 0, width: menuStarWidth * fill, height: 38, overflow: 'hidden' }}>
-                        <Text style={styles.menuRatingStarActive}>★</Text>
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
             </View>
           </View>
           <View style={styles.menuQuickActions}>
@@ -566,10 +563,15 @@ const styles = StyleSheet.create({
   menuCancel: { alignItems: 'center', paddingVertical: 12 },
   menuCancelText: { color: '#aaa', fontSize: 14 },
 
-  menuRatingSection: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#343438', marginBottom: 12 },
-  menuRatingHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  menuRatingTitle: { color: '#aaa', fontSize: 10, fontWeight: '800', letterSpacing: 1.4 },
-  menuRatingStars: { width: 202, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
   menuRatingStar: { color: '#456052', fontSize: 30, lineHeight: 36 },
   menuRatingStarActive: { color: '#00E054', fontSize: 30, lineHeight: 36 },
+  pageRatingSection: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 17, borderBottomWidth: 1, borderBottomColor: '#262626' },
+  pageRatingTitle: { color: '#aaa', fontSize: 10, fontWeight: '800', letterSpacing: 1.4, textAlign: 'center', marginBottom: 7 },
+  pageRatingStars: { width: 202, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  activitySection: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#262626' },
+  activityTitle: { color: '#ddd', fontSize: 11, fontWeight: '800', letterSpacing: 1.3, marginBottom: 10 },
+  activityEmpty: { color: '#777', fontSize: 12, paddingVertical: 8 },
+  activityRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#222' },
+  activityRowText: { color: '#ddd', fontSize: 13 },
+  activityDate: { color: '#777', fontSize: 11 },
 });
