@@ -340,7 +340,7 @@ export default function AlbumPage() {
       const listenedData = await AsyncStorage.getItem('listened');
       const listenedList = listenedData ? JSON.parse(listenedData) : [];
       const foundListened = listenedList.find(
-        (i: any) => i.id === data.id
+        (i: any) => String(i.id) === String(data.id) && (i.type || 'album') === 'album'
       );
 
       setListened(!!foundListened);
@@ -349,23 +349,36 @@ export default function AlbumPage() {
       const wantData = await AsyncStorage.getItem('wantToListen');
       const wantList = wantData ? JSON.parse(wantData) : [];
       setWantToListen(
-        !!wantList.find((i: any) => i.id === data.id)
+        !!wantList.find((i: any) => String(i.id) === String(data.id) && (i.type || 'album') === 'album')
       );
 
       const likedData = await AsyncStorage.getItem('liked');
       const likedList = likedData ? JSON.parse(likedData) : [];
       setLiked(
-        !!likedList.find((i: any) => i.id === data.id)
+        !!likedList.find((i: any) => String(i.id) === String(data.id) && (i.type || 'album') === 'album')
       );
 
       const reviewsData = await AsyncStorage.getItem('reviews');
       const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
       const foundReview = reviewsList.find(
-        (i: any) => i.albumId === data.id
+        (i: any) => String(i.albumId) === String(data.id) && (i.itemType || 'album') === 'album'
       );
 
       if (foundReview?.rating) {
         setRating(foundReview.rating);
+      }
+
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) {
+        const { data: myAlbumReview, error: myAlbumReviewError } = await supabase
+          .from('music_reviews')
+          .select('rating')
+          .eq('user_id', currentUser.id)
+          .eq('item_type', 'album')
+          .eq('item_id', String(data.id))
+          .maybeSingle();
+        if (myAlbumReviewError) throw myAlbumReviewError;
+        if (myAlbumReview) setRating(Number(myAlbumReview.rating) || 0);
       }
     } catch (error) {
       console.log('Album loading error:', error);
@@ -426,28 +439,40 @@ export default function AlbumPage() {
     const wantData = await AsyncStorage.getItem('wantToListen');
     const wantList = wantData ? JSON.parse(wantData) : [];
     setTrackWantToListen(
-      !!wantList.find((i: any) => i.id === track.id)
+      !!wantList.find((i: any) => String(i.id) === String(track.id) && i.type === 'track')
     );
 
     const likedData = await AsyncStorage.getItem('liked');
     const likedList = likedData ? JSON.parse(likedData) : [];
     setTrackLiked(
-      !!likedList.find((i: any) => i.id === track.id)
+      !!likedList.find((i: any) => String(i.id) === String(track.id) && i.type === 'track')
     );
 
     const reviewsData = await AsyncStorage.getItem('reviews');
     const reviewsList = reviewsData ? JSON.parse(reviewsData) : [];
     const foundReview = reviewsList.find(
-      (i: any) => i.albumId === track.id
+      (i: any) => String(i.albumId) === String(track.id) && i.itemType === 'track'
     );
 
     if (foundReview?.rating) setTrackRating(foundReview.rating);
+
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser) {
+      const { data: myTrackReview, error: myTrackReviewError } = await supabase
+        .from('music_reviews')
+        .select('rating')
+        .eq('user_id', currentUser.id)
+        .eq('item_type', 'track')
+        .eq('item_id', String(track.id))
+        .maybeSingle();
+      if (myTrackReviewError) throw myTrackReviewError;
+      if (myTrackReview) setTrackRating(Number(myTrackReview.rating) || 0);
+    }
   }
 
   async function openShareWithFriends(item: any) {
     setMenuVisible(false);
     setTrackMenuVisible(false);
-
     setShareItem(item);
     setSelectedFriendId('');
     setShareMessage('');
@@ -458,45 +483,38 @@ export default function AlbumPage() {
     setShareLoading(true);
 
     try {
-      const myId = await AsyncStorage.getItem('supabase_user_id');
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!user) throw new Error('Please sign in again.');
 
-      if (!myId) {
-        setShareError('Please sign in again to share music.');
-        return;
-      }
+      const [following, followers] = await Promise.all([
+        supabase.from('friendships').select('friend_id').eq('user_id', user.id),
+        supabase.from('friendships').select('user_id').eq('friend_id', user.id),
+      ]);
+      if (following.error) throw following.error;
+      if (followers.error) throw followers.error;
 
-      const { data, error } = await supabase
-        .from('friendships')
-        .select('user_id, friend_id')
-        .or(`user_id.eq.${myId},friend_id.eq.${myId}`);
+      const followingIds = new Set((following.data || []).map((row: any) => String(row.friend_id)));
+      const mutualIds = [...new Set((followers.data || [])
+        .map((row: any) => String(row.user_id))
+        .filter((friendId: string) => followingIds.has(friendId)))];
 
-      if (error) throw error;
-
-      const friendIds = [...new Set((data || [])
-        .map((row: any) => row.user_id === myId ? row.friend_id : row.user_id)
-        .filter(Boolean))];
-
-      if (friendIds.length === 0) {
-        setShareError('No friends found. Follow people first.');
+      if (!mutualIds.length) {
+        setShareError('No mutual friends found. Follow each other first.');
         return;
       }
 
       const { data: people, error: peopleError } = await supabase
         .from('users')
         .select('id, username, avatar_url')
-        .in('id', friendIds)
+        .in('id', mutualIds)
         .order('username');
-
       if (peopleError) throw peopleError;
-
       setShareFriends(people || []);
-
-      if (!people?.length) {
-        setShareError('No friends found. Follow people first.');
-      }
-    } catch (error) {
-      console.log('Load friends error:', error);
-      setShareError('Could not load friends. Please try again.');
+      if (!people?.length) setShareError('No mutual friends found.');
+    } catch (error: any) {
+      console.warn('Load mutual friends error:', error);
+      setShareError(error?.message || 'Could not load friends. Please try again.');
     } finally {
       setShareLoading(false);
     }
@@ -848,6 +866,11 @@ export default function AlbumPage() {
                       <Text style={styles.date}>{new Date(review.updated_at || review.created_at).toLocaleDateString()}</Text>
                     </View>
                   </View>
+                  {Number(review.rating) > 0 && (
+                    <Text style={{ color: '#00E054', fontSize: 14, fontWeight: '700', marginTop: 9 }}>
+                      {'★'.repeat(Math.floor(Number(review.rating)))}{Number(review.rating) % 1 ? '½' : ''}
+                    </Text>
+                  )}
                   {!!review.review_text && <Text style={styles.reviewText} numberOfLines={4}>{review.review_text}</Text>}
                 </TouchableOpacity>
               );
@@ -908,31 +931,7 @@ export default function AlbumPage() {
 
             <TouchableOpacity
               style={styles.actionBtn}
-              onPress={async () => {
-                const newVal = !liked;
-                setLiked(newVal);
-
-                const existing = await AsyncStorage.getItem('liked');
-                const list = existing ? JSON.parse(existing) : [];
-
-                if (newVal) {
-                  if (!list.find((i: any) => i.id === album.id)) {
-                    list.unshift({
-                      id: album.id,
-                      name: album.name,
-                      cover: album.images?.[0]?.url,
-                      type: 'album',
-                      date: new Date().toISOString(),
-                    });
-                    await recordActivity('liked', album.id, list[0]);
-}
-                } else {
-                  const idx = list.findIndex((i: any) => i.id === album.id);
-                  if (idx !== -1) list.splice(idx, 1);
-                }
-
-                await AsyncStorage.setItem('liked', JSON.stringify(list));
-              }}
+              onPress={() => void toggleAlbumCollection('liked')}
             >
               <View
                 style={[
@@ -1079,7 +1078,7 @@ export default function AlbumPage() {
                 const list = existing ? JSON.parse(existing) : [];
 
                 if (newVal) {
-                  if (!list.find((i: any) => i.id === selectedTrack.id)) {
+                  if (!list.some((i: any) => String(i.id) === String(selectedTrack.id) && i.type === 'track')) {
                     list.unshift({
                       id: selectedTrack.id,
                       name: selectedTrack.name,
@@ -1093,7 +1092,7 @@ export default function AlbumPage() {
 }
                 } else {
                   const idx = list.findIndex(
-                    (i: any) => i.id === selectedTrack.id
+                    (i: any) => String(i.id) === String(selectedTrack.id) && i.type === 'track'
                   );
                   if (idx !== -1) list.splice(idx, 1);
                   setTrackRating(0);
