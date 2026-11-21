@@ -27,7 +27,8 @@ export default function TrackPage() {
   const [reviewCount, setReviewCount] = useState(0);
   const [averageRating, setAverageRating] = useState(0);
   const [ratingDistribution, setRatingDistribution] = useState<{ rating: number; count: number }[]>([]);
-  const [listenedByFriends, setListenedByFriends] = useState<TrackFriend[]>([]);\n  const [wantToListenFriends, setWantToListenFriends] = useState<TrackFriend[]>([]);
+  const [listenedByFriends, setListenedByFriends] = useState<TrackFriend[]>([]);
+  const [wantToListenFriends, setWantToListenFriends] = useState<TrackFriend[]>([]);
   const [people, setPeople] = useState<Record<string, any>>({});
   const [liked, setLiked] = useState(false);
   const [listened, setListened] = useState(false);
@@ -110,7 +111,8 @@ export default function TrackPage() {
       setWantToListenFriends([]);
     }
   }
-\n  const loadTrack = useCallback(async () => {
+
+  const loadTrack = useCallback(async () => {
     setLoading(true);
     setError('');
     setTrack(null);
