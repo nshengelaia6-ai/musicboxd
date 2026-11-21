@@ -90,7 +90,6 @@ export default function Reviews() {
       <Text style={styles.heading}>REVIEWS</Text>
       {itemId ? <TouchableOpacity onPress={writeReview}><Text style={[styles.write,{color:accentColor}]}>＋ Review</Text></TouchableOpacity> : <View style={{width:70}} />}
     </View>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{filters.map(value=><TouchableOpacity key={value} onPress={()=>setFilter(value)} style={[styles.filter,filter===value&&styles.filterActive]}><Text style={[styles.filterText,filter===value&&styles.filterTextActive]}>{value}</Text></TouchableOpacity>)}</ScrollView>
     <View style={styles.itemHeader}>
       {params.coverUrl?<Image source={{uri:params.coverUrl}} style={styles.cover}/>:<View style={styles.cover}/>}
       <View style={{flex:1}}>
@@ -99,6 +98,7 @@ export default function Reviews() {
         <Text style={styles.count}>{reviews.length} {reviews.length===1?'review':'reviews'}</Text>
       </View>
     </View>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{filters.map(value=><TouchableOpacity key={value} onPress={()=>setFilter(value)} style={[styles.filter,filter===value&&styles.filterActive]}><Text style={[styles.filterText,filter===value&&styles.filterTextActive]}>{value}</Text></TouchableOpacity>)}</ScrollView>
     {loading?<ActivityIndicator color={accentColor} style={{marginTop:40}}/>:
       <ScrollView contentContainerStyle={styles.list}>
         {!!error&&<Text style={styles.error}>{error}</Text>}
