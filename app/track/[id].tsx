@@ -1,12 +1,13 @@
 import { useAppTheme } from '@/context/ThemeContext';
 import { recordActivity } from '@/utils/activity';
 import { getSpotifyTrack } from '@/utils/spotifyCatalog';
+import { sendMusicToFriend, shareMusicItem } from '@/utils/sharing';
 import { supabase } from '@/utils/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { ActivityIndicator, Image, ImageBackground, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ImageBackground, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const HEART = '\u2665';
 const EMPTY_HEART = '\u2661';
@@ -26,6 +27,15 @@ export default function TrackPage() {
   const [wantToListen, setWantToListen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [listsVisible, setListsVisible] = useState(false);
+  const [userLists, setUserLists] = useState<any[]>([]);
+  const [shareVisible, setShareVisible] = useState(false);
+  const [shareFriends, setShareFriends] = useState<any[]>([]);
+  const [selectedFriendId, setSelectedFriendId] = useState('');
+  const [shareMessage, setShareMessage] = useState('');
+  const [shareError, setShareError] = useState('');
+  const [shareLoading, setShareLoading] = useState(false);
 
   const loadTrack = useCallback(async () => {
     if (!id) return;
@@ -163,6 +173,74 @@ export default function TrackPage() {
     }
   }
 
+
+  async function openLists() {
+    const raw = await AsyncStorage.getItem('lists');
+    setUserLists(raw ? JSON.parse(raw) : []);
+    setMenuVisible(false);
+    setListsVisible(true);
+  }
+
+  async function addTrackToList(listId: string) {
+    const raw = await AsyncStorage.getItem('lists');
+    const lists = raw ? JSON.parse(raw) : [];
+    const index = lists.findIndex((entry: any) => String(entry.id) === listId);
+    if (index >= 0) {
+      const items = Array.isArray(lists[index].items) ? lists[index].items : [];
+      if (!items.some((entry: any) => String(entry.id) === String(track.id) && entry.type === 'track')) {
+        items.push({ id: String(track.id), name: track.name, artist, cover: cover || '', albumId: track.album?.id || '', type: 'track' });
+        lists[index].items = items;
+        await AsyncStorage.setItem('lists', JSON.stringify(lists));
+      }
+    }
+    setListsVisible(false);
+  }
+
+  async function openFriendShare() {
+    setMenuVisible(false);
+    setShareVisible(true);
+    setShareLoading(true);
+    setShareError('');
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!user) throw new Error('Please sign in again.');
+      const [following, followers] = await Promise.all([
+        supabase.from('friendships').select('friend_id').eq('user_id', user.id),
+        supabase.from('friendships').select('user_id').eq('friend_id', user.id),
+      ]);
+      if (following.error) throw following.error;
+      if (followers.error) throw followers.error;
+      const followingIds = new Set((following.data || []).map((row: any) => String(row.friend_id)));
+      const ids = (followers.data || []).map((row: any) => String(row.user_id)).filter((value: string) => followingIds.has(value));
+      const { data: profiles, error: profilesError } = ids.length
+        ? await supabase.from('users').select('id,username').in('id', ids).order('username')
+        : { data: [], error: null };
+      if (profilesError) throw profilesError;
+      setShareFriends(profiles || []);
+    } catch (e: any) {
+      setShareError(e?.message || 'Could not load friends.');
+    } finally {
+      setShareLoading(false);
+    }
+  }
+
+  async function sendToFriend() {
+    if (!track || !selectedFriendId) return;
+    setShareLoading(true);
+    setShareError('');
+    try {
+      await sendMusicToFriend({ id: String(track.id), type: 'track', albumId: String(track.album?.id || ''), name: track.name, artist, cover: cover || '' }, selectedFriendId, shareMessage);
+      setShareVisible(false);
+      setSelectedFriendId('');
+      setShareMessage('');
+    } catch (e: any) {
+      setShareError(e?.message || 'Could not send song.');
+    } finally {
+      setShareLoading(false);
+    }
+  }
+
   if (loading) {
     return <View style={[styles.screen, { backgroundColor }]}><ActivityIndicator color={accentColor} style={{ marginTop: 100 }} /></View>;
   }
@@ -200,7 +278,7 @@ export default function TrackPage() {
           <View style={styles.topBar}>
             <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>‹</Text></TouchableOpacity>
             <Text style={styles.topTitle}>MUSICBOXD</Text>
-            <Text style={styles.heroDots}>···</Text>
+            <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.heroMenuButton} accessibilityRole="button" accessibilityLabel="More song actions"><Text style={styles.heroDots}>•••</Text></TouchableOpacity>
           </View>
           <View style={styles.hero}>
             <View style={styles.heroInfo}>
@@ -289,6 +367,47 @@ export default function TrackPage() {
           <Text style={styles.albumArrow}>›</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <Modal visible={menuVisible} transparent animationType="slide" onRequestClose={() => setMenuVisible(false)}>
+        <Pressable style={styles.menuOverlay} onPress={() => setMenuVisible(false)} />
+        <View style={styles.menuSheet}>
+          <View style={styles.menuHandle} />
+          <View style={styles.menuItemHeader}>
+            {cover ? <Image source={{ uri: cover }} style={styles.menuCover} /> : null}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuSongTitle} numberOfLines={1}>{track.name}</Text>
+              <Text style={styles.menuSongArtist} numberOfLines={1}>{artist}</Text>
+            </View>
+          </View>
+          <View style={styles.menuQuickActions}>
+            <TouchableOpacity style={styles.menuQuickAction} onPress={() => void toggleCollection('listened')}><Text style={[styles.menuActionIcon, listened && { color: accentColor }]}>◉</Text><Text style={styles.menuActionLabel}>{listened ? 'Listened' : 'Listen'}</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.menuQuickAction} onPress={() => void toggleCollection('liked')}><Text style={[styles.menuActionIcon, liked && { color: accentColor }]}>{liked ? '♥' : '♡'}</Text><Text style={styles.menuActionLabel}>{liked ? 'Liked' : 'Like'}</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.menuQuickAction} onPress={() => void toggleCollection('wantToListen')}><Text style={[styles.menuActionIcon, wantToListen && { color: accentColor }]}>◷</Text><Text style={styles.menuActionLabel}>Want to listen</Text></TouchableOpacity>
+          </View>
+          <TouchableOpacity style={styles.menuRow} onPress={() => { setMenuVisible(false); writeReview(); }}><Text style={styles.menuRowText}>Review or log / Rate</Text><Text style={styles.menuChevron}>›</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.menuRow} onPress={() => void openLists()}><Text style={styles.menuRowText}>Add to lists</Text><Text style={styles.menuChevron}>›</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.menuRow} onPress={() => void openFriendShare()}><Text style={styles.menuRowText}>Share with friends</Text><Text style={styles.menuChevron}>›</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.menuRow} onPress={() => { setMenuVisible(false); void shareMusicItem({ id: String(track.id), type: 'track', name: track.name, artist, cover: cover || '' }); }}><Text style={styles.menuRowText}>Share</Text><Text style={styles.menuChevron}>›</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.menuDone} onPress={() => setMenuVisible(false)}><Text style={styles.menuDoneText}>Done</Text></TouchableOpacity>
+        </View>
+      </Modal>
+      <Modal visible={listsVisible} transparent animationType="slide" onRequestClose={() => setListsVisible(false)}>
+        <Pressable style={styles.menuOverlay} onPress={() => setListsVisible(false)} />
+        <View style={styles.menuSheet}><View style={styles.menuHandle} /><Text style={styles.menuSheetTitle}>Add to List</Text>
+          {userLists.length === 0 ? <Text style={styles.menuEmpty}>No lists yet</Text> : userLists.map((list: any) => <TouchableOpacity key={list.id} style={styles.menuRow} onPress={() => void addTrackToList(String(list.id))}><Text style={styles.menuRowText}>{list.name || 'Untitled list'}</Text><Text style={styles.menuChevron}>›</Text></TouchableOpacity>)}
+          <TouchableOpacity style={styles.menuDone} onPress={() => setListsVisible(false)}><Text style={styles.menuDoneText}>Done</Text></TouchableOpacity>
+        </View>
+      </Modal>
+      <Modal visible={shareVisible} transparent animationType="slide" onRequestClose={() => setShareVisible(false)}>
+        <Pressable style={styles.menuOverlay} onPress={() => setShareVisible(false)} />
+        <View style={styles.menuSheet}><View style={styles.menuHandle} /><Text style={styles.menuSheetTitle}>Share with friends</Text>
+          {shareLoading ? <ActivityIndicator color={accentColor} /> : shareFriends.length === 0 ? <Text style={styles.menuEmpty}>No mutual friends found.</Text> : shareFriends.map((person: any) => <TouchableOpacity key={person.id} style={styles.menuRow} onPress={() => setSelectedFriendId(String(person.id))}><Text style={[styles.menuRowText, selectedFriendId === String(person.id) && { color: accentColor }]}>@{person.username || 'listener'}</Text><Text style={styles.menuChevron}>{selectedFriendId === String(person.id) ? '✓' : '○'}</Text></TouchableOpacity>)}
+          <TextInput value={shareMessage} onChangeText={setShareMessage} placeholder="Add a message (optional)" placeholderTextColor="#777" style={styles.shareInput} />
+          {!!shareError && <Text style={styles.shareError}>{shareError}</Text>}
+          <TouchableOpacity style={[styles.menuDone, { backgroundColor: accentColor }]} disabled={!selectedFriendId || shareLoading} onPress={() => void sendToFriend()}><Text style={styles.menuDoneText}>{shareLoading ? 'Sending…' : 'Send'}</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.menuCancel} onPress={() => setShareVisible(false)}><Text style={styles.menuCancelText}>Cancel</Text></TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -354,4 +473,29 @@ const styles = StyleSheet.create({
   albumArtist: { color: '#888', fontSize: 11, marginTop: 3 },
   albumArrow: { color: '#888', fontSize: 25 },
   error: { color: '#ff8585', textAlign: 'center', padding: 18, fontSize: 12 },
+
+  heroMenuButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(242, 244, 247, 0.9)', alignItems: 'center', justifyContent: 'center' },
+  heroDots: { color: '#30343A', fontSize: 12, lineHeight: 16, letterSpacing: 1, fontWeight: '900' },
+  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.62)' },
+  menuSheet: { backgroundColor: '#1C1C1E', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  menuHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: '#555', alignSelf: 'center', marginBottom: 18 },
+  menuItemHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  menuCover: { width: 48, height: 48, borderRadius: 5 },
+  menuSongTitle: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  menuSongArtist: { color: '#999', fontSize: 12, marginTop: 3 },
+  menuQuickActions: { flexDirection: 'row', justifyContent: 'space-around', paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: '#343438', marginBottom: 4 },
+  menuQuickAction: { alignItems: 'center', minWidth: 82, paddingVertical: 4 },
+  menuActionIcon: { color: '#ddd', fontSize: 25, marginBottom: 5 },
+  menuActionLabel: { color: '#ccc', fontSize: 11 },
+  menuRow: { minHeight: 48, borderBottomWidth: 1, borderBottomColor: '#303034', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  menuRowText: { color: '#eee', fontSize: 14 },
+  menuChevron: { color: '#888', fontSize: 22 },
+  menuDone: { backgroundColor: '#30343A', borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginTop: 16 },
+  menuDoneText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  menuSheetTitle: { color: '#fff', fontSize: 17, fontWeight: '700', textAlign: 'center', marginBottom: 16 },
+  menuEmpty: { color: '#999', textAlign: 'center', paddingVertical: 18 },
+  shareInput: { color: '#fff', backgroundColor: '#29292d', borderRadius: 8, padding: 12, marginTop: 14, minHeight: 44 },
+  shareError: { color: '#ff8585', fontSize: 12, marginTop: 10 },
+  menuCancel: { alignItems: 'center', paddingVertical: 12 },
+  menuCancelText: { color: '#aaa', fontSize: 14 },
 });
