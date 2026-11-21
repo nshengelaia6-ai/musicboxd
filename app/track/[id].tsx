@@ -251,7 +251,12 @@ export default function TrackPage() {
     if (kind === 'listened') setListened(next);
     if (kind === 'wantToListen') setWantToListen(next);
     if (next) {
-      await recordActivity(kind === 'liked' ? 'liked' : kind === 'listened' ? 'listened' : 'wants_to_listen', String(track.id), item);
+      const activityType = kind === 'liked' ? 'liked' : kind === 'listened' ? 'listened' : 'wants_to_listen';
+      await recordActivity(activityType, String(track.id), item);
+      setMyActivity(current => [
+        { id: `local-${Date.now()}`, activity_type: activityType, item_key: String(track.id), created_at: item.date },
+        ...current,
+      ].slice(0, 20));
     }
   }
 
