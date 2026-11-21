@@ -203,7 +203,7 @@ export default function ReviewPage() {
       }
       await AsyncStorage.setItem('listened', JSON.stringify(listenedList));
 
-      const savedReview = reviews.find((r: any) => r.albumId === albumId);
+      const savedReview = reviews.find((r: any) => String(r.albumId) === String(albumId) && (r.itemType || 'album') === resolvedType);
       const { data: { user } } = await supabase.auth.getUser();
       if (user && savedReview) {
         const reviewData = {
