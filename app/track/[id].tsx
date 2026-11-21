@@ -80,6 +80,15 @@ export default function TrackPage() {
       const wantItems = wantData ? JSON.parse(wantData) : [];
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (currentUser) {
+        const { data: myReview, error: myReviewError } = await supabase
+          .from('music_reviews')
+          .select('rating')
+          .eq('user_id', currentUser.id)
+          .eq('item_type', 'track')
+          .eq('item_id', String(id))
+          .maybeSingle();
+        if (myReviewError) throw myReviewError;
+        updateActivityRating(Number(myReview?.rating) || 0);
         const { data: activityRows, error: activityError } = await supabase
           .from('user_activity')
           .select('id,activity_type,item_key,created_at')
@@ -91,6 +100,7 @@ export default function TrackPage() {
         setMyActivity(activityRows || []);
       } else {
         setMyActivity([]);
+        updateActivityRating(0);
       }
       setLiked(likedItems.some((item: any) => String(item.id) === String(id) && item.type === 'track'));
       setListened(listenedItems.some((item: any) => String(item.id) === String(id) && item.type === 'track'));
@@ -143,6 +153,12 @@ export default function TrackPage() {
   const activityStarWidth = 30;
   const activityStarGap = 13;
   const activityStarsWidth = activityStarWidth * 5 + activityStarGap * 4;
+  const ratingFromActivityX = (position: number) => {
+    const x = Math.max(0, Math.min(position, activityStarsWidth));
+    const starIndex = Math.min(4, Math.floor(x / (activityStarWidth + activityStarGap)));
+    const withinStar = Math.min(activityStarWidth, x - starIndex * (activityStarWidth + activityStarGap));
+    return starIndex + (withinStar >= activityStarWidth / 2 ? 1 : 0.5);
+  };
   const activityRatingResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
@@ -150,7 +166,7 @@ export default function TrackPage() {
     onPanResponderGrant: (event) => {
       activityRatingStartX.current = event.nativeEvent.locationX;
       const x = Math.max(0, Math.min(activityRatingStartX.current, activityStarsWidth));
-      updateActivityRating(Math.max(0.5, Math.min(5, Math.ceil((x / (activityStarWidth + activityStarGap)) * 2) / 2)));
+      updateActivityRating(ratingFromActivityX(x));
     },
     onPanResponderMove: (_event, gesture) => {
       const x = Math.max(0, Math.min(activityRatingStartX.current + gesture.dx, activityStarsWidth));
@@ -239,10 +255,10 @@ export default function TrackPage() {
     const lists = raw ? JSON.parse(raw) : [];
     const index = lists.findIndex((entry: any) => String(entry.id) === listId);
     if (index >= 0) {
-      const items = Array.isArray(lists[index].items) ? lists[index].items : [];
+      const items = Array.isArray(lists[index].albums) ? lists[index].albums : [];
       if (!items.some((entry: any) => String(entry.id) === String(track.id) && entry.type === 'track')) {
         items.push({ id: String(track.id), name: track.name, artist, cover: cover || '', albumId: track.album?.id || '', type: 'track' });
-        lists[index].items = items;
+        lists[index].albums = items;
         await AsyncStorage.setItem('lists', JSON.stringify(lists));
       }
     }
