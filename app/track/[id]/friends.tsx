@@ -76,7 +76,7 @@ export default function TrackFriendsPage() {
     );
   }
 
-  const heading = isWantList ? 'WANTS TO LISTEN' : 'LISTENED BY';
+  const heading = isWantList ? 'WANTS TO LISTEN' : section === 'members' ? 'MEMBERS' : 'LISTENED BY';
 
   return (
     <View style={[styles.screen, { backgroundColor }]}>
