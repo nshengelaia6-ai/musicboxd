@@ -430,7 +430,7 @@ export default function AlbumPage() {
     const listenedData = await AsyncStorage.getItem('listened');
     const listenedList = listenedData ? JSON.parse(listenedData) : [];
     const foundListened = listenedList.find(
-      (i: any) => i.id === track.id
+      (i: any) => String(i.id) === String(track.id) && i.type === 'track'
     );
 
     setTrackListened(!!foundListened);
@@ -1061,6 +1061,7 @@ export default function AlbumPage() {
               <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700', marginBottom: 8 }}>Recent reviews</Text>
               {trackReviews.map((review: any) => (
                 <View key={review.id} style={{ paddingVertical: 7, borderTopWidth: 1, borderTopColor: '#333' }}>                  <Text style={{ color: '#ddd', fontSize: 12, fontWeight: '600' }}>@{trackReviewPeople[review.user_id]?.username || 'listener'}</Text>
+                  {Number(review.rating) > 0 && <Text style={{ color: '#00E054', fontSize: 11, marginTop: 3 }}>{'★'.repeat(Math.floor(Number(review.rating)))}{Number(review.rating) % 1 ? '½' : ''}</Text>}
                   {!!review.review_text && <Text style={{ color: '#aaa', fontSize: 12, marginTop: 4 }} numberOfLines={2}>{review.review_text}</Text>}
                 </View>
               ))}
@@ -1122,7 +1123,7 @@ export default function AlbumPage() {
                 const list = existing ? JSON.parse(existing) : [];
 
                 if (newVal) {
-                  if (!list.find((i: any) => i.id === selectedTrack.id)) {
+                  if (!list.some((i: any) => String(i.id) === String(selectedTrack.id) && i.type === 'track')) {
                     list.unshift({
                       id: selectedTrack.id,
                       name: selectedTrack.name,
@@ -1135,7 +1136,7 @@ export default function AlbumPage() {
 }
                 } else {
                   const idx = list.findIndex(
-                    (i: any) => i.id === selectedTrack.id
+                    (i: any) => String(i.id) === String(selectedTrack.id) && i.type === 'track'
                   );
                   if (idx !== -1) list.splice(idx, 1);
                 }
