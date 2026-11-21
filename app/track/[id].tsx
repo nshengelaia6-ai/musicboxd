@@ -389,33 +389,6 @@ export default function TrackPage() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.pageRatingSection}>
-          <Text style={styles.pageRatingTitle}>YOUR RATING</Text>
-          <View style={styles.pageRatingStars} {...activityRatingResponder.panHandlers} accessibilityRole="adjustable" accessibilityLabel="Your song rating">
-            {[1, 2, 3, 4, 5].map(value => {
-              const fill = Math.max(0, Math.min(1, activityRatingSelection - (value - 1)));
-              return (
-                <View key={value} style={{ width: activityStarWidth, height: 38 }}>
-                  <Text style={styles.menuRatingStar}>★</Text>
-                  {fill > 0 && <View style={{ position: 'absolute', left: 0, top: 0, width: activityStarWidth * fill, height: 38, overflow: 'hidden' }}><Text style={styles.menuRatingStarActive}>★</Text></View>}
-                </View>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.activitySection}>
-          <Text style={styles.activityTitle}>SHOW YOUR ACTIVITY</Text>
-          {myActivity.length === 0 ? (
-            <Text style={styles.activityEmpty}>Your activity with this song will appear here.</Text>
-          ) : myActivity.map((entry: any) => (
-            <View key={entry.id} style={styles.activityRow}>
-              <Text style={styles.activityRowText}>{entry.activity_type === 'listened' ? 'Listened' : entry.activity_type === 'liked' ? 'Liked' : entry.activity_type === 'wants_to_listen' ? 'Want to listen' : entry.activity_type === 'reviewed' ? 'Reviewed' : entry.activity_type}</Text>
-              <Text style={styles.activityDate}>{new Date(entry.created_at).toLocaleDateString()}</Text>
-            </View>
-          ))}
-        </View>
-
         <View style={styles.sectionHeader}>
           <View><Text style={styles.sectionTitle}>Reviews</Text><Text style={styles.sectionSub}>What people are saying about this song</Text></View>
           <TouchableOpacity onPress={openReviews}><Text style={[styles.seeAll, { color: accentColor }]}>See all ›</Text></TouchableOpacity>
@@ -463,6 +436,31 @@ export default function TrackPage() {
             <TouchableOpacity style={styles.menuQuickAction} onPress={() => void toggleCollection('listened')}><Text style={[styles.menuActionIcon, listened && { color: accentColor }]}>◉</Text><Text style={styles.menuActionLabel}>{listened ? 'Listened' : 'Listen'}</Text></TouchableOpacity>
             <TouchableOpacity style={styles.menuQuickAction} onPress={() => void toggleCollection('liked')}><Text style={[styles.menuActionIcon, liked && { color: accentColor }]}>{liked ? '♥' : '♡'}</Text><Text style={styles.menuActionLabel}>{liked ? 'Liked' : 'Like'}</Text></TouchableOpacity>
             <TouchableOpacity style={styles.menuQuickAction} onPress={() => void toggleCollection('wantToListen')}><Text style={[styles.menuActionIcon, wantToListen && { color: accentColor }]}>◷</Text><Text style={styles.menuActionLabel}>Want to listen</Text></TouchableOpacity>
+          </View>
+          <View style={styles.menuRatingSection}>
+            <Text style={styles.menuRatingTitle}>YOUR RATING</Text>
+            <View style={styles.menuRatingStars} {...activityRatingResponder.panHandlers} accessibilityRole="adjustable" accessibilityLabel="Your song rating">
+              {[1, 2, 3, 4, 5].map(value => {
+                const fill = Math.max(0, Math.min(1, activityRatingSelection - (value - 1)));
+                return (
+                  <View key={value} style={{ width: activityStarWidth, height: 38 }}>
+                    <Text style={styles.menuRatingStar}>★</Text>
+                    {fill > 0 && <View style={{ position: 'absolute', left: 0, top: 0, width: activityStarWidth * fill, height: 38, overflow: 'hidden' }}><Text style={styles.menuRatingStarActive}>★</Text></View>}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+          <View style={styles.menuActivitySection}>
+            <Text style={styles.menuActivityTitle}>SHOW YOUR ACTIVITY</Text>
+            {myActivity.length === 0 ? (
+              <Text style={styles.menuActivityEmpty}>Your activity with this song will appear here.</Text>
+            ) : myActivity.map((entry: any) => (
+              <View key={entry.id} style={styles.menuActivityRow}>
+                <Text style={styles.menuActivityText}>{entry.activity_type === 'listened' ? 'Listened' : entry.activity_type === 'liked' ? 'Liked' : entry.activity_type === 'wants_to_listen' ? 'Want to listen' : entry.activity_type === 'reviewed' ? 'Reviewed' : entry.activity_type}</Text>
+                <Text style={styles.menuActivityDate}>{new Date(entry.created_at).toLocaleDateString()}</Text>
+              </View>
+            ))}
           </View>
           <TouchableOpacity style={styles.menuRow} onPress={() => { setMenuVisible(false); writeReview(); }}><Text style={styles.menuRowText}>Review or log / Rate</Text><Text style={styles.menuChevron}>›</Text></TouchableOpacity>
           <TouchableOpacity style={styles.menuRow} onPress={() => void openLists()}><Text style={styles.menuRowText}>Add to lists</Text><Text style={styles.menuChevron}>›</Text></TouchableOpacity>
@@ -581,13 +579,13 @@ const styles = StyleSheet.create({
 
   menuRatingStar: { color: '#456052', fontSize: 30, lineHeight: 36 },
   menuRatingStarActive: { color: '#00E054', fontSize: 30, lineHeight: 36 },
-  pageRatingSection: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 17, borderBottomWidth: 1, borderBottomColor: '#262626' },
-  pageRatingTitle: { color: '#aaa', fontSize: 10, fontWeight: '800', letterSpacing: 1.4, textAlign: 'center', marginBottom: 7 },
-  pageRatingStars: { width: 202, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  activitySection: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#262626' },
-  activityTitle: { color: '#ddd', fontSize: 11, fontWeight: '800', letterSpacing: 1.3, marginBottom: 10 },
-  activityEmpty: { color: '#777', fontSize: 12, paddingVertical: 8 },
-  activityRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#222' },
-  activityRowText: { color: '#ddd', fontSize: 13 },
-  activityDate: { color: '#777', fontSize: 11 },
+  menuRatingSection: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#343438' },
+  menuRatingTitle: { color: '#aaa', fontSize: 10, fontWeight: '800', letterSpacing: 1.4, textAlign: 'center', marginBottom: 8 },
+  menuRatingStars: { width: 202, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  menuActivitySection: { paddingTop: 13, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#343438' },
+  menuActivityTitle: { color: '#ddd', fontSize: 10, fontWeight: '800', letterSpacing: 1.3, marginBottom: 8 },
+  menuActivityEmpty: { color: '#777', fontSize: 12, paddingVertical: 6 },
+  menuActivityRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 },
+  menuActivityText: { color: '#ddd', fontSize: 12 },
+  menuActivityDate: { color: '#777', fontSize: 10 },
 });
