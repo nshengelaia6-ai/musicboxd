@@ -200,7 +200,7 @@ export default function TrackPage() {
           <View style={styles.topBar}>
             <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>‹</Text></TouchableOpacity>
             <Text style={styles.topTitle}>MUSICBOXD</Text>
-            <View style={{ width: 28 }} />
+            <Text style={styles.heroDots}>···</Text>
           </View>
           <View style={styles.hero}>
             <View style={styles.heroInfo}>
@@ -298,6 +298,7 @@ const styles = StyleSheet.create({
   topBar: { paddingTop: 58, paddingHorizontal: 18, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { color: '#fff', fontSize: 30, width: 28 },
   topTitle: { color: '#fff', fontSize: 13, fontWeight: '800', letterSpacing: 2 },
+  heroDots: { color: '#fff', fontSize: 27, lineHeight: 30, fontWeight: '700', width: 28, textAlign: 'right' },
   content: { paddingBottom: 44 },
   heroBackground: { height: 440, justifyContent: 'space-between', backgroundColor: '#17191d' },
   heroBackgroundImage: { opacity: 0.72 },
