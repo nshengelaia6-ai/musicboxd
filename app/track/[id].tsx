@@ -170,7 +170,7 @@ export default function TrackPage() {
     },
     onPanResponderMove: (_event, gesture) => {
       const x = Math.max(0, Math.min(activityRatingStartX.current + gesture.dx, activityStarsWidth));
-      updateActivityRating(Math.max(0.5, Math.min(5, Math.ceil((x / (activityStarWidth + activityStarGap)) * 2) / 2)));
+      updateActivityRating(ratingFromActivityX(x));
     },
     onPanResponderRelease: () => {
       const selected = activityRatingSelectionRef.current;
