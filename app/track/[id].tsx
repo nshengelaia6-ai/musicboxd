@@ -657,7 +657,7 @@ const styles = StyleSheet.create({
   songTitle: { color: '#fff', fontSize: 29, lineHeight: 34, fontWeight: '800', marginTop: 7 },
   artist: { color: '#D5DADF', fontSize: 17, marginTop: 7 },
   albumLink: { color: '#D5DADF', fontSize: 13, marginTop: 9, fontWeight: '600' },
-  typeLabel: { color: '#D5DADF', fontSize: 11, fontWeight: '700', letterSpacing: 1.3, marginTop: 10 },
+  typeLabel: { color: '#D5DADF', fontSize: 13, marginTop: 9 },
   listenRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 4 },
   listenButton: { backgroundColor: '#30343A', borderWidth: 1, borderColor: '#555B63', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 5 },
   listenButtonText: { color: '#E1E4E8', fontSize: 11, fontWeight: '700', letterSpacing: 1.5 },
