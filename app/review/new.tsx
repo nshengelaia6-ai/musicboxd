@@ -75,7 +75,7 @@ export default function ReviewPage() {
           }
           const existing = await AsyncStorage.getItem('reviews');
           const reviews = existing ? JSON.parse(existing) : [];
-          const found = reviews.find((r: any) => String(r.albumId) === String(albumId));
+          const found = reviews.find((r: any) => String(r.albumId) === String(albumId) && (r.itemType || 'album') === resolvedType);
           if (found && active) {
             setRating(Number.isFinite(incomingRating) && incomingRating > 0 ? incomingRating : (found.rating || 0));
             setReview(found.review || '');
@@ -128,7 +128,7 @@ export default function ReviewPage() {
     try {
       const existing = await AsyncStorage.getItem('reviews');
       const reviews = existing ? JSON.parse(existing) : [];
-      const existingIndex = reviews.findIndex((r: any) => r.albumId === albumId);
+      const existingIndex = reviews.findIndex((r: any) => String(r.albumId) === String(albumId) && (r.itemType || 'album') === resolvedType);
       const isNewReview = existingIndex === -1;
 
       if (existingIndex !== -1) {
@@ -159,7 +159,7 @@ export default function ReviewPage() {
 
         try {
           const { data: { user } } = await supabase.auth.getUser();
-          const savedReview = reviews.find((r: any) => r.albumId === albumId);
+          const savedReview = reviews.find((r: any) => String(r.albumId) === String(albumId) && (r.itemType || 'album') === resolvedType);
 
           if (user && savedReview) {
             const { error: syncError } = await supabase
@@ -180,7 +180,7 @@ export default function ReviewPage() {
 
       const listenedData = await AsyncStorage.getItem('listened');
       const listenedList = listenedData ? JSON.parse(listenedData) : [];
-      const listenedIndex = listenedList.findIndex((i: any) => i.id === albumId);
+      const listenedIndex = listenedList.findIndex((i: any) => String(i.id) === String(albumId) && (i.type || 'album') === resolvedType);
       const isNewListened = listenedIndex === -1;
 
       if (listenedIndex !== -1) {
