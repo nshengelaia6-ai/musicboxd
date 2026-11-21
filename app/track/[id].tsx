@@ -530,6 +530,7 @@ export default function TrackPage() {
             )}
           </View>
           <View style={[styles.friendStatusGroup, { marginBottom: 13 }]}>
+            <View style={styles.friendStatusTopRule} />
             <TouchableOpacity style={styles.friendStatusHeader} onPress={openFriendStatuses} accessibilityRole="button" accessibilityLabel="See everyone who wants to listen">
               <Text style={styles.friendStatusTitle}>WANTS TO LISTEN</Text>
               <Text style={styles.friendStatusArrow}>›</Text>
@@ -749,6 +750,7 @@ const styles = StyleSheet.create({
 
   friendStatusSection: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#2C3440' },
   friendStatusGroup: { marginBottom: 17 },
+  friendStatusTopRule: { height: 1, backgroundColor: '#303943', marginBottom: 13 },
   friendStatusHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
   friendStatusTitle: { color: '#AAB4BF', fontSize: 12, fontWeight: '500', letterSpacing: 1.4 },
   friendStatusArrow: { color: '#AAB4BF', fontSize: 25, lineHeight: 25, fontWeight: '300', paddingHorizontal: 4 },
