@@ -1,7 +1,7 @@
 import { useAppTheme } from '@/context/ThemeContext';
 import { recordActivity } from '@/utils/activity';
 import { getSpotifyTrack } from '@/utils/spotifyCatalog';
-import { addMusicItemToList } from '@/utils/musicLists';
+import { addMusicItemToList, loadUserMusicLists } from '@/utils/musicLists';
 import { sendMusicToFriend, shareMusicItem } from '@/utils/sharing';
 import { supabase } from '@/utils/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -257,10 +257,15 @@ export default function TrackPage() {
 
 
   async function openLists() {
-    const raw = await AsyncStorage.getItem('lists');
-    setUserLists(raw ? JSON.parse(raw) : []);
     setMenuVisible(false);
-    setListsVisible(true);
+    try {
+      const lists = await loadUserMusicLists();
+      setUserLists(lists);
+      setListsVisible(true);
+    } catch (error: any) {
+      console.error('Could not load music lists:', error);
+      Alert.alert('Could not load lists', error?.message || 'Please try again.');
+    }
   }
 
   async function addTrackToList(listId: string) {
