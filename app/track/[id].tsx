@@ -379,6 +379,23 @@ export default function TrackPage() {
               <Text style={styles.menuSongArtist} numberOfLines={1}>{artist}</Text>
             </View>
           </View>
+          <View style={styles.menuRatingSection}>
+            <View style={styles.menuRatingHeading}>
+              <Text style={styles.menuRatingTitle}>YOUR RATING</Text>
+              <Text style={styles.menuRatingAverage}>{averageRating > 0 ? averageRating.toFixed(1) : '—'} <Text style={styles.menuRatingCount}>({reviewCount})</Text></Text>
+            </View>
+            <View style={styles.menuRatingStars}>
+              {[1, 2, 3, 4, 5].map(value => (
+                <TouchableOpacity key={value} accessibilityRole="button" accessibilityLabel={`Rate ${value} out of 5 stars`} onPress={() => {
+                  setMenuVisible(false);
+                  router.push({ pathname: '/review/new', params: { albumId: String(track.id), albumName: track.name, albumArtist: artist, albumCover: cover || '', itemType: 'track', parentAlbumId: String(track.album?.id || ''), currentRating: String(value) } } as any);
+                }}>
+                  <Text style={[styles.menuRatingStar, averageRating >= value && styles.menuRatingStarActive]}>★</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.menuRatingHint}>Tap a star to rate or write a review</Text>
+          </View>
           <View style={styles.menuQuickActions}>
             <TouchableOpacity style={styles.menuQuickAction} onPress={() => void toggleCollection('listened')}><Text style={[styles.menuActionIcon, listened && { color: accentColor }]}>◉</Text><Text style={styles.menuActionLabel}>{listened ? 'Listened' : 'Listen'}</Text></TouchableOpacity>
             <TouchableOpacity style={styles.menuQuickAction} onPress={() => void toggleCollection('liked')}><Text style={[styles.menuActionIcon, liked && { color: accentColor }]}>{liked ? '♥' : '♡'}</Text><Text style={styles.menuActionLabel}>{liked ? 'Liked' : 'Like'}</Text></TouchableOpacity>
@@ -474,8 +491,8 @@ const styles = StyleSheet.create({
   albumArrow: { color: '#888', fontSize: 25 },
   error: { color: '#ff8585', textAlign: 'center', padding: 18, fontSize: 12 },
 
-  heroMenuButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(242, 244, 247, 0.9)', alignItems: 'center', justifyContent: 'center' },
-  heroDots: { color: '#30343A', fontSize: 12, lineHeight: 16, letterSpacing: 1, fontWeight: '900' },
+  heroMenuButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(8, 10, 12, 0.58)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+  heroDots: { color: '#E2E5E8', fontSize: 12, lineHeight: 16, letterSpacing: 1, fontWeight: '900' },
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.62)' },
   menuSheet: { backgroundColor: '#1C1C1E', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   menuHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: '#555', alignSelf: 'center', marginBottom: 18 },
@@ -498,4 +515,14 @@ const styles = StyleSheet.create({
   shareError: { color: '#ff8585', fontSize: 12, marginTop: 10 },
   menuCancel: { alignItems: 'center', paddingVertical: 12 },
   menuCancelText: { color: '#aaa', fontSize: 14 },
+
+  menuRatingSection: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#343438', marginBottom: 12 },
+  menuRatingHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  menuRatingTitle: { color: '#aaa', fontSize: 10, fontWeight: '800', letterSpacing: 1.4 },
+  menuRatingAverage: { color: '#eee', fontSize: 13, fontWeight: '700' },
+  menuRatingCount: { color: '#777', fontSize: 11, fontWeight: '400' },
+  menuRatingStars: { flexDirection: 'row', justifyContent: 'center', gap: 13, paddingVertical: 4 },
+  menuRatingStar: { color: '#555B63', fontSize: 30 },
+  menuRatingStarActive: { color: '#D7DDE3' },
+  menuRatingHint: { color: '#777', fontSize: 10, textAlign: 'center', marginTop: 5 },
 });
