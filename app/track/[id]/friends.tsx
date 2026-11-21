@@ -69,7 +69,7 @@ export default function TrackFriendsPage() {
         <View style={styles.memberIndicators}>
           {person.rating != null && person.rating > 0 ? <Text style={styles.rating}>{'★'.repeat(Math.floor(person.rating))}{person.rating % 1 ? '½' : ''}</Text> : null}
           {person.liked ? <Text style={styles.likeIcon}>♥</Text> : null}
-          {person.has_review ? <Text style={styles.reviewIcon}>✎</Text> : null}
+          {person.has_review ? <Text style={styles.reviewIcon}>📝</Text> : null}
         </View>
       </TouchableOpacity>
     );
