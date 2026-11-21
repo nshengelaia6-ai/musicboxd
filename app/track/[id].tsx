@@ -5,9 +5,9 @@ import { sendMusicToFriend, shareMusicItem } from '@/utils/sharing';
 import { supabase } from '@/utils/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { ActivityIndicator, Image, ImageBackground, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ImageBackground, Linking, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const HEART = '\u2665';
 const EMPTY_HEART = '\u2661';
@@ -28,6 +28,7 @@ export default function TrackPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [menuVisible, setMenuVisible] = useState(false);
+  const [menuRatingSelection, setMenuRatingSelection] = useState(0);
   const [listsVisible, setListsVisible] = useState(false);
   const [userLists, setUserLists] = useState<any[]>([]);
   const [shareVisible, setShareVisible] = useState(false);
@@ -114,6 +115,34 @@ export default function TrackPage() {
   const artist = (track?.artists || []).map((person: any) => person.name).join(', ');
   const releaseDate = track?.album?.release_date || '';
   const releaseYear = releaseDate ? releaseDate.slice(0, 4) : '';
+
+  const menuStarWidth = 30;
+  const menuStarGap = 13;
+  const menuStarsWidth = menuStarWidth * 5 + menuStarGap * 4;
+  const menuRatingResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: (event) => {
+      const x = Math.max(0, Math.min(event.nativeEvent.locationX, menuStarsWidth));
+      setMenuRatingSelection(Math.max(0.5, Math.min(5, Math.ceil((x / (menuStarWidth + menuStarGap)) * 2) / 2)));
+    },
+    onPanResponderMove: (_event, gesture) => {
+      const x = Math.max(0, Math.min(gesture.x0 + gesture.dx, menuStarsWidth));
+      setMenuRatingSelection(Math.max(0.5, Math.min(5, Math.ceil((x / (menuStarWidth + menuStarGap)) * 2) / 2)));
+    },
+    onPanResponderRelease: () => {
+      if (menuRatingSelection > 0 && track) {
+        const selected = menuRatingSelection;
+        setMenuVisible(false);
+        router.push({ pathname: '/review/new', params: {
+          albumId: String(track.id), albumName: track.name, albumArtist: artist,
+          albumCover: cover || '', itemType: 'track',
+          parentAlbumId: String(track.album?.id || ''), currentRating: String(selected),
+        } } as any);
+      }
+    },
+  })).current;
 
   function openReviews() {
     if (!track) return;
@@ -384,17 +413,35 @@ export default function TrackPage() {
               <Text style={styles.menuRatingTitle}>YOUR RATING</Text>
               <Text style={styles.menuRatingAverage}>{averageRating > 0 ? averageRating.toFixed(1) : '—'} <Text style={styles.menuRatingCount}>({reviewCount})</Text></Text>
             </View>
-            <View style={styles.menuRatingStars}>
-              {[1, 2, 3, 4, 5].map(value => (
-                <TouchableOpacity key={value} accessibilityRole="button" accessibilityLabel={`Rate ${value} out of 5 stars`} onPress={() => {
-                  setMenuVisible(false);
-                  router.push({ pathname: '/review/new', params: { albumId: String(track.id), albumName: track.name, albumArtist: artist, albumCover: cover || '', itemType: 'track', parentAlbumId: String(track.album?.id || ''), currentRating: String(value) } } as any);
-                }}>
-                  <Text style={[styles.menuRatingStar, averageRating >= value && styles.menuRatingStarActive]}>★</Text>
-                </TouchableOpacity>
-              ))}
+            <View
+              style={styles.menuRatingStars}
+              {...menuRatingResponder.panHandlers}
+              accessibilityRole="adjustable"
+              accessibilityLabel="Your song rating"
+              onAccessibilityAction={(event: any) => {
+                const action = event.nativeEvent.actionName;
+                if (action === 'increment') setMenuRatingSelection(value => Math.min(5, value + 0.5));
+                if (action === 'decrement') setMenuRatingSelection(value => Math.max(0.5, value - 0.5));
+              }}
+            >
+              {[1, 2, 3, 4, 5].map(value => {
+                const selectedRating = menuRatingSelection;
+                const fill = Math.max(0, Math.min(1, selectedRating - (value - 1)));
+                return (
+                  <View key={value} style={{ width: menuStarWidth, height: 38 }}>
+                    <Text style={styles.menuRatingStar}>★</Text>
+                    {fill > 0 && (
+                      <View style={{ position: 'absolute', left: 0, top: 0, width: menuStarWidth * fill, height: 38, overflow: 'hidden' }}>
+                        <Text style={styles.menuRatingStarActive}>★</Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
             </View>
-            <Text style={styles.menuRatingHint}>Tap a star to rate or write a review</Text>
+            <Text style={styles.menuRatingHint}>
+              {menuRatingSelection > 0 ? `${menuRatingSelection.toFixed(1)} / 5 · Release to continue` : 'Slide to choose a rating · Half-stars supported'}
+            </Text>
           </View>
           <View style={styles.menuQuickActions}>
             <TouchableOpacity style={styles.menuQuickAction} onPress={() => void toggleCollection('listened')}><Text style={[styles.menuActionIcon, listened && { color: accentColor }]}>◉</Text><Text style={styles.menuActionLabel}>{listened ? 'Listened' : 'Listen'}</Text></TouchableOpacity>
@@ -521,8 +568,8 @@ const styles = StyleSheet.create({
   menuRatingTitle: { color: '#aaa', fontSize: 10, fontWeight: '800', letterSpacing: 1.4 },
   menuRatingAverage: { color: '#eee', fontSize: 13, fontWeight: '700' },
   menuRatingCount: { color: '#777', fontSize: 11, fontWeight: '400' },
-  menuRatingStars: { flexDirection: 'row', justifyContent: 'center', gap: 13, paddingVertical: 4 },
-  menuRatingStar: { color: '#555B63', fontSize: 30 },
-  menuRatingStarActive: { color: '#D7DDE3' },
+  menuRatingStars: { width: 202, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  menuRatingStar: { color: '#555B63', fontSize: 30, lineHeight: 36 },
+  menuRatingStarActive: { color: '#D7DDE3', fontSize: 30, lineHeight: 36 },
   menuRatingHint: { color: '#777', fontSize: 10, textAlign: 'center', marginTop: 5 },
 });
