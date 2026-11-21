@@ -139,6 +139,16 @@ export default function TrackPage() {
       const x = Math.max(0, Math.min(menuRatingStartX.current + gesture.dx, menuStarsWidth));
       updateMenuRating(Math.max(0.5, Math.min(5, Math.ceil((x / (menuStarWidth + menuStarGap)) * 2) / 2)));
     },
+    onPanResponderRelease: () => {
+      const selected = menuRatingSelectionRef.current;
+      if (selected <= 0) return;
+      setMenuVisible(false);
+      router.push({ pathname: '/review/new', params: {
+        albumId: String(track?.id), albumName: track?.name, albumArtist: (track?.artists || []).map((person: any) => person.name).join(', '),
+        albumCover: track?.album?.images?.[0]?.url || '', itemType: 'track',
+        parentAlbumId: String(track?.album?.id || ''), currentRating: String(selected),
+      } } as any);
+    },
   })).current;
 
   function openReviews() {
@@ -408,7 +418,6 @@ export default function TrackPage() {
           <View style={styles.menuRatingSection}>
             <View style={styles.menuRatingHeading}>
               <Text style={styles.menuRatingTitle}>YOUR RATING</Text>
-              <Text style={styles.menuRatingAverage}>{menuRatingSelection > 0 ? `${menuRatingSelection.toFixed(1)} / 5` : '—'}</Text>
             </View>
             <View
               style={styles.menuRatingStars}
@@ -436,25 +445,6 @@ export default function TrackPage() {
                 );
               })}
             </View>
-            <Text style={styles.menuRatingHint}>
-              {menuRatingSelection > 0 ? `${menuRatingSelection.toFixed(1)} / 5` : 'Slide to choose a rating · Half-stars supported'}
-            </Text>
-            {menuRatingSelection > 0 && (
-              <TouchableOpacity
-                style={styles.menuRateButton}
-                onPress={() => {
-                  const selected = menuRatingSelectionRef.current;
-                  setMenuVisible(false);
-                  router.push({ pathname: '/review/new', params: {
-                    albumId: String(track.id), albumName: track.name, albumArtist: artist,
-                    albumCover: cover || '', itemType: 'track',
-                    parentAlbumId: String(track.album?.id || ''), currentRating: String(selected),
-                  } } as any);
-                }}
-              >
-                <Text style={styles.menuRateButtonText}>RATE {menuRatingSelection.toFixed(1)}</Text>
-              </TouchableOpacity>
-            )}
           </View>
           <View style={styles.menuQuickActions}>
             <TouchableOpacity style={styles.menuQuickAction} onPress={() => void toggleCollection('listened')}><Text style={[styles.menuActionIcon, listened && { color: accentColor }]}>◉</Text><Text style={styles.menuActionLabel}>{listened ? 'Listened' : 'Listen'}</Text></TouchableOpacity>
@@ -579,12 +569,7 @@ const styles = StyleSheet.create({
   menuRatingSection: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#343438', marginBottom: 12 },
   menuRatingHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   menuRatingTitle: { color: '#aaa', fontSize: 10, fontWeight: '800', letterSpacing: 1.4 },
-  menuRatingAverage: { color: '#eee', fontSize: 13, fontWeight: '700' },
-  menuRatingCount: { color: '#777', fontSize: 11, fontWeight: '400' },
   menuRatingStars: { width: 202, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
   menuRatingStar: { color: '#456052', fontSize: 30, lineHeight: 36 },
   menuRatingStarActive: { color: '#00E054', fontSize: 30, lineHeight: 36 },
-  menuRatingHint: { color: '#777', fontSize: 10, textAlign: 'center', marginTop: 5 },
-  menuRateButton: { alignSelf: 'center', backgroundColor: '#30343A', borderRadius: 6, paddingHorizontal: 18, paddingVertical: 9, marginTop: 10 },
-  menuRateButtonText: { color: '#E1E4E8', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
 });
