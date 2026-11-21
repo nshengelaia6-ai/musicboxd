@@ -86,9 +86,11 @@ export default function Reviews() {
 
   return <View style={[styles.screen,{backgroundColor}]}>
     <View style={styles.header}>
-      <TouchableOpacity onPress={()=>router.back()}><Text style={styles.back}>‹</Text></TouchableOpacity>
-      <Text style={styles.heading}>REVIEWS</Text>
-      {itemId ? <TouchableOpacity onPress={writeReview}><Text style={[styles.write,{color:accentColor}]}>＋ Review</Text></TouchableOpacity> : <View style={{width:70}} />}
+      <View style={styles.headerTop}>
+        <TouchableOpacity onPress={()=>router.back()}><Text style={styles.back}>‹</Text></TouchableOpacity>
+        <Text style={styles.heading}>REVIEWS</Text>
+        {itemId ? <TouchableOpacity onPress={writeReview}><Text style={[styles.write,{color:accentColor}]}>＋ Review</Text></TouchableOpacity> : <View style={{width:70}} />}
+      </View>
     </View>
     <View style={styles.itemHeader}>
       {params.coverUrl?<Image source={{uri:params.coverUrl}} style={styles.cover}/>:<View style={styles.cover}/>}
@@ -126,9 +128,9 @@ export default function Reviews() {
 }
 
 const styles=StyleSheet.create({
- screen:{flex:1},header:{paddingTop:58,paddingHorizontal:18,paddingBottom:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#252525'},
+ screen:{flex:1},header:{paddingTop:58,paddingHorizontal:18,paddingBottom:12,borderBottomWidth:1,borderBottomColor:'#252525'},headerTop:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
  back:{color:'#fff',fontSize:32,width:36},heading:{color:'#fff',fontSize:16,fontWeight:'700',letterSpacing:1.5},write:{fontSize:14,fontWeight:'700'},
  itemHeader:{flexDirection:'row',alignItems:'center',gap:14,padding:18},cover:{width:66,height:66,borderRadius:6,backgroundColor:'#292929'},itemTitle:{color:'#fff',fontSize:17,fontWeight:'700'},artist:{color:'#aaa',marginTop:3},count:{color:'#777',fontSize:12,marginTop:6},
- filters:{flexDirection:'row',alignItems:'center',paddingHorizontal:18,paddingVertical:12,gap:8},filter:{paddingHorizontal:14,paddingVertical:8,borderRadius:5,backgroundColor:'#25292E',borderWidth:1,borderColor:'#30363D'},filterActive:{backgroundColor:'#41474F',borderColor:'#626B76'},filterText:{color:'#A0A7AF',fontSize:11,fontWeight:'700',letterSpacing:0.8},filterTextActive:{color:'#fff'},
+ filters:{flexGrow:1,flexDirection:'row',alignItems:'center',justifyContent:'center',paddingTop:12,gap:8},filter:{paddingHorizontal:14,paddingVertical:8,borderRadius:5,backgroundColor:'#25292E',borderWidth:1,borderColor:'#30363D'},filterActive:{backgroundColor:'#41474F',borderColor:'#626B76'},filterText:{color:'#A0A7AF',fontSize:11,fontWeight:'700',letterSpacing:0.8},filterTextActive:{color:'#fff'},
  list:{paddingHorizontal:18,paddingBottom:50},reviewActions:{flexDirection:'row',alignItems:'center',marginTop:12},likeButton:{flexDirection:'row',alignItems:'center',gap:6,paddingVertical:4,paddingRight:12},likeIcon:{color:'#9299A1',fontSize:19},likeIconActive:{color:'#00E054'},likeCount:{color:'#9299A1',fontSize:12},card:{paddingVertical:18,borderBottomWidth:1,borderBottomColor:'#252525'},personRow:{flexDirection:'row',alignItems:'center',gap:10},avatar:{width:38,height:38,borderRadius:19,backgroundColor:'#333'},username:{color:'#fff',fontWeight:'700',fontSize:14},date:{color:'#777',fontSize:11,marginTop:3},edit:{fontSize:13,fontWeight:'700'},stars:{color:'#00e054',fontSize:18,marginTop:12},rating:{color:'#888',fontSize:12},reviewText:{color:'#e5e5e5',fontSize:15,lineHeight:23,marginTop:12},empty:{color:'#888',textAlign:'center',marginTop:48,lineHeight:22},error:{color:'#ff7777',marginTop:20}
 });
