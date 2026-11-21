@@ -27,16 +27,13 @@ export default function TrackListsPage() {
       setLoading(true);
       setError('');
       try {
-        const { data: rows, error: listsError } = await supabase
+        const { data: matching, error: listsError } = await supabase
           .from('music_lists')
           .select('id,user_id,name,description,privacy,items')
           .in('privacy', ['public', 'friends'])
-          .order('updated_at', { ascending: false })
-          .limit(200);
+          .contains('items', [{ id: String(id), type: 'track' }])
+          .order('updated_at', { ascending: false });
         if (listsError) throw listsError;
-        const matching = (rows || []).filter((row: any) =>
-          Array.isArray(row.items) && row.items.some((item: any) => String(item.id) === String(id) && item.type === 'track')
-        );
         const userIds = [...new Set(matching.map((row: any) => String(row.user_id)))];
         const { data: profiles, error: profilesError } = userIds.length
           ? await supabase.from('users').select('id,username,avatar_url').in('id', userIds)
