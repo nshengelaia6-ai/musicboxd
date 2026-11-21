@@ -21,7 +21,7 @@ export default function TrackFriendsPage() {
     id: string;
     itemName?: string;
     artistName?: string;
-    section?: 'listened' | 'wants_to_listen';
+    section?: 'listened' | 'wants_to_listen' | 'members';
   }>();
   const router = useRouter();
   const { backgroundColor, accentColor } = useAppTheme();
