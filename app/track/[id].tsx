@@ -408,7 +408,7 @@ export default function TrackPage() {
           <View style={styles.menuRatingSection}>
             <View style={styles.menuRatingHeading}>
               <Text style={styles.menuRatingTitle}>YOUR RATING</Text>
-              <Text style={styles.menuRatingAverage}>{averageRating > 0 ? averageRating.toFixed(1) : '—'} <Text style={styles.menuRatingCount}>({reviewCount})</Text></Text>
+              <Text style={styles.menuRatingAverage}>{menuRatingSelection > 0 ? `${menuRatingSelection.toFixed(1)} / 5` : '—'}</Text>
             </View>
             <View
               style={styles.menuRatingStars}
@@ -582,8 +582,8 @@ const styles = StyleSheet.create({
   menuRatingAverage: { color: '#eee', fontSize: 13, fontWeight: '700' },
   menuRatingCount: { color: '#777', fontSize: 11, fontWeight: '400' },
   menuRatingStars: { width: 202, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  menuRatingStar: { color: '#555B63', fontSize: 30, lineHeight: 36 },
-  menuRatingStarActive: { color: '#D7DDE3', fontSize: 30, lineHeight: 36 },
+  menuRatingStar: { color: '#456052', fontSize: 30, lineHeight: 36 },
+  menuRatingStarActive: { color: '#00E054', fontSize: 30, lineHeight: 36 },
   menuRatingHint: { color: '#777', fontSize: 10, textAlign: 'center', marginTop: 5 },
   menuRateButton: { alignSelf: 'center', backgroundColor: '#30343A', borderRadius: 6, paddingHorizontal: 18, paddingVertical: 9, marginTop: 10 },
   menuRateButtonText: { color: '#E1E4E8', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
