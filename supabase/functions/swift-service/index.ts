@@ -33,6 +33,7 @@ Deno.serve(async (req) => {
       .from("users").select("id, username, avatar_url")
       .eq("id", authData.user.id).maybeSingle();
     if (userError || !user) return respond({ error: "User profile not found in the app" }, 403);
+    const userId = user.id;
 
     async function usersAreBlocked(firstUserId: string, secondUserId: string) {
       const { data, error } = await supabase.from("blocked_users")
@@ -93,7 +94,7 @@ Deno.serve(async (req) => {
         for (let from = 0; ; from += 500) {
           const { data, error } = await supabase.from("shared_songs")
             .select("id, user_id, recipient_id, item_type, item_id, album_id, item_name, artist_name, cover_url, message, created_at")
-            .eq(field, user.id).order("created_at", { ascending: false })
+            .eq(field, userId).order("created_at", { ascending: false })
             .range(from, from + 499);
           if (error) throw error;
           all.push(...(data || []));
