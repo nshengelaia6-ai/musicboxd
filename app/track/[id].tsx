@@ -13,6 +13,13 @@ import { ActivityIndicator, Alert, Image, ImageBackground, Linking, Modal, PanRe
 const HEART = '\u2665';
 const EMPTY_HEART = '\u2661';
 
+type TrackFriend = {
+  id: string;
+  username: string | null;
+  avatar_url: string | null;
+  rating?: number | null;
+};
+
 export default function TrackPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -22,7 +29,7 @@ export default function TrackPage() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewCount, setReviewCount] = useState(0);
   const [averageRating, setAverageRating] = useState(0);
-  const [ratingDistribution, setRatingDistribution] = useState<{ rating: number; count: number }[]>([]);
+  const [ratingDistribution, setRatingDistribution] = useState<{ rating: number; count: number }[]>([]);\n  const [listenedByFriends, setListenedByFriends] = useState<TrackFriend[]>([]);\n  const [wantToListenFriends, setWantToListenFriends] = useState<TrackFriend[]>([]);
   const [people, setPeople] = useState<Record<string, any>>({});
   const [liked, setLiked] = useState(false);
   const [listened, setListened] = useState(false);
@@ -49,7 +56,63 @@ export default function TrackPage() {
   const [shareError, setShareError] = useState('');
   const [shareLoading, setShareLoading] = useState(false);
 
-  const loadTrack = useCallback(async () => {
+
+  async function loadFriendTrackStatuses(trackId: string) {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) {
+        setListenedByFriends([]);
+        setWantToListenFriends([]);
+        return;
+      }
+      const [followingResult, followersResult] = await Promise.all([
+        supabase.from('friendships').select('friend_id').eq('user_id', user.id),
+        supabase.from('friendships').select('user_id').eq('friend_id', user.id),
+      ]);
+      if (followingResult.error) throw followingResult.error;
+      if (followersResult.error) throw followersResult.error;
+      const followingIds = new Set((followingResult.data || []).map((row: any) => String(row.friend_id)));
+      const friendIds = [...new Set((followersResult.data || []).map((row: any) => String(row.user_id)).filter((friendId: string) => followingIds.has(friendId)))];
+      if (!friendIds.length) {
+        setListenedByFriends([]);
+        setWantToListenFriends([]);
+        return;
+      }
+      const { data: activityRows, error: activityError } = await supabase
+        .from('user_activity')
+        .select('user_id,activity_type,created_at')
+        .eq('item_key', String(trackId))
+        .in('user_id', friendIds)
+        .in('activity_type', ['listened', 'wants_to_listen']);
+      if (activityError) throw activityError;
+      const latestByUser: Record<string, any> = {};
+      (activityRows || []).forEach((row: any) => {
+        const uid = String(row.user_id);
+        if (!latestByUser[uid] || new Date(row.created_at).getTime() > new Date(latestByUser[uid].created_at).getTime()) latestByUser[uid] = row;
+      });
+      const peopleIds = Object.keys(latestByUser);
+      const [{ data: profiles, error: profilesError }, { data: ratings, error: ratingsError }] = await Promise.all([
+        peopleIds.length ? supabase.from('users').select('id,username,avatar_url').in('id', peopleIds) : Promise.resolve({ data: [], error: null } as any),
+        peopleIds.length ? supabase.from('music_reviews').select('user_id,rating').eq('item_type', 'track').eq('item_id', String(trackId)).in('user_id', peopleIds) : Promise.resolve({ data: [], error: null } as any),
+      ]);
+      if (profilesError) throw profilesError;
+      if (ratingsError) throw ratingsError;
+      const ratingByUser: Record<string, number> = {};
+      (ratings || []).forEach((row: any) => { ratingByUser[String(row.user_id)] = Number(row.rating) || 0; });
+      const profileMap: Record<string, TrackFriend> = {};
+      (profiles || []).forEach((person: any) => {
+        profileMap[String(person.id)] = { id: String(person.id), username: person.username || null, avatar_url: person.avatar_url || null, rating: ratingByUser[String(person.id)] || null };
+      });
+      setListenedByFriends(peopleIds.filter(uid => latestByUser[uid]?.activity_type === 'listened' && profileMap[uid]).map(uid => profileMap[uid]));
+      setWantToListenFriends(peopleIds.filter(uid => latestByUser[uid]?.activity_type === 'wants_to_listen' && profileMap[uid]).map(uid => profileMap[uid]));
+    } catch (statusError) {
+      console.warn('Could not load friends song statuses:', statusError);
+      setListenedByFriends([]);
+      setWantToListenFriends([]);
+    }
+  }
+\n  const loadTrack = useCallback(async () => {
     setLoading(true);
     setError('');
     setTrack(null);
@@ -409,6 +472,45 @@ export default function TrackPage() {
           </Text>
         </View>
 
+
+        {(listenedByFriends.length > 0 || wantToListenFriends.length > 0) && (
+          <View style={styles.friendStatusSection}>
+            {listenedByFriends.length > 0 && (
+              <View style={styles.friendStatusGroup}>
+                <View style={styles.friendStatusHeader}><Text style={styles.friendStatusTitle}>LISTENED BY</Text><Text style={styles.friendStatusCount}>{listenedByFriends.length}</Text></View>
+                <View style={styles.friendStatusRule} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendAvatarRow}>
+                  {listenedByFriends.map(person => (
+                    <TouchableOpacity key={person.id} style={styles.friendAvatarItem} onPress={() => router.push(`/user/${person.id}` as any)}>
+                      <View style={styles.friendAvatarWrap}>
+                        {person.avatar_url ? <Image source={{ uri: person.avatar_url }} style={styles.friendStatusAvatar} /> : <View style={styles.friendStatusAvatarFallback}><Text style={styles.friendStatusInitial}>{(person.username || 'U').slice(0, 1).toUpperCase()}</Text></View>}
+                        <View style={styles.friendAvatarMenu}><Text style={styles.friendAvatarMenuText}>≡</Text></View>
+                      </View>
+                      <View style={styles.friendRatingStars}>{Array.from({ length: 5 }, (_, index) => <Text key={index} style={[styles.friendRatingStar, (person.rating || 0) >= index + 0.5 && styles.friendRatingStarActive]}>★</Text>)}</View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+            {wantToListenFriends.length > 0 && (
+              <View style={styles.friendStatusGroup}>
+                <View style={styles.friendStatusHeader}><Text style={styles.friendStatusTitle}>WANTS TO LISTEN</Text><Text style={styles.friendStatusCount}>{wantToListenFriends.length}</Text></View>
+                <View style={styles.friendStatusRule} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendAvatarRow}>
+                  {wantToListenFriends.map(person => (
+                    <TouchableOpacity key={person.id} style={styles.friendAvatarItem} onPress={() => router.push(`/user/${person.id}` as any)}>
+                      <View style={styles.friendAvatarWrap}>
+                        {person.avatar_url ? <Image source={{ uri: person.avatar_url }} style={styles.friendStatusAvatar} /> : <View style={styles.friendStatusAvatarFallback}><Text style={styles.friendStatusInitial}>{(person.username || 'U').slice(0, 1).toUpperCase()}</Text></View>}
+                        <View style={styles.friendAvatarMenu}><Text style={styles.friendAvatarMenuText}>≡</Text></View>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+        )}
+
         <View style={styles.reviewsHeader}>
           <View>
             <Text style={styles.sectionTitle}>Reviews</Text>
@@ -611,6 +713,24 @@ const styles = StyleSheet.create({
   menuCancel: { alignItems: 'center', paddingVertical: 12 },
   menuCancelText: { color: '#aaa', fontSize: 14 },
 
+
+  friendStatusSection: { paddingTop: 18, paddingBottom: 8 },
+  friendStatusGroup: { marginBottom: 18 },
+  friendStatusHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingBottom: 9 },
+  friendStatusTitle: { color: '#D8DDE3', fontSize: 11, fontWeight: '800', letterSpacing: 1.6 },
+  friendStatusCount: { color: '#8D98A4', fontSize: 10, fontWeight: '700' },
+  friendStatusRule: { height: 1, backgroundColor: '#303842', marginHorizontal: 18, marginBottom: 13 },
+  friendAvatarRow: { paddingHorizontal: 18, gap: 13 },
+  friendAvatarItem: { width: 76, alignItems: 'center' },
+  friendAvatarWrap: { width: 72, height: 72, position: 'relative' },
+  friendStatusAvatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#30343A' },
+  friendStatusAvatarFallback: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#30343A', alignItems: 'center', justifyContent: 'center' },
+  friendStatusInitial: { color: '#E5E8EC', fontSize: 23, fontWeight: '700' },
+  friendAvatarMenu: { position: 'absolute', right: -2, top: -2, width: 21, height: 21, borderRadius: 11, backgroundColor: '#252A30', borderWidth: 1, borderColor: '#66717D', alignItems: 'center', justifyContent: 'center' },
+  friendAvatarMenuText: { color: '#DDE2E8', fontSize: 12, lineHeight: 14, fontWeight: '800' },
+  friendRatingStars: { flexDirection: 'row', marginTop: 5, gap: 0 },
+  friendRatingStar: { color: '#43534A', fontSize: 10 },
+  friendRatingStarActive: { color: '#00C853' },
   menuRatingStar: { color: '#456052', fontSize: 30, lineHeight: 36, width: 30, textAlign: 'left' },
   menuRatingStarActive: { color: '#00E054', fontSize: 30, lineHeight: 36, width: 30, textAlign: 'left' },
   menuRatingSection: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#343438' },
