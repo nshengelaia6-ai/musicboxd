@@ -3,7 +3,7 @@ import { supabase } from '@/utils/supabase';
 import { recordActivity } from '@/utils/activity';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Image, PanResponder, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, PanResponder, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const STAR_SIZE = 36;
 const STAR_GAP = 6;
@@ -24,6 +24,7 @@ export default function ReviewPage() {
   const [review, setReview] = useState('');
   const [rating, setRating] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   const resolvedType = (itemType as string) || 'album';
@@ -121,22 +122,40 @@ export default function ReviewPage() {
   }
 
   async function handleSave() {
-    if (!canSave) return;
-
-    const userId = await AsyncStorage.getItem('user_id');
+    if (!canSave || saving) return;
+    setSaving(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id || await AsyncStorage.getItem('user_id');
+
       const existing = await AsyncStorage.getItem('reviews');
       const reviews = existing ? JSON.parse(existing) : [];
-      const existingIndex = reviews.findIndex((r: any) => String(r.albumId) === String(albumId) && (r.itemType || 'album') === resolvedType);
-      const isNewReview = existingIndex === -1;
+      const existingIndex = reviews.findIndex((r: any) =>
+        String(r.albumId) === String(albumId) && (r.itemType || 'album') === resolvedType
+      );
 
+      let remoteReviewExists = false;
+      if (user) {
+        const { data: remoteReview, error: remoteLookupError } = await supabase
+          .from('music_reviews')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('item_type', resolvedType)
+          .eq('item_id', String(albumId))
+          .maybeSingle();
+        if (remoteLookupError) throw remoteLookupError;
+        remoteReviewExists = !!remoteReview;
+      }
+      const isNewReview = existingIndex === -1 && !remoteReviewExists;
+
+      const savedAt = new Date().toISOString();
       if (existingIndex !== -1) {
         reviews[existingIndex] = {
           ...reviews[existingIndex],
           rating,
           review,
-          date: new Date().toISOString(),
+          date: savedAt,
           itemType: resolvedType,
           parentAlbumId: resolvedParentAlbumId,
         };
@@ -144,67 +163,47 @@ export default function ReviewPage() {
         reviews.unshift({
           id: Date.now().toString(),
           userId,
-          albumId: albumId as string,
+          albumId: String(albumId),
           albumName: albumName as string,
           albumArtist: albumArtist as string,
           albumCover: albumCover as string,
           rating,
           review,
-          date: new Date().toISOString(),
+          date: savedAt,
           itemType: resolvedType,
           parentAlbumId: resolvedParentAlbumId,
         });
       }
       await AsyncStorage.setItem('reviews', JSON.stringify(reviews));
 
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          const savedReview = reviews.find((r: any) => String(r.albumId) === String(albumId) && (r.itemType || 'album') === resolvedType);
-
-          if (user && savedReview) {
-            const { error: syncError } = await supabase
-              .from('public_profile_items')
-              .upsert({
-                user_id: user.id,
-                section: 'reviews',
-                item_key: String(albumId),
-                data: savedReview,
-                updated_at: new Date().toISOString(),
-              }, { onConflict: 'user_id,section,item_key' });
-
-            if (syncError) console.error('Review sync failed:', syncError);
-          }
-        } catch (syncError) {
-          console.error('Review sync failed:', syncError);
-        }
-
       const listenedData = await AsyncStorage.getItem('listened');
       const listenedList = listenedData ? JSON.parse(listenedData) : [];
-      const listenedIndex = listenedList.findIndex((i: any) => String(i.id) === String(albumId) && (i.type || 'album') === resolvedType);
+      const listenedIndex = listenedList.findIndex((item: any) =>
+        String(item.id) === String(albumId) && (item.type || 'album') === resolvedType
+      );
       const isNewListened = listenedIndex === -1;
 
       if (listenedIndex !== -1) {
-        // Do not wipe an existing rating when saving a text-only review.
         if (rating > 0) listenedList[listenedIndex].rating = rating;
         listenedList[listenedIndex].type = resolvedType;
-        if (resolvedType === 'track') {
-          listenedList[listenedIndex].albumId = resolvedParentAlbumId;
-        }
+        if (resolvedType === 'track') listenedList[listenedIndex].albumId = resolvedParentAlbumId;
       } else {
         listenedList.unshift({
-          id: albumId,
+          id: String(albumId),
           name: albumName,
           cover: albumCover,
           type: resolvedType,
           albumId: resolvedType === 'track' ? resolvedParentAlbumId : undefined,
           rating,
-          date: new Date().toISOString(),
+          date: savedAt,
         });
       }
       await AsyncStorage.setItem('listened', JSON.stringify(listenedList));
 
-      const savedReview = reviews.find((r: any) => String(r.albumId) === String(albumId) && (r.itemType || 'album') === resolvedType);
-      const { data: { user } } = await supabase.auth.getUser();
+      const savedReview = reviews.find((item: any) =>
+        String(item.albumId) === String(albumId) && (item.itemType || 'album') === resolvedType
+      );
+
       if (user && savedReview) {
         const reviewData = {
           id: String(albumId),
@@ -218,19 +217,8 @@ export default function ReviewPage() {
           albumId: resolvedType === 'track' ? resolvedParentAlbumId : undefined,
           rating,
           review,
-          date: savedReview.date,
+          date: savedAt,
         };
-
-        const { error: profileSyncError } = await supabase
-          .from('public_profile_items')
-          .upsert({
-            user_id: user.id,
-            section: 'reviews',
-            item_key: String(albumId),
-            data: savedReview,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id,section,item_key' });
-        if (profileSyncError) console.error('Review profile sync failed:', profileSyncError);
 
         const { error: publicReviewError } = await supabase
           .from('music_reviews')
@@ -244,9 +232,20 @@ export default function ReviewPage() {
             cover_url: String(albumCover ?? savedReview.albumCover ?? ''),
             rating: Number(rating) || 0,
             review_text: String(review || '').trim(),
-            updated_at: new Date().toISOString(),
+            updated_at: savedAt,
           }, { onConflict: 'user_id,item_type,item_id' });
-        if (publicReviewError) console.error('Public review sync failed:', publicReviewError);
+        if (publicReviewError) throw publicReviewError;
+
+        const { error: profileSyncError } = await supabase
+          .from('public_profile_items')
+          .upsert({
+            user_id: user.id,
+            section: 'reviews',
+            item_key: String(albumId),
+            data: savedReview,
+            updated_at: savedAt,
+          }, { onConflict: 'user_id,section,item_key' });
+        if (profileSyncError) console.error('Review profile sync failed:', profileSyncError);
 
         if (isNewReview) {
           await recordActivity('reviewed', String(albumId), reviewData);
@@ -264,7 +263,7 @@ export default function ReviewPage() {
           if (activityRows?.length) {
             const { error: activityUpdateError } = await supabase
               .from('user_activity')
-              .update({ data: reviewData, created_at: new Date().toISOString() })
+              .update({ data: reviewData, created_at: savedAt })
               .eq('user_id', user.id)
               .eq('activity_type', 'reviewed')
               .eq('item_key', String(albumId));
@@ -279,12 +278,16 @@ export default function ReviewPage() {
         await recordActivity('listened', String(albumId), listenedList[0]);
       }
 
-      // The album page reads this to show the "Review saved" toast.
       await AsyncStorage.setItem('review_saved_notification', JSON.stringify({ time: Date.now() }));
-
       router.back();
-    } catch (e) {
-      console.error('Could not save review:', e);
+    } catch (error: any) {
+      console.error('Could not save review:', error);
+      Alert.alert(
+        'Could not sync review',
+        error?.message || 'Your review may be saved on this device. Please try again.'
+      );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -295,10 +298,10 @@ export default function ReviewPage() {
           <Text style={styles.cancel}>Cancel</Text>
         </TouchableOpacity>
         <Text style={styles.title}>
-          {loaded && rating > 0 ? 'Edit Review' : 'I Listened...'}
+          {loaded && (rating > 0 || review.trim().length > 0) ? 'Edit Review' : 'I Listened...'}
         </Text>
-        <TouchableOpacity onPress={handleSave} disabled={!canSave}>
-          <Text style={[styles.save, !canSave && { opacity: 0.4 }]}>Save</Text>
+        <TouchableOpacity onPress={handleSave} disabled={!canSave || saving}>
+          <Text style={[styles.save, (!canSave || saving) && { opacity: 0.4 }]}>{saving ? 'Saving…' : 'Save'}</Text>
         </TouchableOpacity>
       </View>
 
