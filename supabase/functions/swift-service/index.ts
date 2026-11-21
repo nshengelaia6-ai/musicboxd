@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
 
     if (body.action === "track-members") {
       const itemId = typeof body.item_id === "string" ? body.item_id.trim() : "";
-      const relationship = body.relationship === "liked" ? "liked" : "listened";
+      const relationship = ["liked", "listened", "wants_to_listen"].includes(body.relationship) ? body.relationship : "listened";
       if (!itemId || itemId.length > 200) return respond({ error: "Invalid track ID" }, 400);
 
       const blockedResult = await supabase.from("blocked_users")
@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
         const { data, error } = await supabase.from("user_activity")
           .select("user_id,activity_type,created_at")
           .eq("item_key", itemId)
-          .in("activity_type", ["listened", "liked"])
+          .in("activity_type", ["listened", "liked", "wants_to_listen"])
           .order("created_at", { ascending: false })
           .range(from, from + 499);
         if (error) return respond({ error: "Could not load listener activity" }, 500);
