@@ -140,3 +140,57 @@ export async function addMusicItemToList(listId: string, item: MusicListItem) {
   await AsyncStorage.setItem('lists', JSON.stringify(lists));
   return { added: !alreadyAdded };
 }
+
+/** Loads cloud lists and migrates any older device-only lists before showing the picker. */
+export async function loadUserMusicLists() {
+  const localRaw = await AsyncStorage.getItem('lists');
+  const localLists = localRaw ? JSON.parse(localRaw) : [];
+  const safeLocalLists = Array.isArray(localLists) ? localLists : [];
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError) throw authError;
+  if (!user) return safeLocalLists;
+
+  const { data: cloudIds, error: idsError } = await supabase
+    .from('music_lists')
+    .select('id')
+    .eq('user_id', user.id);
+  if (idsError) throw idsError;
+
+  const knownIds = new Set((cloudIds || []).map((row: any) => String(row.id)));
+  const legacyLists = safeLocalLists.filter((list: any) => !knownIds.has(String(list.id)));
+  if (legacyLists.length) {
+    const { error: migrateError } = await supabase.from('music_lists').upsert(
+      legacyLists.map((list: any) => ({
+        id: String(list.id),
+        user_id: user.id,
+        name: String(list.name || 'Untitled list').slice(0, 100),
+        description: String(list.description || '').slice(0, 1000),
+        privacy: ['public', 'friends', 'link', 'private'].includes(list.privacy) ? list.privacy : 'public',
+        items: Array.isArray(list.albums) ? list.albums : [],
+        created_at: list.createdAt || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })),
+      { onConflict: 'id', ignoreDuplicates: true }
+    );
+    if (migrateError) throw migrateError;
+  }
+
+  const { data: rows, error: rowsError } = await supabase
+    .from('music_lists')
+    .select('id,name,description,privacy,items,created_at,share_token')
+    .eq('user_id', user.id)
+    .order('updated_at', { ascending: false });
+  if (rowsError) throw rowsError;
+
+  const mapped = (rows || []).map((row: any) => ({
+    id: String(row.id),
+    name: row.name,
+    description: row.description,
+    privacy: row.privacy,
+    albums: Array.isArray(row.items) ? row.items : [],
+    createdAt: row.created_at,
+    shareToken: row.share_token,
+  }));
+  await AsyncStorage.setItem('lists', JSON.stringify(mapped));
+  return mapped;
+}
