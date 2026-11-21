@@ -451,7 +451,7 @@ export default function TrackPage() {
                 <Text style={styles.albumLink}>{track.album?.name || 'Album'}</Text>
               </TouchableOpacity>
               <Text style={styles.typeLabel}>
-                {releaseYear}{releaseYear ? '  ·  ' : ''}{track.duration_ms ? `${Math.floor(track.duration_ms / 60000)} min` : ''}  ·  SONG
+                {releaseYear}{releaseYear ? '  ·  ' : ''}SONG
               </Text>
             </View>
             {cover ? <Image source={{ uri: cover }} style={styles.cover} /> : <View style={[styles.cover, styles.coverPlaceholder]} />}
@@ -511,30 +511,31 @@ export default function TrackPage() {
           </View>
         )}
 
-        <View style={styles.reviewsHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>Reviews</Text>
-            <Text style={styles.sectionSub}>{reviewCount} reviews</Text>
-          </View>
-          <View style={styles.ratingBlock}>
-            <View style={styles.ratingOverview}>
-              <View style={styles.ratingHistogram}>
-                {ratingDistribution.slice().reverse().map(item => {
-                  const maxCount = Math.max(...ratingDistribution.map(row => row.count), 1);
-                  const barHeight = item.count > 0 ? Math.max(1, (item.count / maxCount) * 30) : 1;
-                  return <View key={item.rating} style={styles.histogramColumn}><View style={[styles.histogramBar, { height: barHeight }]} /></View>;
-                })}
-              </View>
-              <View style={styles.ratingOverviewDetails}>
-                <Text style={styles.ratingAverage}>{averageRating > 0 ? averageRating.toFixed(1) : '—'}</Text>
-                <Text style={styles.ratingStars}>★★★★★</Text>
+        <View style={styles.reviewsSection}>
+          <View style={styles.sectionHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Reviews</Text>
+              <Text style={styles.sectionSub}>{reviewCount} reviews</Text>
+            </View>
+            <View style={styles.ratingBlock}>
+              <View style={styles.ratingOverview}>
+                <View style={styles.ratingHistogram}>
+                  {ratingDistribution.slice().reverse().map(item => {
+                    const maxCount = Math.max(...ratingDistribution.map(row => row.count), 1);
+                    const barHeight = item.count > 0 ? Math.max(1, (item.count / maxCount) * 30) : 1;
+                    return <View key={item.rating} style={styles.histogramColumn}><View style={[styles.histogramBar, { height: barHeight }]} /></View>;
+                  })}
+                </View>
+                <View style={styles.ratingOverviewDetails}>
+                  <Text style={styles.ratingAverage}>{averageRating > 0 ? averageRating.toFixed(1) : '—'}</Text>
+                  <Text style={styles.ratingStars}>★★★★★</Text>
+                </View>
               </View>
             </View>
+            <TouchableOpacity onPress={openReviews}>
+              <Text style={[styles.seeAll, { color: accentColor }]}>See all ›</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={openReviews} style={styles.seeAllButton}>
-            <Text style={[styles.seeAll, { color: accentColor }]}>See all ›</Text>
-          </TouchableOpacity>
-        </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {reviews.length === 0 ? (
@@ -542,17 +543,17 @@ export default function TrackPage() {
         ) : reviews.map((review: any) => {
           const person = people[review.user_id];
           return (
-            <View key={review.id} style={styles.reviewCard}>
+            <TouchableOpacity key={review.id} style={styles.reviewCard} onPress={openReviews}>
               <View style={styles.reviewerRow}>
                 {person?.avatar_url ? <Image source={{ uri: person.avatar_url }} style={styles.avatar} /> : <View style={styles.avatarPlaceholder}><Text style={styles.avatarLetter}>{(person?.username || 'L').slice(0, 1).toUpperCase()}</Text></View>}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.username}>@{person?.username || 'listener'}</Text>
                   <Text style={styles.date}>{new Date(review.updated_at || review.created_at).toLocaleDateString()}</Text>
                 </View>
-                <Text style={[styles.stars, { color: accentColor }]}>{'★'.repeat(Math.floor(Number(review.rating) || 0))}{Number(review.rating) % 1 ? '½' : ''}</Text>
               </View>
-              {!!review.review_text && <Text style={styles.reviewText}>{review.review_text}</Text>}
-            </View>
+              {Number(review.rating) > 0 && <Text style={styles.reviewRating}>{'★'.repeat(Math.floor(Number(review.rating)))}{Number(review.rating) % 1 ? '½' : ''}</Text>}
+              {!!review.review_text && <Text style={styles.reviewText} numberOfLines={4}>{review.review_text}</Text>}
+            </TouchableOpacity>
           );
         })}
 
@@ -637,7 +638,7 @@ const styles = StyleSheet.create({
   topBar: { paddingTop: 56, paddingHorizontal: 18, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { color: '#fff', fontSize: 32, lineHeight: 34, width: 34 },
   topTitle: { color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 2 },
-  content: { paddingBottom: 44 },
+  content: { paddingBottom: 60 },
   heroBackground: { height: 440, justifyContent: 'space-between', backgroundColor: '#17191d' },
   heroBackgroundImage: { opacity: 0.72 },
   heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8, 10, 14, 0.48)' },
@@ -662,19 +663,20 @@ const styles = StyleSheet.create({
   ratingOverviewDetails: { width: 39, alignItems: 'flex-start', justifyContent: 'flex-end', paddingBottom: 0 },
   ratingAverage: { color: '#AAB4BF', fontSize: 14, lineHeight: 15, fontWeight: '400', fontVariant: ['tabular-nums'] },
   ratingStars: { color: '#00C853', fontSize: 7, letterSpacing: 0, marginTop: 0 },
-  reviewsHeader: { paddingHorizontal: 18, paddingVertical: 10, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#2C3440', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  seeAllButton: { marginLeft: 8 },
+  reviewsSection: { marginTop: 6 },
+  sectionHeader: { paddingHorizontal: 18, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#2C3440' },
   sectionTitle: { color: '#fff', fontSize: 19, fontWeight: '800' },
-  sectionSub: { color: '#777', fontSize: 11, marginTop: 4 },
+  sectionSub: { color: '#9BA7B2', fontSize: 11, marginTop: 4 },
   seeAll: { fontSize: 13, fontWeight: '700' },
+  reviewRating: { color: '#00E054', fontSize: 14, fontWeight: '700', marginTop: 9 },
   empty: { alignItems: 'center', paddingVertical: 34, paddingHorizontal: 20 },
   emptyTitle: { color: '#ddd', fontSize: 15, fontWeight: '700' },
   emptyText: { color: '#888', fontSize: 12, marginTop: 7, textAlign: 'center' },
   emptyLink: { fontSize: 13, fontWeight: '700', marginTop: 14 },
-  reviewCard: { paddingHorizontal: 18, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#242424' },
+  reviewCard: { paddingHorizontal: 18, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#2C3440' },
   reviewerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#333' },
-  avatarPlaceholder: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3A4653' },
+  avatarPlaceholder: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3A4653', alignItems: 'center', justifyContent: 'center' },
   avatarLetter: { color: '#fff', fontWeight: '700' },
   username: { color: '#eee', fontSize: 13, fontWeight: '700' },
   date: { color: '#777', fontSize: 10, marginTop: 3 },
@@ -714,23 +716,23 @@ const styles = StyleSheet.create({
   menuCancelText: { color: '#aaa', fontSize: 14 },
 
 
-  friendStatusSection: { paddingTop: 18, paddingBottom: 8 },
-  friendStatusGroup: { marginBottom: 18 },
-  friendStatusHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingBottom: 9 },
-  friendStatusTitle: { color: '#D8DDE3', fontSize: 11, fontWeight: '800', letterSpacing: 1.6 },
-  friendStatusCount: { color: '#8D98A4', fontSize: 10, fontWeight: '700' },
-  friendStatusRule: { height: 1, backgroundColor: '#303842', marginHorizontal: 18, marginBottom: 13 },
-  friendAvatarRow: { paddingHorizontal: 18, gap: 13 },
+  friendStatusSection: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#2C3440' },
+  friendStatusGroup: { marginBottom: 17 },
+  friendStatusHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
+  friendStatusTitle: { color: '#AAB4BF', fontSize: 12, fontWeight: '500', letterSpacing: 1.4 },
+  friendStatusCount: { color: '#9BA7B2', fontSize: 10, fontWeight: '500', letterSpacing: 0.7 },
+  friendStatusRule: { height: 1, backgroundColor: '#303943', marginBottom: 13 },
+  friendAvatarRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 17, paddingRight: 8 },
   friendAvatarItem: { width: 76, alignItems: 'center' },
-  friendAvatarWrap: { width: 72, height: 72, position: 'relative' },
-  friendStatusAvatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#30343A' },
-  friendStatusAvatarFallback: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#30343A', alignItems: 'center', justifyContent: 'center' },
-  friendStatusInitial: { color: '#E5E8EC', fontSize: 23, fontWeight: '700' },
-  friendAvatarMenu: { position: 'absolute', right: -2, top: -2, width: 21, height: 21, borderRadius: 11, backgroundColor: '#252A30', borderWidth: 1, borderColor: '#66717D', alignItems: 'center', justifyContent: 'center' },
-  friendAvatarMenuText: { color: '#DDE2E8', fontSize: 12, lineHeight: 14, fontWeight: '800' },
-  friendRatingStars: { flexDirection: 'row', marginTop: 5, gap: 0 },
-  friendRatingStar: { color: '#43534A', fontSize: 10 },
-  friendRatingStarActive: { color: '#00C853' },
+  friendAvatarWrap: { width: 76, height: 76, position: 'relative', alignItems: 'center', justifyContent: 'center' },
+  friendStatusAvatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#3A4653' },
+  friendStatusAvatarFallback: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#3A4653', alignItems: 'center', justifyContent: 'center' },
+  friendStatusInitial: { color: '#fff', fontSize: 23, fontWeight: '700' },
+  friendAvatarMenu: { position: 'absolute', top: 0, right: 0, width: 23, height: 23, borderRadius: 12, backgroundColor: '#34404B', borderWidth: 2, borderColor: '#17191D', alignItems: 'center', justifyContent: 'center' },
+  friendAvatarMenuText: { color: '#AAB4BF', fontSize: 15, lineHeight: 17, fontWeight: '700' },
+  friendRatingStars: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  friendRatingStar: { color: '#53616D', fontSize: 13, lineHeight: 15 },
+  friendRatingStarActive: { color: '#53616D' },
   menuRatingStar: { color: '#456052', fontSize: 30, lineHeight: 36, width: 30, textAlign: 'left' },
   menuRatingStarActive: { color: '#00E054', fontSize: 30, lineHeight: 36, width: 30, textAlign: 'left' },
   menuRatingSection: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#343438' },
