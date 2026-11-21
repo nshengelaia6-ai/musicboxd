@@ -19,16 +19,6 @@ type TrackFriend = {
   has_review?: boolean;
 };
 
-type TrackList = {
-  id: string;
-  name: string;
-  description: string | null;
-  privacy: string;
-  user_id: string;
-  username?: string | null;
-  avatar_url?: string | null;
-};
-
 export default function TrackPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -36,12 +26,6 @@ export default function TrackPage() {
   const [track, setTrack] = useState<any>(null);
   const [artistData, setArtistData] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
-  const [activeTrackTab, setActiveTrackTab] = useState<'members' | 'reviews' | 'lists'>('reviews');
-  const [memberFilter, setMemberFilter] = useState<'everyone' | 'liked' | 'friends'>('everyone');
-  const [trackMembers, setTrackMembers] = useState<TrackFriend[]>([]);
-  const [trackLists, setTrackLists] = useState<TrackList[]>([]);
-  const [tabLoading, setTabLoading] = useState(false);
-  const [tabError, setTabError] = useState('');
   const [reviewCount, setReviewCount] = useState(0);
   const [ratingCount, setRatingCount] = useState(0);
   const [averageRating, setAverageRating] = useState(0);
@@ -313,66 +297,6 @@ export default function TrackPage() {
     } as any);
   }
 
-  async function selectTrackTab(tab: 'members' | 'reviews' | 'lists') {
-    setActiveTrackTab(tab);
-    setTabError('');
-    if (tab === 'members') {
-      setTabLoading(true);
-      try {
-        const relationship = memberFilter === 'liked' ? 'liked' : 'listened';
-        const { data, error: invokeError } = await supabase.functions.invoke('swift-service', {
-          body: { action: 'track-members', item_id: String(track.id), relationship, scope: memberFilter === 'friends' ? 'friends' : 'everyone' },
-        });
-        if (invokeError) throw invokeError;
-        if (!data?.success) throw new Error(data?.error || 'Could not load members.');
-        setTrackMembers(Array.isArray(data.members) ? data.members : []);
-      } catch (e: any) {
-        setTabError(e?.message || 'Could not load members.');
-      } finally { setTabLoading(false); }
-    } else if (tab === 'lists') {
-      setTabLoading(true);
-      try {
-        const { data: rows, error: listsError } = await supabase
-          .from('music_lists')
-          .select('id,user_id,name,description,privacy,items')
-          .in('privacy', ['public', 'friends'])
-          .order('updated_at', { ascending: false })
-          .limit(200);
-        if (listsError) throw listsError;
-        const matching = (rows || []).filter((row: any) =>
-          Array.isArray(row.items) && row.items.some((item: any) => String(item.id) === String(track.id) && item.type === 'track')
-        );
-        const userIds = [...new Set(matching.map((row: any) => row.user_id))];
-        const { data: profiles, error: profilesError } = userIds.length
-          ? await supabase.from('users').select('id,username,avatar_url').in('id', userIds)
-          : { data: [], error: null };
-        if (profilesError) throw profilesError;
-        const profileMap: Record<string, any> = {};
-        (profiles || []).forEach((person: any) => { profileMap[person.id] = person; });
-        setTrackLists(matching.map((row: any) => ({ ...row, username: profileMap[row.user_id]?.username, avatar_url: profileMap[row.user_id]?.avatar_url })));
-      } catch (e: any) {
-        setTabError(e?.message || 'Could not load lists containing this song.');
-      } finally { setTabLoading(false); }
-    }
-  }
-
-  async function changeMemberFilter(filter: 'everyone' | 'liked' | 'friends') {
-    setMemberFilter(filter);
-    setTabLoading(true);
-    setTabError('');
-    try {
-      const relationship = filter === 'liked' ? 'liked' : 'listened';
-      const { data, error: invokeError } = await supabase.functions.invoke('swift-service', {
-        body: { action: 'track-members', item_id: String(track.id), relationship, scope: filter === 'friends' ? 'friends' : 'everyone' },
-      });
-      if (invokeError) throw invokeError;
-      if (!data?.success) throw new Error(data?.error || 'Could not load members.');
-      setTrackMembers(Array.isArray(data.members) ? data.members : []);
-    } catch (e: any) {
-      setTabError(e?.message || 'Could not load members.');
-    } finally { setTabLoading(false); }
-  }
-
   function writeReview() {
     if (!track) return;
     router.push({
@@ -640,83 +564,17 @@ export default function TrackPage() {
 
         <View style={styles.reviewsSection}>
           <View style={styles.trackTopNav}>
-            <TouchableOpacity style={[styles.trackTopNavItem, activeTrackTab === 'members' && styles.trackTopNavActive]} onPress={() => void selectTrackTab('members')}>
-              <Text style={[styles.trackTopNavText, activeTrackTab === 'members' && styles.trackTopNavActiveText]}>MEMBERS</Text>
+            <TouchableOpacity style={styles.trackTopNavItem} onPress={() => router.push({ pathname: '/track/[id]/friends', params: { id: String(track.id), itemName: track.name, artistName: artist, section: 'members' } } as any)}>
+              <Text style={styles.trackTopNavText}>MEMBERS</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.trackTopNavItem, activeTrackTab === 'reviews' && styles.trackTopNavActive]} onPress={() => void selectTrackTab('reviews')}>
-              <Text style={[styles.trackTopNavText, activeTrackTab === 'reviews' && styles.trackTopNavActiveText]}>REVIEWS</Text>
+            <TouchableOpacity style={styles.trackTopNavItem} onPress={openReviews}>
+              <Text style={styles.trackTopNavText}>REVIEWS</Text>
               <Text style={styles.trackTopNavCount}>{reviewCount}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.trackTopNavItem, activeTrackTab === 'lists' && styles.trackTopNavActive]} onPress={() => void selectTrackTab('lists')}>
-              <Text style={[styles.trackTopNavText, activeTrackTab === 'lists' && styles.trackTopNavActiveText]}>LISTS</Text>
+            <TouchableOpacity style={styles.trackTopNavItem} onPress={() => router.push({ pathname: '/track/[id]/lists', params: { id: String(track.id), itemName: track.name, artistName: artist } } as any)}>
+              <Text style={styles.trackTopNavText}>LISTS</Text>
             </TouchableOpacity>
           </View>
-
-          {tabLoading ? <ActivityIndicator color={accentColor} style={{ marginTop: 35 }} /> : !!tabError ? <Text style={styles.error}>{tabError}</Text> : activeTrackTab === 'members' ? (
-            <View>
-              <View style={styles.memberFilters}>
-                {(['everyone', 'liked', 'friends'] as const).map(filter => (
-                  <TouchableOpacity key={filter} onPress={() => void changeMemberFilter(filter)} style={[styles.memberFilter, memberFilter === filter && styles.memberFilterActive]}>
-                    <Text style={[styles.memberFilterText, memberFilter === filter && styles.memberFilterTextActive]}>{filter.toUpperCase()}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={styles.tabResultCount}>{trackMembers.length} {trackMembers.length === 1 ? 'MEMBER' : 'MEMBERS'}</Text>
-              {trackMembers.length ? trackMembers.map(person => (
-                <TouchableOpacity key={person.id} style={styles.tabMemberRow} onPress={() => router.push(`/user/${person.id}` as any)}>
-                  {person.avatar_url ? <Image source={{ uri: person.avatar_url }} style={styles.tabMemberAvatar} /> : <View style={styles.tabMemberAvatarFallback}><Text style={styles.avatarLetter}>{(person.username || 'L').slice(0,1).toUpperCase()}</Text></View>}
-                  <Text style={styles.tabMemberName}>@{person.username || 'listener'}</Text>
-                  <View style={styles.tabMemberIndicators}>
-                    {person.rating != null ? <Text style={styles.reviewRating}>{'★'.repeat(Math.floor(person.rating))}{person.rating % 1 ? '½' : ''}</Text> : null}
-                    {person.liked ? <Text style={styles.tabMemberLike}>♥</Text> : null}
-                    {person.has_review ? <Text style={styles.tabMemberReview}>▤</Text> : null}
-                  </View>
-                </TouchableOpacity>
-              )) : <Text style={styles.emptyText}>{memberFilter === 'liked' ? 'No members have liked this song yet.' : memberFilter === 'friends' ? 'No friends have listened to this song yet.' : 'No members have marked this song as listened yet.'}</Text>}
-            </View>
-          ) : activeTrackTab === 'lists' ? (
-            <View>
-              <Text style={styles.tabResultCount}>{trackLists.length} {trackLists.length === 1 ? 'LIST' : 'LISTS'}</Text>
-              {trackLists.length ? trackLists.map(item => (
-                <TouchableOpacity key={item.id} style={styles.tabListRow} onPress={() => router.push({ pathname: '/user/[id]', params: { id: item.user_id } } as any)}>
-                  {item.avatar_url ? <Image source={{ uri: item.avatar_url }} style={styles.tabMemberAvatar} /> : <View style={styles.tabMemberAvatarFallback}><Text style={styles.avatarLetter}>{(item.username || 'L').slice(0,1).toUpperCase()}</Text></View>}
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.tabListName}>{item.name}</Text>
-                    <Text style={styles.tabListOwner}>by @{item.username || 'listener'}{item.description ? ` · ${item.description}` : ''}</Text>
-                  </View>
-                  <Text style={styles.tabListArrow}>›</Text>
-                </TouchableOpacity>
-              )) : <Text style={styles.emptyText}>This song hasn&apos;t been added to any visible lists yet.</Text>}
-            </View>
-          ) : (
-            <View>
-              {error ? <Text style={styles.error}>{error}</Text> : null}
-              {reviews.length === 0 ? (
-                <View style={styles.emptyReviews}>
-                  <Text style={styles.emptyTitle}>No reviews yet</Text>
-                  <Text style={styles.emptyText}>Be the first to write about this song.</Text>
-                  <TouchableOpacity onPress={writeReview}>
-                    <Text style={[styles.emptyLink, { color: accentColor }]}>Write the first review ›</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : reviews.map((review: any) => {
-                const person = people[review.user_id];
-                return (
-                  <TouchableOpacity key={review.id} style={styles.reviewCard} onPress={openReviews}>
-                    <View style={styles.reviewerRow}>
-                      {person?.avatar_url ? <Image source={{ uri: person.avatar_url }} style={styles.avatar} /> : <View style={styles.avatarPlaceholder}><Text style={styles.avatarLetter}>{(person?.username || 'L').slice(0, 1).toUpperCase()}</Text></View>}
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.username}>@{person?.username || 'listener'}</Text>
-                        <Text style={styles.date}>{new Date(review.updated_at || review.created_at).toLocaleDateString()}</Text>
-                      </View>
-                    </View>
-                    {Number(review.rating) > 0 && <Text style={styles.reviewRating}>{'★'.repeat(Math.floor(Number(review.rating)))}{Number(review.rating) % 1 ? '½' : ''}</Text>}
-                    {!!review.review_text && <Text style={styles.reviewText} numberOfLines={4}>{review.review_text}</Text>}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
         </View>
 
       </ScrollView>
@@ -829,23 +687,6 @@ const styles = StyleSheet.create({
   trackTopNavText: { color: '#858B92', fontSize: 12, fontWeight: '700', letterSpacing: 1 },
   trackTopNavActiveText: { color: '#FFFFFF' },
   trackTopNavCount: { color: '#9299A1', fontSize: 11, fontWeight: '600' },
-  memberFilters: { flexDirection: 'row', gap: 8, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#252D36' },
-  memberFilter: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 4, backgroundColor: '#22272D' },
-  memberFilterActive: { backgroundColor: '#3A424B' },
-  memberFilterText: { color: '#858B92', fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
-  memberFilterTextActive: { color: '#fff' },
-  tabResultCount: { color: '#7F8B96', fontSize: 10, fontWeight: '700', letterSpacing: 1.2, paddingTop: 18, paddingBottom: 8 },
-  tabMemberRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: '#252D36' },
-  tabMemberAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#333' },
-  tabMemberAvatarFallback: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' },
-  tabMemberName: { flex: 1, color: '#E5E9EC', fontSize: 13, fontWeight: '700' },
-  tabMemberIndicators: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  tabMemberLike: { color: '#FF5B75', fontSize: 15 },
-  tabMemberReview: { color: '#AAB4BF', fontSize: 15 },
-  tabListRow: { minHeight: 70, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: '#252D36' },
-  tabListName: { color: '#E5E9EC', fontSize: 14, fontWeight: '700' },
-  tabListOwner: { color: '#89949F', fontSize: 11, marginTop: 4 },
-  tabListArrow: { color: '#77828D', fontSize: 23 },
   reviewsHeaderCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#292D32', borderRadius: 7, paddingHorizontal: 14, paddingVertical: 13, marginBottom: 12 },
   reviewsSection: { marginTop: 6 },
   sectionHeader: { paddingHorizontal: 18, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#2C3440' },
