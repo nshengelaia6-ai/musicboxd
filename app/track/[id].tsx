@@ -577,6 +577,52 @@ export default function TrackPage() {
           </View>
         </View>
 
+        <View style={styles.trackDetailsSection}>
+          <Text style={styles.trackDetailsHeading}>TRACK DETAILS</Text>
+          <View style={styles.trackDetailsRows}>
+            <View style={styles.trackDetailRow}>
+              <Text style={styles.trackDetailLabel}>ARTISTS</Text>
+              <Text style={styles.trackDetailValue}>{artist || '—'}</Text>
+            </View>
+            <View style={styles.trackDetailRow}>
+              <Text style={styles.trackDetailLabel}>ALBUM</Text>
+              <TouchableOpacity onPress={() => track.album?.id && router.push(`/album/${track.album.id}` as any)}>
+                <Text style={[styles.trackDetailValue, styles.trackDetailLink]}>{track.album?.name || '—'}</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.trackDetailRow}>
+              <Text style={styles.trackDetailLabel}>RELEASE DATE</Text>
+              <Text style={styles.trackDetailValue}>{releaseDate || '—'}</Text>
+            </View>
+            <View style={styles.trackDetailRow}>
+              <Text style={styles.trackDetailLabel}>GENRES</Text>
+              <Text style={styles.trackDetailValue}>{Array.isArray(artistData?.genres) && artistData.genres.length ? artistData.genres.map((genre: string) => genre.replace(/\\b\\w/g, letter => letter.toUpperCase())).join(' · ') : '—'}</Text>
+            </View>
+            <View style={styles.trackDetailRow}>
+              <Text style={styles.trackDetailLabel}>DURATION</Text>
+              <Text style={styles.trackDetailValue}>{track.duration_ms ? `${Math.floor(track.duration_ms / 60000)}:${String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}` : '—'}</Text>
+            </View>
+            <View style={styles.trackDetailRow}>
+              <Text style={styles.trackDetailLabel}>TRACK NUMBER</Text>
+              <Text style={styles.trackDetailValue}>{track.track_number ? `${track.track_number} of ${track.album?.total_tracks || '—'}` : '—'}</Text>
+            </View>
+            <View style={styles.trackDetailRow}>
+              <Text style={styles.trackDetailLabel}>DISC</Text>
+              <Text style={styles.trackDetailValue}>{track.disc_number || '—'}</Text>
+            </View>
+            <View style={styles.trackDetailRow}>
+              <Text style={styles.trackDetailLabel}>RELEASE TYPE</Text>
+              <Text style={styles.trackDetailValue}>{track.album?.album_type ? track.album.album_type.replace(/\\b\\w/g, (letter: string) => letter.toUpperCase()) : '—'}</Text>
+            </View>
+            {track.explicit ? (
+              <View style={styles.trackDetailRow}>
+                <Text style={styles.trackDetailLabel}>CONTENT</Text>
+                <Text style={styles.trackDetailValue}>Explicit</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
       </ScrollView>
 
       <Modal visible={menuVisible} transparent animationType="slide" onRequestClose={() => setMenuVisible(false)}>
@@ -687,6 +733,13 @@ const styles = StyleSheet.create({
   trackTopNavText: { color: '#858B92', fontSize: 12, fontWeight: '700', letterSpacing: 1 },
   trackTopNavActiveText: { color: '#FFFFFF' },
   trackTopNavCount: { color: '#9299A1', fontSize: 11, fontWeight: '600' },
+  trackDetailsSection: { marginTop: 30, marginBottom: 36, paddingHorizontal: 18 },
+  trackDetailsHeading: { color: '#E5E9EC', fontSize: 12, fontWeight: '800', letterSpacing: 1.7, paddingBottom: 13, borderBottomWidth: 1, borderBottomColor: '#30343A' },
+  trackDetailsRows: { paddingTop: 3 },
+  trackDetailRow: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 18, borderBottomWidth: 1, borderBottomColor: '#22272D', paddingVertical: 10 },
+  trackDetailLabel: { color: '#77828D', fontSize: 10, fontWeight: '700', letterSpacing: 1.1, flex: 0.85 },
+  trackDetailValue: { color: '#D9DEE3', fontSize: 12, fontWeight: '500', textAlign: 'right', flex: 1.4, lineHeight: 18 },
+  trackDetailLink: { color: '#FFFFFF', textDecorationLine: 'underline' },
   reviewsHeaderCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#292D32', borderRadius: 7, paddingHorizontal: 14, paddingVertical: 13, marginBottom: 12 },
   reviewsSection: { marginTop: 6 },
   sectionHeader: { paddingHorizontal: 18, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#2C3440' },
