@@ -68,7 +68,13 @@ export default function ReviewPage() {
               .maybeSingle();
             if (!remoteError && remoteReview) {
               if (active) {
-                setRating(Number(remoteReview.rating) || 0);
+                // A rating passed from the star swipe is an intentional new selection.
+                // Keep the saved review text, but don't overwrite that incoming rating.
+                setRating(
+                  Number.isFinite(incomingRating) && incomingRating > 0
+                    ? incomingRating
+                    : Number(remoteReview.rating) || 0
+                );
                 setReview(remoteReview.review_text || '');
               }
               return;
