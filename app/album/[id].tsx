@@ -3,12 +3,14 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useAppTheme } from '@/context/ThemeContext';
 import { sendMusicToFriend, shareMusicItem } from '@/utils/sharing';
 import { recordActivity } from '@/utils/activity';
+import { addMusicItemToList } from '@/utils/musicLists';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   ImageBackground,
   Linking,
@@ -1480,48 +1482,30 @@ export default function AlbumPage() {
                 key={list.id}
                 style={styles.menuItem}
                 onPress={async () => {
-                  const data = await AsyncStorage.getItem('lists');
-                  const lists = data ? JSON.parse(data) : [];
-                  const idx = lists.findIndex(
-                    (l: any) => l.id === list.id
-                  );
+                  const listItem = selectedTrack
+                    ? {
+                        id: String(selectedTrack.id),
+                        name: selectedTrack.name,
+                        artist: selectedTrack.artists?.[0]?.name || '',
+                        cover: album.images?.[0]?.url || '',
+                        type: 'track' as const,
+                        albumId: String(album.id),
+                      }
+                    : {
+                        id: String(album.id),
+                        name: album.name,
+                        artist: album.artists?.[0]?.name || '',
+                        cover: album.images?.[0]?.url || '',
+                        type: 'album' as const,
+                      };
 
-                  if (idx !== -1) {
-                    const listItem = selectedTrack
-                      ? {
-                          id: selectedTrack.id,
-                          name: selectedTrack.name,
-                          artist: selectedTrack.artists?.[0]?.name,
-                          cover: album.images?.[0]?.url,
-                          type: 'track',
-                          albumId: album.id,
-                        }
-                      : {
-                          id: album.id,
-                          name: album.name,
-                          artist: album.artists?.[0]?.name,
-                          cover: album.images?.[0]?.url,
-                          type: 'album',
-                        };
-
-                    const items = lists[idx].albums || [];
-                    const alreadyAdded = items.some(
-                      (entry: any) =>
-                        entry.id === listItem.id &&
-                        (entry.type || 'album') === listItem.type
-                    );
-
-                    if (!alreadyAdded) {
-                      lists[idx].albums = [listItem, ...items];
-                    }
-
-                    await AsyncStorage.setItem(
-                      'lists',
-                      JSON.stringify(lists)
-                    );
+                  try {
+                    await addMusicItemToList(String(list.id), listItem);
+                    setShowLists(false);
+                  } catch (error: any) {
+                    console.error('Could not add music to list:', error);
+                    Alert.alert('Could not add to list', error?.message || 'Please try again.');
                   }
-
-                  setShowLists(false);
                 }}
               >
                 <Text style={styles.menuText}>{list.name}</Text>
