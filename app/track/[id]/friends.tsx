@@ -9,7 +9,8 @@ type MemberStatus = {
   username: string | null;
   avatar_url: string | null;
   rating: number | null;
-  created_at: string;
+  liked: boolean;
+  has_review: boolean;
 };
 
 type Filter = 'everyone' | 'liked' | 'friends';
@@ -64,10 +65,12 @@ export default function TrackFriendsPage() {
           : <View style={styles.avatarFallback}><Text style={styles.avatarInitial}>{(person.username || 'U').slice(0, 1).toUpperCase()}</Text></View>}
         <View style={styles.memberInfo}>
           <Text style={styles.username}>@{person.username || 'listener'}</Text>
-          <Text style={styles.date}>{person.created_at ? new Date(person.created_at).toLocaleDateString() : ''}</Text>
         </View>
-        {person.rating ? <Text style={styles.rating}>{'★'.repeat(Math.floor(person.rating))}{person.rating % 1 ? '½' : ''}</Text> : null}
-        <Text style={styles.chevron}>›</Text>
+        <View style={styles.memberIndicators}>
+          {person.rating != null && person.rating > 0 ? <Text style={styles.rating}>{'★'.repeat(Math.floor(person.rating))}{person.rating % 1 ? '½' : ''}</Text> : null}
+          {person.liked ? <Text style={styles.likeIcon}>♥</Text> : null}
+          {person.has_review ? <Text style={styles.reviewIcon}>✎</Text> : null}
+        </View>
       </TouchableOpacity>
     );
   }
@@ -137,9 +140,10 @@ const styles = StyleSheet.create({
   avatarInitial: { color: '#fff', fontSize: 17, fontWeight: '700' },
   memberInfo: { flex: 1 },
   username: { color: '#E5E9EC', fontSize: 13, fontWeight: '700' },
-  date: { color: '#7F8B96', fontSize: 10, marginTop: 4 },
+  memberIndicators: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 9 },
   rating: { color: '#00E054', fontSize: 13, letterSpacing: 0.5 },
-  chevron: { color: '#89949F', fontSize: 22, paddingLeft: 5 },
+  likeIcon: { color: '#FF5B75', fontSize: 16, fontWeight: '800' },
+  reviewIcon: { color: '#AAB4BF', fontSize: 17, fontWeight: '700' },
   empty: { color: '#7F8B96', fontSize: 12, paddingVertical: 22, lineHeight: 18 },
   message: { color: '#ff8585', textAlign: 'center', padding: 24, fontSize: 13 },
 });
