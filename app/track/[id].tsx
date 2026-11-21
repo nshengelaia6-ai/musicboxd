@@ -517,7 +517,7 @@ export default function TrackPage() {
 
         <View style={styles.friendStatusSection}>
           <View style={styles.friendStatusGroup}>
-            <TouchableOpacity style={styles.friendStatusHeader} onPress={openFriendStatuses} accessibilityRole="button" accessibilityLabel="See everyone who listened">
+            <TouchableOpacity style={styles.friendStatusHeader} onPress={() => openFriendStatuses('listened')} accessibilityRole="button" accessibilityLabel="See everyone who listened">
               <Text style={styles.friendStatusTitle}>LISTENED BY</Text>
               <Text style={styles.friendStatusArrow}>›</Text>
             </TouchableOpacity>
@@ -543,7 +543,6 @@ export default function TrackPage() {
               <Text style={styles.friendStatusTitle}>WANTS TO LISTEN</Text>
               <Text style={styles.friendStatusArrow}>›</Text>
             </TouchableOpacity>
-            <View style={styles.friendStatusRule} />
             {wantToListenFriends.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendAvatarRow}>
                 {wantToListenFriends.map(person => (
