@@ -126,6 +126,8 @@ export default function TrackPage() {
     setAverageRating(0);
     setRatingDistribution([]);
     setMyActivity([]);
+    setListenedByFriends([]);
+    setWantToListenFriends([]);
     if (!id) {
       setError('Song ID is missing.');
       setLoading(false);
@@ -140,6 +142,7 @@ export default function TrackPage() {
       ]);
       setTrack(trackData);
       trackRef.current = trackData;
+      await loadFriendTrackStatuses(String(id));
       setArtistData(null);
       const primaryArtistId = trackData?.artists?.[0]?.id;
       if (primaryArtistId) {
