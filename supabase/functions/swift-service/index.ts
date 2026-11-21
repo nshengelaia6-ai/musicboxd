@@ -144,25 +144,27 @@ Deno.serve(async (req) => {
         if (error) return respond({ error: "Could not load member profiles" }, 500);
         people.push(...(data || []));
       }
-      const ratings: any[] = [];
+      const reviewRows: any[] = [];
       for (let i = 0; i < selectedIds.length; i += 500) {
         const { data, error } = await supabase.from("music_reviews")
-          .select("user_id,rating").eq("item_type", "track").eq("item_id", itemId)
+          .select("user_id,rating,review_text").eq("item_type", "track").eq("item_id", itemId)
           .in("user_id", selectedIds.slice(i, i + 500));
-        if (error) return respond({ error: "Could not load member ratings" }, 500);
-        ratings.push(...(data || []));
+        if (error) return respond({ error: "Could not load member reviews" }, 500);
+        reviewRows.push(...(data || []));
       }
       const profileMap = new Map(people.map((person: any) => [person.id, person]));
-      const ratingMap = new Map(ratings.map((rating: any) => [rating.user_id, Number(rating.rating) || 0]));
+      const reviewMap = new Map(reviewRows.map((review: any) => [review.user_id, review]));
       const members = selectedIds.flatMap((id) => {
         const person: any = profileMap.get(id);
         if (!person) return [];
+        const review: any = reviewMap.get(id);
         return [{
           id,
           username: person.username || null,
           avatar_url: person.avatar_url || null,
-          rating: ratingMap.get(id) || null,
-          created_at: latestByUser[id][relationship].created_at,
+          rating: review && Number(review.rating) > 0 ? Number(review.rating) : null,
+          liked: Boolean(latestByUser[id].liked),
+          has_review: Boolean(review && String(review.review_text || "").trim()),
         }];
       });
       return respond({ success: true, relationship, members, total: members.length });
