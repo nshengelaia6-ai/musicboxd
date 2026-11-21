@@ -25,6 +25,8 @@ export default function TrackPage() {
   const { backgroundColor, accentColor } = useAppTheme();
   const [track, setTrack] = useState<any>(null);
   const [artistData, setArtistData] = useState<any>(null);
+  const [similarTracks, setSimilarTracks] = useState<any[]>([]);
+  const [similarLoading, setSimilarLoading] = useState(false);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewCount, setReviewCount] = useState(0);
   const [ratingCount, setRatingCount] = useState(0);
@@ -122,6 +124,8 @@ export default function TrackPage() {
     setTrack(null);
     trackRef.current = null;
     setArtistData(null);
+    setSimilarTracks([]);
+    setSimilarLoading(true);
     setReviews([]);
     setPeople({});
     setReviewCount(0);
@@ -160,6 +164,22 @@ export default function TrackPage() {
         } catch (artistLoadError) {
           console.warn('Could not load artist artwork:', artistLoadError);
         }
+      }
+      try {
+        const genres = Array.isArray(artistData?.genres) ? artistData.genres : [];
+        const searchQuery = genres.length ? 'genre:' + JSON.stringify(genres[0]) : (trackData?.artists?.[0]?.name || '');
+        if (searchQuery) {
+          const { data: searchResult, error: searchError } = await supabase.functions.invoke('spotify-search', { body: { action: 'search', query: searchQuery, type: 'track' } });
+          if (searchError) throw searchError;
+          const candidates = (searchResult?.tracks?.items || []).filter((item: any) => item.id !== String(id) && item.album?.images?.length);
+          const seen = new Set<string>();
+          setSimilarTracks(candidates.filter((item: any) => { if (seen.has(item.id)) return false; seen.add(item.id); return true; }).slice(0, 10));
+        }
+      } catch (similarError) {
+        console.warn('Could not load similar songs:', similarError);
+        setSimilarTracks([]);
+      } finally {
+        setSimilarLoading(false);
       }
       const likedItems = likedData ? JSON.parse(likedData) : [];
       const listenedItems = listenedData ? JSON.parse(listenedData) : [];
@@ -610,6 +630,28 @@ export default function TrackPage() {
             </TouchableOpacity> : null}
           </View>
         </View>
+        <View style={styles.similarSection}>
+          <Text style={styles.trackDetailsHeading}>SIMILAR SONGS</Text>
+          {similarLoading ? (
+            <ActivityIndicator color={accentColor} style={{ marginTop: 20 }} />
+          ) : similarTracks.length ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.similarTrackRow}>
+              {similarTracks.map((item: any) => {
+                const imageUrl = item.album?.images?.[0]?.url;
+                return (
+                  <TouchableOpacity key={item.id} style={styles.similarTrackItem} onPress={() => router.push('/track/' + item.id as any)}>
+                    {imageUrl ? <Image source={{ uri: imageUrl }} style={styles.similarTrackCover} /> : <View style={styles.similarTrackCover} />}
+                    <Text style={styles.similarTrackName} numberOfLines={2}>{item.name}</Text>
+                    <Text style={styles.similarTrackArtist} numberOfLines={1}>{(item.artists || []).map((person: any) => person.name).join(', ')}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <Text style={styles.similarEmpty}>No similar songs found.</Text>
+          )}
+        </View>
+
 
       </ScrollView>
 
@@ -732,6 +774,13 @@ const styles = StyleSheet.create({
   trackTopNavActiveText: { color: '#FFFFFF' },
   trackTopNavCount: { color: '#9299A1', fontSize: 11, fontWeight: '600' },
   trackDetailsSection: { marginTop: 30, marginBottom: 36, paddingHorizontal: 18 },
+  similarSection: { marginTop: 0, marginBottom: 36, paddingHorizontal: 18 },
+  similarTrackRow: { paddingTop: 15, paddingRight: 18, gap: 14 },
+  similarTrackItem: { width: 124 },
+  similarTrackCover: { width: 124, height: 124, borderRadius: 4, backgroundColor: '#25292E' },
+  similarTrackName: { color: '#E5E9EC', fontSize: 12, fontWeight: '700', lineHeight: 17, marginTop: 8 },
+  similarTrackArtist: { color: '#87919B', fontSize: 10, marginTop: 4 },
+  similarEmpty: { color: '#7F8B96', fontSize: 12, paddingTop: 16 },
   trackDetailsHeading: { color: '#E5E9EC', fontSize: 12, fontWeight: '800', letterSpacing: 1.7, paddingBottom: 13, borderBottomWidth: 1, borderBottomColor: '#30343A' },
   trackDetailsRows: { paddingTop: 3 },
   trackDetailRow: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 18, borderBottomWidth: 1, borderBottomColor: '#22272D', paddingVertical: 10 },
