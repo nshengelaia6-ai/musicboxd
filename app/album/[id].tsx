@@ -637,15 +637,15 @@ export default function AlbumPage() {
       >
         {album && (
           <>
-            <ImageBackground source={{ uri: artist?.images?.[0]?.url || album.images?.[0]?.url }} style={styles.heroBackground} imageStyle={styles.heroBackgroundImage} resizeMode="cover">
+            <ImageBackground source={{ uri: artist?.images?.[0]?.url || album.images?.[0]?.url }} style={[styles.heroBackground, { backgroundColor }]} imageStyle={styles.heroBackgroundImage} resizeMode="cover">
               <View style={styles.heroShade} />
-              <Svg pointerEvents="none" style={styles.heroFade} viewBox="0 0 400 190" preserveAspectRatio="none">
+              <Svg pointerEvents="none" style={styles.heroFade} viewBox="0 0 400 260" preserveAspectRatio="none">
                 <Defs>
                   <LinearGradient id="albumHeroFade" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor="#090909" stopOpacity="0" />
-                    <Stop offset="0.42" stopColor="#090909" stopOpacity="0.32" />
-                    <Stop offset="0.76" stopColor="#090909" stopOpacity="0.82" />
-                    <Stop offset="1" stopColor="#090909" stopOpacity="1" />
+                    <Stop offset="0" stopColor={backgroundColor} stopOpacity="0" />
+                    <Stop offset="0.28" stopColor={backgroundColor} stopOpacity="0.22" />
+                    <Stop offset="0.68" stopColor={backgroundColor} stopOpacity="0.78" />
+                    <Stop offset="1" stopColor={backgroundColor} stopOpacity="1" />
                   </LinearGradient>
                 </Defs>
                 <Rect x="0" y="0" width="400" height="190" fill="url(#albumHeroFade)" />
@@ -1545,7 +1545,7 @@ const styles = StyleSheet.create({
   heroBackground: { height: 440, justifyContent: 'space-between', backgroundColor: '#17191d' },
   heroBackgroundImage: { opacity: 0.72 },
   heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8, 10, 14, 0.48)' },
-  heroFade: { position: 'absolute', left: 0, right: 0, bottom: 0, width: '100%', height: 190 },
+  heroFade: { position: 'absolute', left: 0, right: 0, bottom: 0, width: '100%', height: 260 },
   hero: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 16, paddingHorizontal: 18, paddingTop: 22, paddingBottom: 24 },
   heroInfo: { flex: 1, alignItems: 'flex-start' },
   albumName: { color: '#fff', fontSize: 29, lineHeight: 34, fontWeight: '800', marginTop: 7 },
