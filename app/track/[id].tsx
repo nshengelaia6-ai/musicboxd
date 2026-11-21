@@ -151,6 +151,7 @@ export default function TrackPage() {
       trackRef.current = trackData;
       await loadFriendTrackStatuses(String(id));
       setArtistData(null);
+      let loadedArtistGenres: string[] = [];
       const primaryArtistId = trackData?.artists?.[0]?.id;
       if (primaryArtistId) {
         try {
@@ -160,14 +161,19 @@ export default function TrackPage() {
           );
           if (artistError) throw artistError;
           if (artistResult?.error) throw new Error(artistResult.error);
+          loadedArtistGenres = Array.isArray(artistResult?.genres)
+            ? artistResult.genres.filter((genre: unknown): genre is string => typeof genre === 'string' && genre.trim().length > 0)
+            : [];
           setArtistData(artistResult);
         } catch (artistLoadError) {
           console.warn('Could not load artist artwork:', artistLoadError);
         }
       }
       try {
-        const genres = Array.isArray(artistData?.genres) ? artistData.genres : [];
-        const searchQuery = genres.length ? 'genre:' + JSON.stringify(genres[0]) : (trackData?.artists?.[0]?.name || '');
+        // Use the response just fetched above; React state updates are asynchronous.
+        const searchQuery = loadedArtistGenres.length
+          ? 'genre:' + JSON.stringify(loadedArtistGenres[0])
+          : (trackData?.artists?.[0]?.name || '');
         if (searchQuery) {
           const { data: searchResult, error: searchError } = await supabase.functions.invoke('spotify-search', { body: { action: 'search', query: searchQuery, type: 'track' } });
           if (searchError) throw searchError;
