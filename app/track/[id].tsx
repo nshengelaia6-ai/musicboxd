@@ -5,6 +5,7 @@ import { supabase } from '@/utils/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { ActivityIndicator, Image, ImageBackground, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const HEART = '\u2665';
@@ -185,6 +186,17 @@ export default function TrackPage() {
           resizeMode="cover"
         >
           <View style={styles.heroShade} />
+          <Svg pointerEvents="none" style={styles.heroFade} viewBox="0 0 400 190" preserveAspectRatio="none">
+            <Defs>
+              <LinearGradient id="trackHeroFade" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#090909" stopOpacity="0" />
+                <Stop offset="0.42" stopColor="#090909" stopOpacity="0.32" />
+                <Stop offset="0.76" stopColor="#090909" stopOpacity="0.82" />
+                <Stop offset="1" stopColor="#090909" stopOpacity="1" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="400" height="190" fill="url(#trackHeroFade)" />
+          </Svg>
           <View style={styles.topBar}>
             <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>‹</Text></TouchableOpacity>
             <Text style={styles.topTitle}>MUSICBOXD</Text>
@@ -289,7 +301,8 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 44 },
   heroBackground: { height: 440, justifyContent: 'space-between', backgroundColor: '#17191d' },
   heroBackgroundImage: { opacity: 0.72 },
-  heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8, 10, 14, 0.48)' },
+  heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8, 10, 14, 0.28)' },
+  heroFade: { position: 'absolute', left: 0, right: 0, bottom: 0, width: '100%', height: 190 },
   hero: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 16, paddingHorizontal: 18, paddingTop: 22, paddingBottom: 24 },
   heroInfo: { flex: 1, alignItems: 'flex-start' },
   cover: { width: 156, height: 156, borderRadius: 5, backgroundColor: '#252525' },
