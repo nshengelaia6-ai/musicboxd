@@ -5,7 +5,7 @@ import { supabase } from '@/utils/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ImageBackground, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const HEART = '\u2665';
 const EMPTY_HEART = '\u2661';
@@ -15,6 +15,7 @@ export default function TrackPage() {
   const router = useRouter();
   const { backgroundColor, accentColor } = useAppTheme();
   const [track, setTrack] = useState<any>(null);
+  const [artistData, setArtistData] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewCount, setReviewCount] = useState(0);
   const [averageRating, setAverageRating] = useState(0);
@@ -37,6 +38,21 @@ export default function TrackPage() {
         AsyncStorage.getItem('wantToListen'),
       ]);
       setTrack(trackData);
+      setArtistData(null);
+      const primaryArtistId = trackData?.artists?.[0]?.id;
+      if (primaryArtistId) {
+        try {
+          const { data: artistResult, error: artistError } = await supabase.functions.invoke(
+            'spotify-search',
+            { body: { action: 'artist', id: primaryArtistId } }
+          );
+          if (artistError) throw artistError;
+          if (artistResult?.error) throw new Error(artistResult.error);
+          setArtistData(artistResult);
+        } catch (artistLoadError) {
+          console.warn('Could not load artist artwork:', artistLoadError);
+        }
+      }
       const likedItems = likedData ? JSON.parse(likedData) : [];
       const listenedItems = listenedData ? JSON.parse(listenedData) : [];
       const wantItems = wantData ? JSON.parse(wantData) : [];
@@ -161,20 +177,46 @@ export default function TrackPage() {
 
   return (
     <View style={[styles.screen, { backgroundColor }]}>
-      <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>‹</Text></TouchableOpacity>
-        <Text style={styles.topTitle}>MUSICBOXD</Text>
-        <View style={{ width: 28 }} />
-      </View>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.hero}>
-          {cover ? <Image source={{ uri: cover }} style={styles.cover} /> : <View style={styles.cover} />}
-          <Text style={styles.songTitle}>{track.name}</Text>
-          <Text style={styles.artist}>{artist}</Text>
-          <TouchableOpacity onPress={() => router.push(`/album/${track.album?.id}` as any)}>
-            <Text style={[styles.albumLink, { color: accentColor }]}>{track.album?.name || 'Album'}{releaseYear ? `  ·  ${releaseYear}` : ''}</Text>
+        <ImageBackground
+          source={{ uri: artistData?.images?.[0]?.url || cover }}
+          style={styles.heroBackground}
+          imageStyle={styles.heroBackgroundImage}
+          resizeMode="cover"
+        >
+          <View style={styles.heroShade} />
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>‹</Text></TouchableOpacity>
+            <Text style={styles.topTitle}>MUSICBOXD</Text>
+            <View style={{ width: 28 }} />
+          </View>
+          <View style={styles.hero}>
+            <View style={styles.heroInfo}>
+              <Text style={styles.songTitle}>{track.name}</Text>
+              <Text style={styles.artist}>{artist}</Text>
+              <TouchableOpacity onPress={() => router.push(`/album/${track.album?.id}` as any)}>
+                <Text style={styles.albumLink}>{track.album?.name || 'Album'}</Text>
+              </TouchableOpacity>
+              <Text style={styles.typeLabel}>
+                {releaseYear}{releaseYear ? '  ·  ' : ''}{track.duration_ms ? `${Math.floor(track.duration_ms / 60000)} min` : ''}  ·  SONG
+              </Text>
+            </View>
+            {cover ? <Image source={{ uri: cover }} style={styles.cover} /> : <View style={[styles.cover, styles.coverPlaceholder]} />}
+          </View>
+        </ImageBackground>
+
+        <View style={styles.listenRow}>
+          <TouchableOpacity
+            style={styles.listenButton}
+            onPress={() => Linking.openURL(track.external_urls?.spotify || `https://open.spotify.com/track/${track.id}`)}
+            accessibilityRole="link"
+            accessibilityLabel="Listen on Spotify"
+          >
+            <Text style={styles.listenButtonText}>▶ LISTEN</Text>
           </TouchableOpacity>
-          <Text style={styles.typeLabel}>SONG</Text>
+          <Text style={styles.durationText}>
+            {track.duration_ms ? `${Math.floor(track.duration_ms / 60000)} min` : ''}
+          </Text>
         </View>
 
         <View style={styles.ratingPanel}>
@@ -241,16 +283,25 @@ export default function TrackPage() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#090909' },
-  topBar: { paddingTop: 58, paddingHorizontal: 18, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#242424' },
+  topBar: { paddingTop: 58, paddingHorizontal: 18, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { color: '#fff', fontSize: 30, width: 28 },
   topTitle: { color: '#fff', fontSize: 13, fontWeight: '800', letterSpacing: 2 },
   content: { paddingBottom: 44 },
-  hero: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 28, paddingBottom: 24 },
-  cover: { width: 218, height: 218, borderRadius: 5, backgroundColor: '#252525', marginBottom: 22 },
-  songTitle: { color: '#fff', fontSize: 27, fontWeight: '800', textAlign: 'center' },
-  artist: { color: '#c5c5c5', fontSize: 16, marginTop: 7, textAlign: 'center' },
-  albumLink: { fontSize: 13, marginTop: 7, fontWeight: '600', textAlign: 'center' },
-  typeLabel: { color: '#777', fontSize: 10, fontWeight: '800', letterSpacing: 2, marginTop: 14 },
+  heroBackground: { height: 440, justifyContent: 'space-between', backgroundColor: '#17191d' },
+  heroBackgroundImage: { opacity: 0.72 },
+  heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8, 10, 14, 0.48)' },
+  hero: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 16, paddingHorizontal: 18, paddingTop: 22, paddingBottom: 24 },
+  heroInfo: { flex: 1, alignItems: 'flex-start' },
+  cover: { width: 156, height: 156, borderRadius: 5, backgroundColor: '#252525' },
+  coverPlaceholder: { backgroundColor: '#252525' },
+  songTitle: { color: '#fff', fontSize: 29, lineHeight: 34, fontWeight: '800', marginTop: 7 },
+  artist: { color: '#D5DADF', fontSize: 17, marginTop: 7 },
+  albumLink: { color: '#D5DADF', fontSize: 13, marginTop: 9, fontWeight: '600' },
+  typeLabel: { color: '#D5DADF', fontSize: 11, fontWeight: '700', letterSpacing: 1.3, marginTop: 10 },
+  listenRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 4 },
+  listenButton: { backgroundColor: '#30343A', borderWidth: 1, borderColor: '#555B63', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 5 },
+  listenButtonText: { color: '#E1E4E8', fontSize: 11, fontWeight: '700', letterSpacing: 1.5 },
+  durationText: { color: '#AEB8C2', fontSize: 13, fontWeight: '600' },
   ratingPanel: { marginHorizontal: 18, padding: 16, backgroundColor: '#171717', borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 14 },
   ratingNumber: { color: '#fff', fontSize: 30, fontWeight: '800' },
   ratingTitle: { color: '#ddd', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
