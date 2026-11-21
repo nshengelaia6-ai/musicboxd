@@ -577,8 +577,8 @@ const styles = StyleSheet.create({
   menuCancel: { alignItems: 'center', paddingVertical: 12 },
   menuCancelText: { color: '#aaa', fontSize: 14 },
 
-  menuRatingStar: { color: '#456052', fontSize: 30, lineHeight: 36 },
-  menuRatingStarActive: { color: '#00E054', fontSize: 30, lineHeight: 36 },
+  menuRatingStar: { color: '#456052', fontSize: 30, lineHeight: 36, width: 30, textAlign: 'left' },
+  menuRatingStarActive: { color: '#00E054', fontSize: 30, lineHeight: 36, width: 30, textAlign: 'left' },
   menuRatingSection: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#343438' },
   menuRatingTitle: { color: '#aaa', fontSize: 10, fontWeight: '800', letterSpacing: 1.4, textAlign: 'center', marginBottom: 8 },
   menuRatingStars: { width: 202, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
