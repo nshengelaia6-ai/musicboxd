@@ -531,7 +531,6 @@ const styles = StyleSheet.create({
   topBar: { paddingTop: 58, paddingHorizontal: 18, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { color: '#fff', fontSize: 30, width: 28 },
   topTitle: { color: '#fff', fontSize: 13, fontWeight: '800', letterSpacing: 2 },
-  heroDots: { color: '#fff', fontSize: 27, lineHeight: 30, fontWeight: '700', width: 28, textAlign: 'right' },
   content: { paddingBottom: 44 },
   heroBackground: { height: 440, justifyContent: 'space-between', backgroundColor: '#17191d' },
   heroBackgroundImage: { opacity: 0.72 },
