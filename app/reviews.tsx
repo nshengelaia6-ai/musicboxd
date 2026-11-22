@@ -10,7 +10,7 @@ type ReviewReply = { id:string; review_id:string; user_id:string; reply_text:str
 const filters = ['EVERYONE','FRIENDS','YOU','LIKED'] as const;
 
 function Stars({rating}:{rating:number}) {
-  return <Text style={styles.stars}>{'★'.repeat(Math.floor(rating))}{rating % 1 ? '½' : ''}<Text style={styles.rating}> {Number(rating).toFixed(1)}/5</Text></Text>;
+  return <Text style={styles.stars}>{'★'.repeat(Math.floor(rating))}{rating % 1 ? '½' : ''}</Text>;
 }
 
 export default function Reviews() {
