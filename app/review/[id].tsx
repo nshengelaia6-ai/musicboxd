@@ -20,6 +20,7 @@ export default function ReviewDetail() {
   const [replies,setReplies]=useState<Reply[]>([]);
   const [replyPeople,setReplyPeople]=useState<Record<string,Person>>({});
   const [replyText,setReplyText]=useState('');
+  const [replyOpen,setReplyOpen]=useState(false);
   const [userId,setUserId]=useState('');
   const [likes,setLikes]=useState(0);
   const [liked,setLiked]=useState(false);
@@ -79,7 +80,7 @@ export default function ReviewDetail() {
     try{
       const {data,error:insertError}=await supabase.from('music_review_replies').insert({review_id:review.id,user_id:userId,reply_text:value}).select('id,review_id,user_id,reply_text,created_at').single();
       if(insertError)throw insertError;
-      setReplies(current=>[...current,data as Reply]);setReplyText('');
+      setReplies(current=>[...current,data as Reply]);setReplyText('');setReplyOpen(false);
       const {data:profile}=await supabase.from('users').select('username,avatar_url').eq('id',userId).maybeSingle();
       if(profile)setReplyPeople(current=>({...current,[userId]:profile as Person}));
     }catch(e:any){setError(e?.message||'Could not send reply.');}
@@ -117,7 +118,7 @@ export default function ReviewDetail() {
           <Text style={[styles.heart,{color:liked?accentColor:'#aaa'}]}>{liked?'♥':'♡'}</Text>
           <Text style={styles.actionText}>{likes}</Text>
         </TouchableOpacity>
-        <Text style={styles.actionText}>Reply</Text>
+        <TouchableOpacity onPress={()=>setReplyOpen(value=>!value)}><Text style={[styles.actionText,{color:accentColor,fontWeight:'600'}]}>Reply</Text></TouchableOpacity>
       </View>
       {replies.map(reply=>{
         const person=replyPeople[reply.user_id];
@@ -129,12 +130,12 @@ export default function ReviewDetail() {
           </View>
         </View>;
       })}
-      <View style={styles.composer}>
+      {replyOpen&&<View style={styles.composer}>
         <TextInput value={replyText} onChangeText={setReplyText} placeholder="Write a reply..." placeholderTextColor="#777" multiline maxLength={2000} style={styles.input}/>
         <TouchableOpacity disabled={!replyText.trim()||sending||!userId} onPress={()=>void sendReply()} style={[styles.send,{backgroundColor:accentColor,opacity:!replyText.trim()||sending||!userId?0.5:1}]}>
           <Text style={styles.sendText}>{sending?'Sending...':'Send'}</Text>
         </TouchableOpacity>
-      </View>
+      </View>}
     </ScrollView>
   </View>;
 }
