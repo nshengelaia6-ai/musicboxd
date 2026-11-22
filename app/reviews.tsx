@@ -138,7 +138,7 @@ export default function Reviews() {
           return <View key={review.id} style={styles.card}>
             <View style={[styles.personRow,itemType==='track'&&{justifyContent:'flex-end'}]}>
               {itemType === 'track' ? <>
-                <TouchableOpacity onPress={()=>router.push({pathname:'/user/[id]',params:{id:review.user_id}} as any)}><Text style={styles.username}>@{person?.username||'listener'}</Text></TouchableOpacity>
+                <TouchableOpacity onPress={()=>router.push({pathname:'/user/[id]',params:{id:review.user_id}} as any)}><Text style={styles.username}>{person?.username||'listener'}</Text></TouchableOpacity>
                 <TouchableOpacity onPress={()=>router.push({pathname:'/user/[id]',params:{id:review.user_id}} as any)}>
                   {person?.avatar_url?<Image source={{uri:person.avatar_url}} style={styles.avatar}/>:<View style={styles.avatar}/>}
                 </TouchableOpacity>
@@ -147,7 +147,7 @@ export default function Reviews() {
                   {person?.avatar_url?<Image source={{uri:person.avatar_url}} style={styles.avatar}/>:<View style={styles.avatar}/>}
                 </TouchableOpacity>
                 <View style={{flex:1}}>
-                  <TouchableOpacity onPress={()=>router.push({pathname:'/user/[id]',params:{id:review.user_id}} as any)}><Text style={styles.username}>@{person?.username||'listener'}</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={()=>router.push({pathname:'/user/[id]',params:{id:review.user_id}} as any)}><Text style={styles.username}>{person?.username||'listener'}</Text></TouchableOpacity>
                   <Text style={styles.date}>{new Date(review.updated_at || review.created_at).toLocaleDateString()}</Text>
                 </View>
               </>}
