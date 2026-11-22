@@ -136,14 +136,21 @@ export default function Reviews() {
         {reviews.map(review=>{
           const person=people[review.user_id]; const own=review.user_id===myId;
           return <View key={review.id} style={styles.card}>
-            <View style={styles.personRow}>
-              <TouchableOpacity onPress={()=>router.push({pathname:'/user/[id]',params:{id:review.user_id}} as any)}>
-                {person?.avatar_url?<Image source={{uri:person.avatar_url}} style={styles.avatar}/>:<View style={styles.avatar}/>}
-              </TouchableOpacity>
-              <View style={{flex:1}}>
+            <View style={[styles.personRow,itemType==='track'&&{justifyContent:'flex-end'}]}>
+              {itemType === 'track' ? <>
                 <TouchableOpacity onPress={()=>router.push({pathname:'/user/[id]',params:{id:review.user_id}} as any)}><Text style={styles.username}>@{person?.username||'listener'}</Text></TouchableOpacity>
-                {itemType !== 'track' && <Text style={styles.date}>{new Date(review.updated_at || review.created_at).toLocaleDateString()}</Text>}
-              </View>
+                <TouchableOpacity onPress={()=>router.push({pathname:'/user/[id]',params:{id:review.user_id}} as any)}>
+                  {person?.avatar_url?<Image source={{uri:person.avatar_url}} style={styles.avatar}/>:<View style={styles.avatar}/>}
+                </TouchableOpacity>
+              </> : <>
+                <TouchableOpacity onPress={()=>router.push({pathname:'/user/[id]',params:{id:review.user_id}} as any)}>
+                  {person?.avatar_url?<Image source={{uri:person.avatar_url}} style={styles.avatar}/>:<View style={styles.avatar}/>}
+                </TouchableOpacity>
+                <View style={{flex:1}}>
+                  <TouchableOpacity onPress={()=>router.push({pathname:'/user/[id]',params:{id:review.user_id}} as any)}><Text style={styles.username}>@{person?.username||'listener'}</Text></TouchableOpacity>
+                  <Text style={styles.date}>{new Date(review.updated_at || review.created_at).toLocaleDateString()}</Text>
+                </View>
+              </>}
               {own&&<TouchableOpacity onPress={()=>router.push({pathname:'/review/new',params:{albumId:review.item_id,albumName:review.item_name,albumArtist:review.artist_name,albumCover:review.cover_url,currentRating:String(review.rating),itemType:review.item_type,parentAlbumId:review.parent_album_id||''}} as any)}><Text style={[styles.edit,{color:accentColor}]}>Edit</Text></TouchableOpacity>}
             </View>
             <Stars rating={Number(review.rating)||0}/>
