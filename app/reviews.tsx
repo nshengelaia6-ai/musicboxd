@@ -128,7 +128,7 @@ export default function Reviews() {
         {!error&&reviews.length===0&&<Text style={styles.empty}>No reviews yet. Be the first to write one.</Text>}
         {reviews.map(review=>{
           const person=people[review.user_id]; const own=review.user_id===myId;
-          return <TouchableOpacity key={review.id} disabled={itemType !== 'track'} activeOpacity={0.85} onPress={()=>router.push({pathname:'/review/[id]',params:{id:review.id}} as any)} style={styles.card}>
+          return <TouchableOpacity key={review.id} activeOpacity={0.85} onPress={()=>router.push({pathname:'/review/[id]',params:{id:review.id}} as any)} style={styles.card}>
             <View style={[styles.personRow,itemType==='track'&&{justifyContent:'flex-end'}]}>
               {itemType === 'track' ? <>
                 <TouchableOpacity onPress={()=>router.push({pathname:'/user/[id]',params:{id:review.user_id}} as any)}><Text style={styles.username}>{person?.username||'listener'}</Text></TouchableOpacity>
