@@ -1,368 +1,156 @@
 import { useAppTheme } from '@/context/ThemeContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-function Stars({ count, color }: { count: number; color: string }) {
-  const starWidth = 22;
-  return (
-    <View style={{ flexDirection: 'row', marginTop: 10 }}>
-      {[1, 2, 3, 4, 5].map((s) => {
-        const filled = count >= s;
-        const half = !filled && count >= s - 0.5;
-        return (
-          <View key={s} style={{ width: starWidth, height: starWidth }}>
-            <Text style={{ fontSize: starWidth, color: '#333', position: 'absolute' }}>{'\u2605'}</Text>
-            {(filled || half) && (
-              <View style={{ overflow: 'hidden', width: filled ? starWidth : starWidth / 2, position: 'absolute' }}>
-                <Text style={{ fontSize: starWidth, color }}>{'\u2605'}</Text>
-              </View>
-            )}
-          </View>
-        );
-      })}
-    </View>
-  );
-}
+type Review = {
+  id:string; user_id:string; item_type:string; item_id:string; item_name:string;
+  artist_name:string; cover_url:string; rating:number; review_text:string;
+};
+type Reply = { id:string; review_id:string; user_id:string; reply_text:string; created_at:string };
+type Person = { username:string|null; avatar_url:string|null };
 
 export default function ReviewDetail() {
-  const { id } = useLocalSearchParams();
+  const { id } = useLocalSearchParams<{id:string}>();
   const router = useRouter();
   const { backgroundColor, accentColor } = useAppTheme();
-  const [entry, setEntry] = useState<any>(null);
-  const [username, setUsername] = useState('You');
-  const [avatar, setAvatar] = useState<string | null>(null);
-  const [likes, setLikes] = useState(0);
-  const [isLiked, setIsLiked] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [menuVisible, setMenuVisible] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [error, setError] = useState('');
+  const [review,setReview]=useState<Review|null>(null);
+  const [author,setAuthor]=useState<Person|null>(null);
+  const [replies,setReplies]=useState<Reply[]>([]);
+  const [replyPeople,setReplyPeople]=useState<Record<string,Person>>({});
+  const [replyText,setReplyText]=useState('');
+  const [userId,setUserId]=useState('');
+  const [likes,setLikes]=useState(0);
+  const [liked,setLiked]=useState(false);
+  const [sending,setSending]=useState(false);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
 
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      setLoading(true);
-      setError('');
+  const load=useCallback(async()=>{
+    setLoading(true);setError('');
+    try {
+      const [{data:auth,error:authError},{data:row,error:reviewError}]=await Promise.all([
+        supabase.auth.getUser(),
+        supabase.from('music_reviews').select('id,user_id,item_type,item_id,item_name,artist_name,cover_url,rating,review_text').eq('id',String(id)).maybeSingle()
+      ]);
+      if(authError) throw authError;
+      if(reviewError) throw reviewError;
+      if(!row) {setReview(null);return;}
+      const uid=auth.user?.id||'';setUserId(uid);setReview(row as Review);
+      const [{data:profile,error:profileError},{data:likeRows,error:likesError},{data:myLike,error:myLikeError},{data:replyRows,error:repliesError}]=await Promise.all([
+        supabase.from('users').select('username,avatar_url').eq('id',row.user_id).maybeSingle(),
+        supabase.from('music_review_likes').select('user_id').eq('review_id',row.id),
+        uid?supabase.from('music_review_likes').select('review_id').eq('review_id',row.id).eq('user_id',uid).maybeSingle():Promise.resolve({data:null,error:null} as any),
+        supabase.from('music_review_replies').select('id,review_id,user_id,reply_text,created_at').eq('review_id',row.id).order('created_at',{ascending:true})
+      ]);
+      if(profileError) throw profileError;if(likesError) throw likesError;if(myLikeError) throw myLikeError;if(repliesError) throw repliesError;
+      setAuthor(profile as Person|null);setLikes((likeRows||[]).length);setLiked(!!myLike);
+      const loadedReplies=(replyRows||[]) as Reply[];setReplies(loadedReplies);
+      const ids=[...new Set(loadedReplies.map(item=>item.user_id))];
+      if(ids.length){
+        const {data:profiles,error:replyProfilesError}=await supabase.from('users').select('id,username,avatar_url').in('id',ids);
+        if(replyProfilesError) throw replyProfilesError;
+        const map:Record<string,Person>={};(profiles||[]).forEach((p:any)=>map[p.id]=p);setReplyPeople(map);
+      } else setReplyPeople({});
+    } catch(e:any){setError(e?.message||'Could not load this review.');}
+    finally{setLoading(false);}
+  },[id]);
 
-      async function load() {
-        try {
-          const [reviewsData, profileData, likesData, likedData] = await Promise.all([
-            AsyncStorage.getItem('reviews'),
-            AsyncStorage.getItem('profile'),
-            AsyncStorage.getItem(`likes_${id}`),
-            AsyncStorage.getItem(`review_liked_${id}`),
-          ]);
-          const reviews = reviewsData ? JSON.parse(reviewsData) : [];
-          const found = reviews.find((review: any) => String(review.id) === String(id));
-          const profile = profileData ? JSON.parse(profileData) : {};
-          if (active) {
-            setEntry(found || null);
-            setUsername(profile.username || 'You');
-            setAvatar(profile.avatar || null);
-            setLikes(Number(likesData) || 0);
-            setIsLiked(likedData === 'true');
-          }
-        } catch {
-          if (active) setError('Could not load this review.');
-        } finally {
-          if (active) setLoading(false);
-        }
+  useFocusEffect(useCallback(()=>{void load();},[load]));
+
+  async function toggleLike(){
+    if(!userId||!review)return;
+    const wasLiked=liked;setLiked(!wasLiked);setLikes(v=>Math.max(0,v+(wasLiked?-1:1)));
+    try{
+      if(wasLiked){
+        const {error:deleteError}=await supabase.from('music_review_likes').delete().eq('review_id',review.id).eq('user_id',userId);
+        if(deleteError)throw deleteError;
+      }else{
+        const {error:insertError}=await supabase.from('music_review_likes').upsert({review_id:review.id,user_id:userId},{onConflict:'review_id,user_id'});
+        if(insertError)throw insertError;
       }
-
-      load();
-      return () => { active = false; };
-    }, [id])
-  );
-
-  async function goToAlbum() {
-    if (!entry) return;
-
-    const isTrack = entry.itemType === 'track' || entry.type === 'track';
-    if (!isTrack) {
-      router.push(`/album/${entry.albumId}` as any);
-      return;
-    }
-
-    let parentAlbumId = entry.parentAlbumId;
-    if (!parentAlbumId) {
-      const listenedData = await AsyncStorage.getItem('listened');
-      const listened = listenedData ? JSON.parse(listenedData) : [];
-      parentAlbumId = listened.find((item: any) => item.id === entry.albumId)?.albumId;
-    }
-    if (parentAlbumId) {
-      router.push({
-        pathname: '/album/[id]',
-        params: { id: parentAlbumId, highlightTrackId: entry.albumId },
-      } as any);
-      return;
-    }
-
-    try {
-      const { getSpotifyTrack } = await import('@/utils/spotifyCatalog');
-      const data = await getSpotifyTrack(entry.albumId);
-      const realAlbumId = data.album?.id;
-      if (realAlbumId) {
-        router.push({
-          pathname: '/album/[id]',
-          params: { id: realAlbumId, highlightTrackId: entry.albumId },
-        } as any);
-      } else {
-        router.push(`/album/${entry.albumId}` as any);
-      }
-    } catch {
-      router.push(`/album/${entry.albumId}` as any);
-    }
+    }catch(e:any){setLiked(wasLiked);setLikes(v=>Math.max(0,v+(wasLiked?1:-1)));setError(e?.message||'Could not update like.');}
   }
 
-  async function handleLike() {
-    const nextLiked = !isLiked;
-    const nextLikes = Math.max(0, likes + (nextLiked ? 1 : -1));
-    setLikes(nextLikes);
-    setIsLiked(nextLiked);
-    try {
-      await AsyncStorage.setItem(`likes_${id}`, String(nextLikes));
-      await AsyncStorage.setItem(`review_liked_${id}`, String(nextLiked));
-    } catch {
-      setError('Could not update this like. Please try again.');
-    }
+  async function sendReply(){
+    const value=replyText.trim();if(!value||!userId||!review||sending)return;
+    setSending(true);
+    try{
+      const {data,error:insertError}=await supabase.from('music_review_replies').insert({review_id:review.id,user_id:userId,reply_text:value}).select('id,review_id,user_id,reply_text,created_at').single();
+      if(insertError)throw insertError;
+      setReplies(current=>[...current,data as Reply]);setReplyText('');
+      const {data:profile}=await supabase.from('users').select('username,avatar_url').eq('id',userId).maybeSingle();
+      if(profile)setReplyPeople(current=>({...current,[userId]:profile as Person}));
+    }catch(e:any){setError(e?.message||'Could not send reply.');}
+    finally{setSending(false);}
   }
 
-  function editReview() {
-    setMenuVisible(false);
-    router.push({
-      pathname: '/review/new',
-      params: {
-        albumId: entry.albumId,
-        albumName: entry.albumName,
-        albumArtist: entry.albumArtist,
-        albumCover: entry.albumCover,
-        currentRating: String(entry.rating || 0),
-        itemType: entry.itemType || entry.type || 'album',
-        parentAlbumId: entry.parentAlbumId || entry.albumId,
-      },
-    } as any);
-  }
+  if(loading)return <View style={[styles.screen,{backgroundColor}]}><ActivityIndicator color={accentColor} style={{marginTop:80}}/></View>;
+  if(!review)return <View style={[styles.screen,{backgroundColor}]}><View style={styles.header}><TouchableOpacity onPress={()=>router.back()}><Text style={styles.back}>‹</Text></TouchableOpacity><Text style={styles.headerTitle}>REVIEW</Text><View style={{width:30}}/></View><Text style={styles.error}>{error||'Review not found.'}</Text></View>;
 
-  async function shareReview() {
-    setMenuVisible(false);
-    const itemType = entry.itemType === 'track' || entry.type === 'track' ? 'track' : 'album';
-    const itemId = entry.albumId;
-    const url = `https://open.spotify.com/${itemType}/${itemId}`;
-    const reviewText = entry.review ? `\n\n${entry.review}` : '';
-    try {
-      await Share.share({
-        title: entry.albumName,
-        message: `${username} rated ${entry.albumName} ${entry.rating}/5${reviewText}\n${url}`,
-        url,
-      });
-    } catch {
-      setError('Could not open sharing options.');
-    }
-  }
-
-  async function deleteReview() {
-    try {
-      const data = await AsyncStorage.getItem('reviews');
-      const reviews = data ? JSON.parse(data) : [];
-      const reviewToDelete = reviews.find((review: any) => String(review.id) === String(id));
-      const albumId = reviewToDelete?.albumId || entry?.albumId;
-
-      // Remove cloud copies first. Keep the local review if either cloud
-      // deletion fails so the user can retry instead of leaving stale public data.
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
-      if (user && albumId) {
-        const [{ error: profileDeleteError }, { error: activityDeleteError }, { error: publicReviewDeleteError }] = await Promise.all([
-          supabase.from('public_profile_items').delete()
-            .eq('user_id', user.id).eq('section', 'reviews').eq('item_key', String(albumId)),
-          supabase.from('user_activity').delete()
-            .eq('user_id', user.id).eq('activity_type', 'reviewed').eq('item_key', String(albumId)),
-          supabase.from('music_reviews').delete()
-            .eq('user_id', user.id)
-            .eq('item_id', String(albumId))
-            .eq('item_type', reviewToDelete?.itemType === 'track' || reviewToDelete?.type === 'track' ? 'track' : 'album'),
-        ]);
-        if (profileDeleteError) throw profileDeleteError;
-        if (activityDeleteError) throw activityDeleteError;
-        if (publicReviewDeleteError) throw publicReviewDeleteError;
-      }
-
-      await AsyncStorage.setItem(
-        'reviews',
-        JSON.stringify(reviews.filter((review: any) => String(review.id) !== String(id)))
-      );
-
-      setShowDeleteConfirm(false);
-      router.back();
-    } catch {
-      setShowDeleteConfirm(false);
-      setError('Could not delete this review. Please try again.');
-    }
-  }
-
-  if (loading) {
-    return (
-      <View style={[styles.container, { backgroundColor }]}>
-        <ActivityIndicator color={accentColor} style={{ marginTop: 80 }} />
-      </View>
-    );
-  }
-
-  if (!entry) {
-    return (
-      <View style={[styles.container, { backgroundColor }]}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backRow}>
-            <Text style={styles.backText}>{'\u2039'} Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Review</Text>
-          <View style={{ width: 40 }} />
-        </View>
-        <Text style={styles.empty}>{error || 'Review not found.'}</Text>
-      </View>
-    );
-  }
-
-  const formattedDate = new Date(entry.date).toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'short', year: 'numeric',
-  });
-  const year = new Date(entry.date).getFullYear();
-
-  return (
-    <View style={[styles.container, { backgroundColor }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backRow}>
-          <Text style={styles.backText}>{'\u2039'} Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Review</Text>
-        <TouchableOpacity onPress={() => setMenuVisible(true)} accessibilityRole="button" accessibilityLabel="Review actions">
-          <Text style={styles.dots}>{'\u2022'}{'\u2022'}{'\u2022'}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.userRow}>
-          {avatar
-            ? <Image source={{ uri: avatar }} style={styles.avatar} />
-            : <View style={styles.avatar} />}
-          <Text style={styles.username}>{username}</Text>
-        </View>
-
-        <View style={styles.mainRow}>
-          <View style={{ flex: 1, paddingRight: 12 }}>
-            <Text style={styles.title}>{entry.albumName}</Text>
-            <Text style={styles.year}>{year}</Text>
-            <Stars count={entry.rating} color={'#9BA7B2'} />
-            <Text style={styles.listenedText}>Listened {formattedDate}</Text>
-          </View>
-          <Pressable onPress={goToAlbum}>
-            {entry.albumCover
-              ? <Image source={{ uri: entry.albumCover }} style={styles.cover} />
-              : <View style={[styles.cover, { backgroundColor: '#2a2a2a' }]} />}
-          </Pressable>
-        </View>
-
-        {entry.review ? (
-          <Text style={styles.reviewText}>{entry.review}</Text>
-        ) : null}
-
-        {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-
-        <TouchableOpacity style={styles.likeRow} onPress={handleLike} accessibilityRole="button" accessibilityLabel={isLiked ? 'Unlike review' : 'Like review'}>
-          <Text style={[styles.heartIcon, isLiked && { color: accentColor }]}>{isLiked ? 'â™¥' : 'â™¡'}</Text>
-          <Text style={styles.likeText}>{likes === 0 ? 'Be the first to like' : `${likes} ${likes === 1 ? 'like' : 'likes'}`}</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.pillBtn} onPress={editReview} accessibilityRole="button">
-          <Text style={styles.pillText}>Edit</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.pillBtn} onPress={goToAlbum}>
-          <Text style={styles.pillText}>Album  {'\u203A'}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Modal visible={menuVisible} transparent animationType="slide" onRequestClose={() => setMenuVisible(false)}>
-        <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)} />
-        <View style={styles.sheet}>
-          <TouchableOpacity style={styles.menuItem} onPress={editReview} accessibilityRole="button">
-            <Text style={styles.menuText}>Edit review</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem} onPress={shareReview} accessibilityRole="button">
-            <Text style={styles.menuText}>Share review</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem} onPress={() => { setMenuVisible(false); setShowDeleteConfirm(true); }} accessibilityRole="button">
-            <Text style={styles.deleteText}>Delete review</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.doneBtn} onPress={() => setMenuVisible(false)}>
-            <Text style={styles.doneBtnText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
-        <View style={styles.confirmOverlay}>
-          <View style={styles.confirmDialog}>
-            <Text style={styles.confirmTitle}>Delete this review?</Text>
-            <Text style={styles.confirmBody}>This removes it from your diary and activity.</Text>
-            <View style={styles.confirmActions}>
-              <TouchableOpacity style={styles.confirmCancel} onPress={() => setShowDeleteConfirm(false)}>
-                <Text style={styles.menuText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.confirmDelete} onPress={deleteReview}>
-                <Text style={styles.confirmDeleteText}>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+  return <View style={[styles.screen,{backgroundColor}]}>
+    <View style={styles.header}>
+      <TouchableOpacity onPress={()=>router.back()}><Text style={styles.back}>‹</Text></TouchableOpacity>
+      <Text style={styles.headerTitle}>REVIEW</Text>
+      <View style={{width:30}}/>
     </View>
-  );
+    <ScrollView contentContainerStyle={styles.content}>
+      <View style={styles.songRow}>
+        <View style={styles.songInfo}>
+          <Text style={styles.songTitle}>{review.item_name}</Text>
+          <Text style={styles.artist}>{review.artist_name}</Text>
+          <Text style={styles.stars}>{'★'.repeat(Math.floor(Number(review.rating)||0))}{Number(review.rating)%1?'½':''}</Text>
+        </View>
+        <TouchableOpacity onPress={()=>router.push({pathname:'/track/[id]',params:{id:review.item_id}} as any)}>
+          {review.cover_url?<Image source={{uri:review.cover_url}} style={styles.cover}/>:<View style={styles.cover}/>}
+        </TouchableOpacity>
+      </View>
+      <View style={styles.authorRow}>
+        {author?.avatar_url?<Image source={{uri:author.avatar_url}} style={styles.avatar}/>:<View style={styles.avatar}/>}
+        <Text style={styles.username}>{author?.username||'listener'}</Text>
+      </View>
+      {!!review.review_text&&<Text style={styles.reviewText}>{review.review_text}</Text>}
+      {!!error&&<Text style={styles.error}>{error}</Text>}
+      <View style={styles.actions}>
+        <TouchableOpacity style={styles.action} onPress={()=>void toggleLike()} disabled={!userId}>
+          <Text style={[styles.heart,{color:liked?accentColor:'#aaa'}]}>{liked?'♥':'♡'}</Text>
+          <Text style={styles.actionText}>{likes}</Text>
+        </TouchableOpacity>
+        <Text style={styles.actionText}>Reply</Text>
+      </View>
+      {replies.map(reply=>{
+        const person=replyPeople[reply.user_id];
+        return <View key={reply.id} style={styles.replyRow}>
+          {person?.avatar_url?<Image source={{uri:person.avatar_url}} style={styles.replyAvatar}/>:<View style={styles.replyAvatar}/>}
+          <View style={{flex:1}}>
+            <Text style={styles.replyUsername}>{person?.username||'listener'}</Text>
+            <Text style={styles.replyText}>{reply.reply_text}</Text>
+          </View>
+        </View>;
+      })}
+      <View style={styles.composer}>
+        <TextInput value={replyText} onChangeText={setReplyText} placeholder="Write a reply..." placeholderTextColor="#777" multiline maxLength={2000} style={styles.input}/>
+        <TouchableOpacity disabled={!replyText.trim()||sending||!userId} onPress={()=>void sendReply()} style={[styles.send,{backgroundColor:accentColor,opacity:!replyText.trim()||sending||!userId?0.5:1}]}>
+          <Text style={styles.sendText}>{sending?'Sending...':'Send'}</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  </View>;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a0a' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingBottom: 16, paddingHorizontal: 16 },
-  backRow: { flexDirection: 'row', alignItems: 'center' },
-  backText: { color: '#aaa', fontSize: 16 },
-  headerTitle: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
-  dots: { color: '#aaa', fontSize: 16 },
-  empty: { color: '#555', textAlign: 'center', marginTop: 40 },
-  content: { padding: 20, paddingBottom: 40 },
-  userRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 10 },
-  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#333' },
-  username: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  mainRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-  title: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
-  year: { color: '#888', fontSize: 15, marginTop: 2 },
-  listenedText: { color: '#888', fontSize: 13, marginTop: 12 },
-  cover: { width: 100, height: 140, borderRadius: 6 },
-  reviewText: { color: '#eee', fontSize: 16, lineHeight: 24, marginBottom: 24 },
-  likeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#1e1e1e' },
-  heartIcon: { color: '#888', fontSize: 18 },
-  heartActive: { color: '#ffb6c1' },
-  likeText: { color: '#888', fontSize: 14 },
-  error: { color: '#ff8b8b', fontSize: 13, marginBottom: 12 },
-  bottomBar: { flexDirection: 'row', gap: 12, padding: 16, borderTopWidth: 1, borderTopColor: '#1e1e1e' },
-  pillBtn: { backgroundColor: '#1c1c1c', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10 },
-  pillText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
-  sheet: { backgroundColor: '#1c1c1e', padding: 24, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-  menuItem: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#2a2a2a', alignItems: 'center' },
-  menuText: { color: '#fff', fontSize: 16 },
-  deleteText: { color: '#ff6b6b', fontSize: 16 },
-  doneBtn: { backgroundColor: '#2a2a2a', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
-  doneBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  confirmOverlay: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(0,0,0,0.65)' },
-  confirmDialog: { backgroundColor: '#1c1c1e', padding: 24, borderRadius: 14 },
-  confirmTitle: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  confirmBody: { color: '#aaa', fontSize: 14, marginTop: 8 },
-  confirmActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 24 },
-  confirmCancel: { paddingHorizontal: 16, paddingVertical: 10 },
-  confirmDelete: { backgroundColor: '#b83232', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
-  confirmDeleteText: { color: '#fff', fontWeight: '700' },
+const styles=StyleSheet.create({
+  screen:{flex:1},header:{height:104,paddingTop:58,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#252525'},
+  back:{color:'#fff',fontSize:32,width:30},headerTitle:{color:'#fff',fontSize:16,fontWeight:'700',letterSpacing:1.5},
+  content:{padding:18,paddingBottom:50},songRow:{flexDirection:'row',alignItems:'stretch',gap:18,minHeight:132},
+  songInfo:{flex:1,justifyContent:'center'},songTitle:{color:'#fff',fontSize:21,fontWeight:'600',lineHeight:27},artist:{color:'#aaa',fontSize:14,marginTop:6},
+  stars:{color:'#00e054',fontSize:20,marginTop:12},cover:{width:132,height:132,borderRadius:5,backgroundColor:'#292929'},
+  authorRow:{flexDirection:'row',alignItems:'center',gap:9,marginTop:22,marginBottom:16},avatar:{width:30,height:30,borderRadius:15,backgroundColor:'#333'},
+  username:{color:'#ddd',fontSize:13,fontWeight:'500'},reviewText:{color:'#eee',fontSize:16,lineHeight:25,marginBottom:20},
+  actions:{flexDirection:'row',alignItems:'center',gap:24,borderTopWidth:1,borderTopColor:'#252525',paddingTop:14,marginTop:8,marginBottom:8},
+  action:{flexDirection:'row',alignItems:'center',gap:7},heart:{fontSize:22},actionText:{color:'#aaa',fontSize:13},
+  replyRow:{flexDirection:'row',alignItems:'flex-start',gap:9,paddingVertical:12,borderTopWidth:1,borderTopColor:'#202020'},
+  replyAvatar:{width:28,height:28,borderRadius:14,backgroundColor:'#333'},replyUsername:{color:'#bbb',fontSize:12,fontWeight:'600'},
+  replyText:{color:'#ddd',fontSize:14,lineHeight:20,marginTop:3},composer:{marginTop:16,gap:9},input:{minHeight:46,maxHeight:120,borderWidth:1,borderColor:'#383838',borderRadius:7,padding:11,color:'#fff',fontSize:14},
+  send:{alignSelf:'flex-end',paddingHorizontal:17,paddingVertical:9,borderRadius:6},sendText:{color:'#fff',fontSize:12,fontWeight:'700'},error:{color:'#ff7777',padding:18}
 });
