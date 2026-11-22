@@ -128,7 +128,7 @@ export default function Reviews() {
         {!error&&reviews.length===0&&<Text style={styles.empty}>No reviews yet. Be the first to write one.</Text>}
         {reviews.map(review=>{
           const person=people[review.user_id]; const own=review.user_id===myId;
-          return <View key={review.id} style={styles.card}>
+          return <TouchableOpacity key={review.id} activeOpacity={0.85} onPress={()=>router.push({pathname:'/review/[id]',params:{id:review.id}} as any)} style={styles.card}>
             <View style={[styles.personRow,itemType==='track'&&{justifyContent:'flex-end'}]}>
               {itemType === 'track' ? <>
                 <TouchableOpacity onPress={()=>router.push({pathname:'/user/[id]',params:{id:review.user_id}} as any)}><Text style={styles.username}>{person?.username||'listener'}</Text></TouchableOpacity>
@@ -153,7 +153,7 @@ export default function Reviews() {
             {(replies[review.id]||[]).map(reply=>{const replyPerson=people[reply.user_id];return <View key={reply.id} style={styles.replyRow}><View style={styles.replyAvatar}>{replyPerson?.avatar_url?<Image source={{uri:replyPerson.avatar_url}} style={styles.replyAvatarImage}/>:null}</View><View style={styles.replyContent}><Text style={styles.replyUsername}>@{replyPerson?.username||'listener'}</Text><Text style={styles.replyText}>{reply.reply_text}</Text>{itemType !== 'track' && <Text style={styles.replyDate}>{new Date(reply.created_at).toLocaleDateString()}</Text>}</View></View>;})}
             {replyOpen[review.id]&&<View style={styles.replyComposer}><TextInput value={replyDrafts[review.id]||''} onChangeText={value=>setReplyDrafts(current=>({...current,[review.id]:value}))} placeholder="Write a reply..." placeholderTextColor="#777" multiline maxLength={2000} style={styles.replyInput}/><TouchableOpacity disabled={!(replyDrafts[review.id]||'').trim()||!!replySending[review.id]} onPress={()=>void sendReply(review.id)} style={[styles.replySend,{backgroundColor:accentColor,opacity:!(replyDrafts[review.id]||'').trim()||replySending[review.id]?0.5:1}]}><Text style={styles.replySendText}>{replySending[review.id]?'Sending...':'Send'}</Text></TouchableOpacity></View>}
             </>}
-          </View>;
+          </TouchableOpacity>;
         })}
       </ScrollView>}
   </View>;
