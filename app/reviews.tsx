@@ -116,7 +116,7 @@ export default function Reviews() {
     <View style={styles.header}>
       <View style={styles.headerTop}>
         <TouchableOpacity onPress={()=>router.back()}><Text style={styles.back}>‹</Text></TouchableOpacity>
-        <Text style={styles.heading}>REVIEWS</Text>
+        <Text style={styles.heading}>{itemType === 'track' ? (params.itemName || 'TRACK') : 'REVIEWS'}</Text>
         {itemId ? <TouchableOpacity onPress={writeReview}><Text style={[styles.write,{color:accentColor}]}>＋ Review</Text></TouchableOpacity> : <View style={{width:70}} />}
       </View>
     </View>
