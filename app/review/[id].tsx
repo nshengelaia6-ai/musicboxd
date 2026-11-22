@@ -103,7 +103,7 @@ export default function ReviewDetail() {
           <Text style={styles.artist}>{review.artist_name}</Text>
           <Text style={styles.stars}>{'★'.repeat(Math.floor(Number(review.rating)||0))}{Number(review.rating)%1?'½':''}</Text>
         </View>
-        <TouchableOpacity onPress={()=>router.push({pathname:'/track/[id]',params:{id:review.item_id}} as any)}>
+        <TouchableOpacity onPress={()=>router.push({pathname:review.item_type==='album'?'/album/[id]':'/track/[id]',params:{id:review.item_id}} as any)}>
           {review.cover_url?<Image source={{uri:review.cover_url}} style={styles.cover}/>:<View style={styles.cover}/>}
         </TouchableOpacity>
       </View>
