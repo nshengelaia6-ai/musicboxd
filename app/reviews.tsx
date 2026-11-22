@@ -2,10 +2,11 @@ import { useAppTheme } from '@/context/ThemeContext';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 type Review = { id:string; user_id:string; item_type:'album'|'track'; item_id:string; parent_album_id:string|null; item_name:string; artist_name:string; cover_url:string; rating:number; review_text:string; created_at:string; updated_at:string; };
 type Person = { id:string; username:string|null; avatar_url:string|null };
+type ReviewReply = { id:string; review_id:string; user_id:string; reply_text:string; created_at:string };
 const filters = ['EVERYONE','FRIENDS','YOU','LIKED'] as const;
 
 function Stars({rating}:{rating:number}) {
@@ -23,6 +24,10 @@ export default function Reviews() {
   const [likedReviewIds,setLikedReviewIds]=useState<Set<string>>(new Set());
   const [reviews,setReviews]=useState<Review[]>([]);
   const [people,setPeople]=useState<Record<string,Person>>({});
+  const [replies,setReplies]=useState<Record<string,ReviewReply[]>>({});
+  const [replyDrafts,setReplyDrafts]=useState<Record<string,string>>({});
+  const [replyOpen,setReplyOpen]=useState<Record<string,boolean>>({});
+  const [replySending,setReplySending]=useState<Record<string,boolean>>({});
   const [myId,setMyId]=useState('');
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
@@ -69,16 +74,39 @@ export default function Reviews() {
       const counts:Record<string,number>={}; const mine=new Set<string>();
       (likes||[]).forEach((like:any)=>{const rid=String(like.review_id);counts[rid]=(counts[rid]||0)+1;if(like.user_id===uid)mine.add(rid);});
       setLikeCounts(counts); setLikedReviewIds(mine);
-      const userIds=[...new Set(rows.map(row=>row.user_id))];
+      const {data:replyRows,error:repliesError}=reviewIds.length?await supabase.from('music_review_replies').select('id,review_id,user_id,reply_text,created_at').in('review_id',reviewIds).order('created_at',{ascending:true}):{data:[],error:null};
+      if(repliesError) throw repliesError;
+      const replyMap:Record<string,ReviewReply[]>={};
+      (replyRows||[]).forEach((reply:any)=>{const key=String(reply.review_id);(replyMap[key] ||= []).push(reply as ReviewReply);});
+      const userIds=[...new Set([...rows.map(row=>row.user_id),...(replyRows||[]).map((reply:any)=>reply.user_id)])];
       const {data:profiles,error:profilesError}=userIds.length?await supabase.from('users').select('id,username,avatar_url').in('id',userIds):{data:[],error:null};
       if(profilesError) throw profilesError;
       const map:Record<string,Person>={}; (profiles||[]).forEach((p:any)=>map[p.id]=p);
-      setPeople(map); setReviews(rows);
+      setPeople(map); setReplies(replyMap); setReviews(rows);
     } catch(e:any) { setError(e?.message||'Could not load reviews.'); }
     finally { setLoading(false); }
   },[filter,itemId,itemType]);
 
   useFocusEffect(useCallback(()=>{void load();},[load]));
+
+  async function sendReply(reviewId:string){
+    const replyText=(replyDrafts[reviewId]||'').trim();
+    if(!replyText||!myId||replySending[reviewId]) return;
+    setReplySending(current=>({...current,[reviewId]:true}));
+    try {
+      const {data,error:insertError}=await supabase.from('music_review_replies').insert({review_id:reviewId,user_id:myId,reply_text:replyText}).select('id,review_id,user_id,reply_text,created_at').single();
+      if(insertError) throw insertError;
+      setReplies(current=>({...current,[reviewId]:[...(current[reviewId]||[]),data as ReviewReply]}));
+      setReplyDrafts(current=>({...current,[reviewId]:''}));
+      setReplyOpen(current=>({...current,[reviewId]:false}));
+      const {data:profile}=await supabase.from('users').select('id,username,avatar_url').eq('id',myId).maybeSingle();
+      if(profile) setPeople(current=>({...current,[myId]:profile as Person}));
+    } catch(replyError:any){
+      setError(replyError?.message||'Could not send reply.');
+    } finally {
+      setReplySending(current=>({...current,[reviewId]:false}));
+    }
+  }
 
   function writeReview(){
     router.push({pathname:'/review/new',params:{albumId:itemId,albumName:params.itemName||'',albumArtist:params.artistName||'',albumCover:params.coverUrl||'',itemType,parentAlbumId:params.parentAlbumId||(itemType==='album'?itemId:'')}} as any);
@@ -120,7 +148,9 @@ export default function Reviews() {
             </View>
             <Stars rating={Number(review.rating)||0}/>
             {!!review.review_text&&<Text style={styles.reviewText}>{review.review_text}</Text>}
-            <View style={styles.reviewActions}><TouchableOpacity style={styles.likeButton} disabled={!myId} onPress={async()=>{const wasLiked=likedReviewIds.has(review.id);try{if(wasLiked){const {error:deleteError}=await supabase.from('music_review_likes').delete().eq('review_id',review.id).eq('user_id',myId);if(deleteError)throw deleteError;setLikedReviewIds(current=>{const next=new Set(current);next.delete(review.id);return next;});setLikeCounts(current=>({...current,[review.id]:Math.max(0,(current[review.id]||0)-1)}));}else{const {error:insertError}=await supabase.from('music_review_likes').upsert({review_id:review.id,user_id:myId},{onConflict:'review_id,user_id'});if(insertError)throw insertError;setLikedReviewIds(current=>new Set([...current,review.id]));setLikeCounts(current=>({...current,[review.id]:(current[review.id]||0)+1}));}}catch(likeError:any){setError(likeError?.message||'Could not update like.');}}}><Text style={[styles.likeIcon,likedReviewIds.has(review.id)&&styles.likeIconActive]}>{likedReviewIds.has(review.id)?'♥':'♡'}</Text><Text style={styles.likeCount}>{likeCounts[review.id]||0}</Text></TouchableOpacity></View>
+            <View style={styles.reviewActions}><TouchableOpacity style={styles.likeButton} disabled={!myId} onPress={async()=>{const wasLiked=likedReviewIds.has(review.id);try{if(wasLiked){const {error:deleteError}=await supabase.from('music_review_likes').delete().eq('review_id',review.id).eq('user_id',myId);if(deleteError)throw deleteError;setLikedReviewIds(current=>{const next=new Set(current);next.delete(review.id);return next;});setLikeCounts(current=>({...current,[review.id]:Math.max(0,(current[review.id]||0)-1)}));}else{const {error:insertError}=await supabase.from('music_review_likes').upsert({review_id:review.id,user_id:myId},{onConflict:'review_id,user_id'});if(insertError)throw insertError;setLikedReviewIds(current=>new Set([...current,review.id]));setLikeCounts(current=>({...current,[review.id]:(current[review.id]||0)+1}));}}catch(likeError:any){setError(likeError?.message||'Could not update like.');}}}><Text style={[styles.likeIcon,likedReviewIds.has(review.id)&&styles.likeIconActive]}>{likedReviewIds.has(review.id)?'♥':'♡'}</Text><Text style={styles.likeCount}>{likeCounts[review.id]||0}</Text></TouchableOpacity><TouchableOpacity style={styles.replyButton} disabled={!myId} onPress={()=>setReplyOpen(current=>({...current,[review.id]:!current[review.id]}))}><Text style={[styles.replyButtonText,{color:accentColor}]}>Reply</Text></TouchableOpacity></View>
+            {(replies[review.id]||[]).map(reply=>{const replyPerson=people[reply.user_id];return <View key={reply.id} style={styles.replyRow}><View style={styles.replyAvatar}>{replyPerson?.avatar_url?<Image source={{uri:replyPerson.avatar_url}} style={styles.replyAvatarImage}/>:null}</View><View style={styles.replyContent}><Text style={styles.replyUsername}>@{replyPerson?.username||'listener'}</Text><Text style={styles.replyText}>{reply.reply_text}</Text><Text style={styles.replyDate}>{new Date(reply.created_at).toLocaleDateString()}</Text></View></View>;})}
+            {replyOpen[review.id]&&<View style={styles.replyComposer}><TextInput value={replyDrafts[review.id]||''} onChangeText={value=>setReplyDrafts(current=>({...current,[review.id]:value}))} placeholder="Write a reply..." placeholderTextColor="#777" multiline maxLength={2000} style={styles.replyInput}/><TouchableOpacity disabled={!(replyDrafts[review.id]||'').trim()||!!replySending[review.id]} onPress={()=>void sendReply(review.id)} style={[styles.replySend,{backgroundColor:accentColor,opacity:!(replyDrafts[review.id]||'').trim()||replySending[review.id]?0.5:1}]}><Text style={styles.replySendText}>{replySending[review.id]?'Sending...':'Send'}</Text></TouchableOpacity></View>}
           </View>;
         })}
       </ScrollView>}
@@ -132,5 +162,5 @@ const styles=StyleSheet.create({
  back:{color:'#fff',fontSize:32,width:36},heading:{color:'#fff',fontSize:16,fontWeight:'700',letterSpacing:1.5},write:{fontSize:14,fontWeight:'700'},
  itemHeader:{flexDirection:'row',alignItems:'center',gap:14,padding:18},cover:{width:66,height:66,borderRadius:6,backgroundColor:'#292929'},itemTitle:{color:'#fff',fontSize:17,fontWeight:'700'},artist:{color:'#aaa',marginTop:3},count:{color:'#777',fontSize:12,marginTop:6},
  filters:{flexGrow:1,flexDirection:'row',alignItems:'center',justifyContent:'center',paddingTop:12,gap:8},filter:{paddingHorizontal:14,paddingVertical:8,borderRadius:5,backgroundColor:'#25292E',borderWidth:1,borderColor:'#30363D'},filterActive:{backgroundColor:'#41474F',borderColor:'#626B76'},filterText:{color:'#A0A7AF',fontSize:11,fontWeight:'700',letterSpacing:0.8},filterTextActive:{color:'#fff'},
- list:{paddingHorizontal:18,paddingBottom:50},reviewActions:{flexDirection:'row',alignItems:'center',marginTop:12},likeButton:{flexDirection:'row',alignItems:'center',gap:6,paddingVertical:4,paddingRight:12},likeIcon:{color:'#9299A1',fontSize:19},likeIconActive:{color:'#00E054'},likeCount:{color:'#9299A1',fontSize:12},card:{paddingVertical:18,borderBottomWidth:1,borderBottomColor:'#252525'},personRow:{flexDirection:'row',alignItems:'center',gap:10},avatar:{width:38,height:38,borderRadius:19,backgroundColor:'#333'},username:{color:'#fff',fontWeight:'700',fontSize:14},date:{color:'#777',fontSize:11,marginTop:3},edit:{fontSize:13,fontWeight:'700'},stars:{color:'#00e054',fontSize:18,marginTop:12},rating:{color:'#888',fontSize:12},reviewText:{color:'#e5e5e5',fontSize:15,lineHeight:23,marginTop:12},empty:{color:'#888',textAlign:'center',marginTop:48,lineHeight:22},error:{color:'#ff7777',marginTop:20}
+ list:{paddingHorizontal:18,paddingBottom:50},reviewActions:{flexDirection:'row',alignItems:'center',marginTop:12},replyButton:{paddingVertical:5,paddingHorizontal:8},replyButtonText:{fontSize:13,fontWeight:'700'},replyRow:{flexDirection:'row',gap:9,marginTop:12,marginLeft:8},replyAvatar:{width:27,height:27,borderRadius:14,backgroundColor:'#333',overflow:'hidden'},replyAvatarImage:{width:27,height:27,borderRadius:14},replyContent:{flex:1},replyUsername:{color:'#bbb',fontSize:12,fontWeight:'700'},replyText:{color:'#ddd',fontSize:13,lineHeight:19,marginTop:2},replyDate:{color:'#777',fontSize:10,marginTop:3},replyComposer:{marginTop:12,marginLeft:8,gap:8},replyInput:{minHeight:42,maxHeight:110,borderWidth:1,borderColor:'#3a3a3a',borderRadius:7,paddingHorizontal:11,paddingVertical:9,color:'#fff',fontSize:13},replySend:{alignSelf:'flex-end',paddingHorizontal:16,paddingVertical:8,borderRadius:6},replySendText:{color:'#fff',fontSize:12,fontWeight:'700'},likeButton:{flexDirection:'row',alignItems:'center',gap:6,paddingVertical:4,paddingRight:12},likeIcon:{color:'#9299A1',fontSize:19},likeIconActive:{color:'#00E054'},likeCount:{color:'#9299A1',fontSize:12},card:{paddingVertical:18,borderBottomWidth:1,borderBottomColor:'#252525'},personRow:{flexDirection:'row',alignItems:'center',gap:10},avatar:{width:38,height:38,borderRadius:19,backgroundColor:'#333'},username:{color:'#fff',fontWeight:'700',fontSize:14},date:{color:'#777',fontSize:11,marginTop:3},edit:{fontSize:13,fontWeight:'700'},stars:{color:'#00e054',fontSize:18,marginTop:12},rating:{color:'#888',fontSize:12},reviewText:{color:'#e5e5e5',fontSize:15,lineHeight:23,marginTop:12},empty:{color:'#888',textAlign:'center',marginTop:48,lineHeight:22},error:{color:'#ff7777',marginTop:20}
 });
