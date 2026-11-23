@@ -98,6 +98,15 @@ Deno.serve(async (req) => {
       const blockedIds = new Set((blockedResult.data || []).map((row: any) =>
         row.blocker_id === userId ? row.blocked_id : row.blocker_id
       ));
+      const [following, followers] = await Promise.all([
+        supabase.from("friendships").select("friend_id").eq("user_id", userId),
+        supabase.from("friendships").select("user_id").eq("friend_id", userId),
+      ]);
+      if (following.error || followers.error) return respond({ error: "Could not load friends" }, 500);
+      const followingIds = new Set((following.data || []).map((row: any) => String(row.friend_id)));
+      const mutualIds = new Set((followers.data || [])
+        .map((row: any) => String(row.user_id))
+        .filter((id: string) => followingIds.has(id)));
 
       const statusRows: any[] = [];
       for (let from = 0; ; from += 500) {
@@ -126,7 +135,7 @@ Deno.serve(async (req) => {
 
       const statusByUser: Record<string, any> = {};
       for (const row of statusRows) {
-        if (blockedIds.has(row.user_id)) continue;
+        if (blockedIds.has(row.user_id) || (row.user_id !== userId && !mutualIds.has(String(row.user_id)))) continue;
         statusByUser[row.user_id] ||= { listened: false, wants_to_listen: false, updated_at: "" };
         if (row.status === "listened") statusByUser[row.user_id].listened = true;
         if (row.status === "wants_to_listen") statusByUser[row.user_id].wants_to_listen = true;
@@ -140,13 +149,6 @@ Deno.serve(async (req) => {
 
       let selectedIds = [...new Set([...Object.keys(statusByUser), ...reviewByUser.keys()])];
       if (body.scope === "friends") {
-        const [following, followers] = await Promise.all([
-          supabase.from("friendships").select("friend_id").eq("user_id", userId),
-          supabase.from("friendships").select("user_id").eq("friend_id", userId),
-        ]);
-        if (following.error || followers.error) return respond({ error: "Could not load friends" }, 500);
-        const followingIds = new Set((following.data || []).map((row: any) => String(row.friend_id)));
-        const mutualIds = new Set((followers.data || []).map((row: any) => String(row.user_id)).filter((id: string) => followingIds.has(id)));
         selectedIds = selectedIds.filter((id) => mutualIds.has(id));
       }
 
