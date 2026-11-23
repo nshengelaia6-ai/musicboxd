@@ -309,6 +309,8 @@ export default function AlbumPage() {
             .eq('item_type', 'album')
             .eq('item_id', String(data.id))
             .gt('rating', 0)
+            .order('created_at', { ascending: true })
+            .order('id', { ascending: true })
             .range(from, from + 499);
           if (ratingRowsError) throw ratingRowsError;
           ratingRows.push(...(page || []));
