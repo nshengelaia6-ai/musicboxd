@@ -119,7 +119,10 @@ export default function FriendsReviews() {
                 >
                   {cover ? <Image source={{ uri: cover }} style={styles.cover} /> : <View style={styles.cover} />}
                   <View style={styles.details}>
-                    <Text style={styles.username}>{String(row.profile?.username || 'Music lover').replace(/^@+/, '')}</Text>
+                    <View style={styles.authorRow}>
+                      <Text style={styles.username}>{String(row.profile?.username || 'Music lover').replace(/^@+/, '')}</Text>
+                      {row.profile?.avatar_url ? <Image source={{ uri: row.profile.avatar_url }} style={styles.avatar} /> : <View style={styles.avatar} />}
+                    </View>
                     <Text style={styles.song}>{item.albumName || item.name || 'Untitled song'}</Text>
                     <Text style={styles.artist}>{item.albumArtist || item.artist || ''}</Text>
                     {Number(item.rating) > 0 ? <Text style={styles.rating}>{'★'.repeat(Math.floor(Number(item.rating)))}{Number(item.rating) % 1 ? '½' : ''}</Text> : null}
@@ -147,7 +150,9 @@ const styles = StyleSheet.create({
   card: { flexDirection: 'row', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#252525' },
   cover: { width: 76, height: 76, borderRadius: 6, backgroundColor: '#252525' },
   details: { flex: 1 },
-  username: { color: '#aaa', fontSize: 12, marginBottom: 4 },
+  authorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 8 },
+  avatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#333' },
+  username: { color: '#aaa', fontSize: 12 },
   song: { color: '#fff', fontSize: 16, fontWeight: '700' },
   artist: { color: '#999', fontSize: 12, marginTop: 2 },
   rating: { color: '#9BA7B2', marginTop: 5 },
