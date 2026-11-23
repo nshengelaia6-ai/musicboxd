@@ -864,35 +864,27 @@ export default function AlbumPage() {
 
         {album && (
           <View style={styles.reviewsSection}>
-            <View style={styles.sectionHeader}>
-              <View>
-                <Text style={styles.sectionTitle}>Reviews</Text>
-                <Text style={styles.sectionSub}>{albumReviewCount} reviews</Text>
-              </View>
-              <TouchableOpacity onPress={() => openReviews('album', album.id, album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', album.id)}>
-                <Text style={[styles.seeAll, { color: accentColor }]}>See all ›</Text>
+            <View style={styles.trackTopNav}>
+              <TouchableOpacity
+                style={styles.trackTopNavItem}
+                onPress={() => router.push({ pathname: '/album/[id]/friends', params: { id: String(album.id), itemName: album.name, artistName: album.artists?.[0]?.name || '' } } as any)}
+              >
+                <Text style={styles.trackTopNavText}>MEMBERS</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.trackTopNavItem}
+                onPress={() => openReviews('album', String(album.id), album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', String(album.id))}
+              >
+                <Text style={styles.trackTopNavText}>REVIEWS</Text>
+                <Text style={styles.trackTopNavCount}>{albumReviewCount}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.trackTopNavItem}
+                onPress={() => router.push({ pathname: '/album/[id]/lists', params: { id: String(album.id), itemName: album.name, artistName: album.artists?.[0]?.name || '' } } as any)}
+              >
+                <Text style={styles.trackTopNavText}>LISTS</Text>
               </TouchableOpacity>
             </View>
-            {albumReviews.map((review: any) => {
-              const person = albumReviewPeople[review.user_id];
-              return (
-                <TouchableOpacity key={review.id} style={styles.reviewCard} onPress={() => router.push({ pathname: '/review/[id]', params: { id: String(review.id) } } as any)}>
-                  <View style={styles.reviewerRow}>
-                    {person?.avatar_url ? <Image source={{ uri: person.avatar_url }} style={styles.avatar} /> : <View style={styles.avatarPlaceholder}><Text style={styles.avatarLetter}>{(person?.username || 'L').slice(0, 1).toUpperCase()}</Text></View>}
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.username}>@{person?.username || 'listener'}</Text>
-                      <Text style={styles.date}>{new Date(review.updated_at || review.created_at).toLocaleDateString()}</Text>
-                    </View>
-                  </View>
-                  {Number(review.rating) > 0 && (
-                    <Text style={{ color: '#00E054', fontSize: 14, fontWeight: '700', marginTop: 9 }}>
-                      {'★'.repeat(Math.floor(Number(review.rating)))}{Number(review.rating) % 1 ? '½' : ''}
-                    </Text>
-                  )}
-                  {!!review.review_text && <Text style={styles.reviewText} numberOfLines={4}>{review.review_text}</Text>}
-                </TouchableOpacity>
-              );
-            })}
           </View>
         )}
 
@@ -1593,6 +1585,10 @@ const styles = StyleSheet.create({
   friendRatingStar: { color: '#53616D', fontSize: 13, lineHeight: 15 },
   friendRatingStarActive: { color: '#53616D' },
   reviewsSection: { marginTop: 6 },
+  trackTopNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#30343A', marginBottom: 18, paddingHorizontal: 4 },
+  trackTopNavItem: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
+  trackTopNavText: { color: '#858B92', fontSize: 12, fontWeight: '700', letterSpacing: 1 },
+  trackTopNavCount: { color: '#9299A1', fontSize: 11, fontWeight: '600' },
   sectionHeader: { paddingHorizontal: 18, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#2C3440' },
   sectionTitle: { color: '#fff', fontSize: 19, fontWeight: '800' },
   sectionSub: { color: '#9BA7B2', fontSize: 11, marginTop: 4 },
