@@ -1369,7 +1369,7 @@ const styles = StyleSheet.create({
   },
   favCover: {
     width: 112,
-    height: 112,
+    height: 168,
     borderRadius: 5,
     backgroundColor: '#1a1a1a',
   },
@@ -1427,7 +1427,7 @@ const styles = StyleSheet.create({
   },
   cover: {
     width: 112,
-    height: 112,
+    height: 168,
     borderRadius: 5,
     backgroundColor: '#1a1a1a',
   },
