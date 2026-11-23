@@ -33,7 +33,52 @@ export default function Lists() {
   const [showListMenu, setShowListMenu] = useState(false);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [listCarousel, setListCarousel] = useState(false);
+  const [listLikes, setListLikes] = useState<Record<string, { count: number; liked: boolean }>>({});
+  const [likeLoading, setLikeLoading] = useState(false);
   const searchRequestId = useRef(0);
+
+  async function loadListLikes(rows: any[], currentUserId?: string) {
+    const ids = rows.map((row) => String(row.id)).filter(Boolean);
+    if (!ids.length) { setListLikes({}); return; }
+    const { data, error } = await supabase.from('music_list_likes')
+      .select('list_id,user_id').in('list_id', ids);
+    if (error) throw error;
+    const next: Record<string, { count: number; liked: boolean }> = {};
+    (data || []).forEach((like: any) => {
+      const key = String(like.list_id);
+      if (!next[key]) next[key] = { count: 0, liked: false };
+      next[key].count += 1;
+      if (currentUserId && like.user_id === currentUserId) next[key].liked = true;
+    });
+    setListLikes(next);
+  }
+
+  async function toggleListLike(list: any) {
+    if (likeLoading || !isOtherProfile || list?.privacy !== 'public') return;
+    setLikeLoading(true);
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Please sign in to like lists.');
+      const current = listLikes[String(list.id)];
+      if (current?.liked) {
+        const { error } = await supabase.from('music_list_likes').delete()
+          .eq('list_id', String(list.id)).eq('user_id', authData.user.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('music_list_likes').insert({
+          list_id: String(list.id), user_id: authData.user.id,
+        });
+        if (error) throw error;
+      }
+      await loadListLikes(lists, authData.user.id);
+    } catch (error) {
+      console.error('List like update failed:', error);
+      Alert.alert('Could not update like', 'Please try again.');
+    } finally {
+      setLikeLoading(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -51,11 +96,15 @@ export default function Lists() {
               .eq('user_id', userId)
               .order('updated_at', { ascending: false });
             if (error) throw error;
-            if (active) setLists((data || []).map((row: any) => ({
+            const mapped = (data || []).map((row: any) => ({
               id: row.id, name: row.name, description: row.description, privacy: row.privacy,
               albums: Array.isArray(row.items) ? row.items : [], createdAt: row.created_at,
               shareToken: row.share_token,
-            })));
+            }));
+            if (active) {
+              setLists(mapped);
+              await loadListLikes(mapped, authData.user?.id);
+            }
           } else {
             const localRaw = await AsyncStorage.getItem('lists');
             const localLists = localRaw ? JSON.parse(localRaw) : [];
@@ -99,7 +148,10 @@ export default function Lists() {
               shareToken: row.share_token,
             }));
             await AsyncStorage.setItem('lists', JSON.stringify(mapped));
-            if (active) setLists(mapped);
+            if (active) {
+              setLists(mapped);
+              await loadListLikes(mapped, authData.user.id);
+            }
           }
         } catch (error) {
           console.log('Could not load lists:', error);
@@ -465,7 +517,12 @@ export default function Lists() {
                 {item.description ? <Text style={styles.listDesc} numberOfLines={1}>{item.description}</Text> : null}
                 <Text style={styles.listMeta}>{item.albums?.length || 0} items</Text>
               </View>
-              <Text style={styles.arrow}>{'\u203A'}</Text>
+              {isOtherProfile && item.privacy === 'public' ? (
+                <TouchableOpacity style={styles.listLikeButton} onPress={() => void toggleListLike(item)} disabled={likeLoading}>
+                  <Text style={[styles.listLikeHeart, listLikes[String(item.id)]?.liked && { color: accentColor }]}>{listLikes[String(item.id)]?.liked ? '♥' : '♡'}</Text>
+                  <Text style={styles.listLikeCount}>{listLikes[String(item.id)]?.count || 0}</Text>
+                </TouchableOpacity>
+              ) : <Text style={styles.arrow}>{'\u203A'}</Text>}
             </TouchableOpacity>
           )}
         />
@@ -659,6 +716,14 @@ export default function Lists() {
             </TouchableOpacity>}
           </View>
           {!!selectedList?.description && <Text style={styles.listPageDescription}>{selectedList.description}</Text>}
+          {isOtherProfile && selectedList?.privacy === 'public' && (
+            <TouchableOpacity style={styles.detailLikeButton} onPress={() => void toggleListLike(selectedList)} disabled={likeLoading}>
+              <Text style={[styles.detailLikeHeart, listLikes[String(selectedList.id)]?.liked && { color: accentColor }]}>
+                {listLikes[String(selectedList.id)]?.liked ? '♥' : '♡'}
+              </Text>
+              <Text style={styles.detailLikeText}>{listLikes[String(selectedList.id)]?.count || 0} likes</Text>
+            </TouchableOpacity>
+          )}
           {(selectedList?.albums || []).length === 0 ? (
             <Text style={styles.emptySearch}>This list is empty.</Text>
           ) : (
@@ -747,6 +812,12 @@ const styles = StyleSheet.create({
   listName: { color: '#fff', fontSize: 16, fontWeight: '700' },
   listDesc: { color: '#888', fontSize: 13, marginTop: 4 },
   listMeta: { color: '#555', fontSize: 12, marginTop: 6 },
+  listLikeButton: { minWidth: 44, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
+  listLikeHeart: { color: '#999', fontSize: 23, lineHeight: 26 },
+  listLikeCount: { color: '#888', fontSize: 11 },
+  detailLikeButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 10, gap: 7 },
+  detailLikeHeart: { color: '#999', fontSize: 22 },
+  detailLikeText: { color: '#888', fontSize: 13 },
   arrow: { color: '#555', fontSize: 20 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: { backgroundColor: '#1c1c1c', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 44 },
