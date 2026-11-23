@@ -687,7 +687,7 @@ export default function AlbumPage() {
                 <View style={styles.heroInfo}>
                   <Text style={styles.albumName}>{album.name}</Text>
                   <Text style={styles.artistName}>{album.artists?.map((artist: any) => artist.name).join(', ')}</Text>
-                  <Text style={styles.meta}>{album.release_date?.slice(0, 4)}  ·  {album.total_tracks} tracks  ·  {String(album.album_type || 'album').toUpperCase()}</Text>
+                  <Text style={styles.meta}>{album.total_tracks} tracks  ·  {String(album.album_type || 'album').toUpperCase()}</Text>
                 </View>
                 {album.images?.[0]?.url ? <Image source={{ uri: album.images[0].url }} style={styles.cover} /> : <View style={[styles.cover, styles.coverPlaceholder]} />}
               </View>
