@@ -114,6 +114,7 @@ Deno.serve(async (req) => {
           .select("user_id,status,updated_at")
           .eq("album_id", itemId)
           .order("updated_at", { ascending: false })
+          .order("user_id", { ascending: true })
           .range(from, from + 499);
         if (error) return respond({ error: "Could not load album listening statuses" }, 500);
         statusRows.push(...(data || []));
@@ -127,6 +128,7 @@ Deno.serve(async (req) => {
           .eq("item_type", "album")
           .eq("item_id", itemId)
           .order("updated_at", { ascending: false })
+          .order("user_id", { ascending: true })
           .range(from, from + 499);
         if (error) return respond({ error: "Could not load album reviews" }, 500);
         reviewRows.push(...(data || []));
