@@ -513,24 +513,24 @@ export default function Lists() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 16 }}
           renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.listCard}
-              onPress={() => { setSelectedList(item); setShowListDetail(true); }}
-              accessibilityRole="button"
-              accessibilityLabel={`Open ${item.name}`}
-            >
-              <View style={styles.listInfo}>
+            <View style={styles.listCard}>
+              <TouchableOpacity
+                style={styles.listInfo}
+                onPress={() => { setSelectedList(item); setShowListDetail(true); }}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${item.name}`}
+              >
                 <Text style={styles.listName}>{item.name}</Text>
                 {item.description ? <Text style={styles.listDesc} numberOfLines={1}>{item.description}</Text> : null}
                 <Text style={styles.listMeta}>{item.albums?.length || 0} items</Text>
-              </View>
+              </TouchableOpacity>
               {isOtherProfile && item.privacy === 'public' ? (
                 <TouchableOpacity style={styles.listLikeButton} onPress={() => void toggleListLike(item)} disabled={likeLoading}>
                   <Text style={[styles.listLikeHeart, listLikes[String(item.id)]?.liked && { color: accentColor }]}>{listLikes[String(item.id)]?.liked ? '♥' : '♡'}</Text>
                   <Text style={styles.listLikeCount}>{listLikes[String(item.id)]?.count || 0}</Text>
                 </TouchableOpacity>
               ) : <Text style={styles.arrow}>{'\u203A'}</Text>}
-            </TouchableOpacity>
+            </View>
           )}
         />
       )}
