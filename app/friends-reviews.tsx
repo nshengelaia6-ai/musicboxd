@@ -127,7 +127,6 @@ export default function FriendsReviews() {
                     <Text style={styles.artist}>{item.albumArtist || item.artist || ''}</Text>
                     {Number(item.rating) > 0 ? <Text style={styles.rating}>{'★'.repeat(Math.floor(Number(item.rating)))}{Number(item.rating) % 1 ? '½' : ''}</Text> : null}
                     {!!item.review && <Text style={styles.review}>{item.review}</Text>}
-                    <Text style={styles.date}>{row.updated_at ? new Date(row.updated_at).toLocaleDateString() : ''}</Text>
                   </View>
                 </TouchableOpacity>
               );
@@ -157,6 +156,5 @@ const styles = StyleSheet.create({
   artist: { color: '#999', fontSize: 12, marginTop: 2 },
   rating: { color: '#9BA7B2', marginTop: 5 },
   review: { color: '#ddd', fontSize: 14, lineHeight: 20, marginTop: 7 },
-  date: { color: '#666', fontSize: 11, marginTop: 7 },
   empty: { color: '#888', textAlign: 'center', padding: 28, marginTop: 20 },
 });
