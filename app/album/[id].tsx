@@ -301,15 +301,21 @@ export default function AlbumPage() {
         if (reviewCountError) throw reviewCountError;
         setAlbumReviewCount(totalReviews || 0);
 
-        const { data: ratingRows, error: ratingRowsError } = await supabase
-          .from('music_reviews')
-          .select('rating')
-          .eq('item_type', 'album')
-          .eq('item_id', String(data.id))
-          .gt('rating', 0);
-        if (ratingRowsError) throw ratingRowsError;
+        const ratingRows: any[] = [];
+        for (let from = 0; ; from += 500) {
+          const { data: page, error: ratingRowsError } = await supabase
+            .from('music_reviews')
+            .select('rating')
+            .eq('item_type', 'album')
+            .eq('item_id', String(data.id))
+            .gt('rating', 0)
+            .range(from, from + 499);
+          if (ratingRowsError) throw ratingRowsError;
+          ratingRows.push(...(page || []));
+          if (!page || page.length < 500) break;
+        }
 
-        const ratingValues = (ratingRows || [])
+        const ratingValues = ratingRows
           .map((row: any) => Number(row.rating))
           .filter((value: number) => Number.isFinite(value) && value > 0 && value <= 5);
         const average = ratingValues.length
