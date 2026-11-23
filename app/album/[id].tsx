@@ -887,7 +887,7 @@ export default function AlbumPage() {
             ) : albumReviews.map((review: any) => {
               const person = albumReviewPeople[review.user_id];
               return (
-                <TouchableOpacity key={review.id} style={styles.reviewCard} onPress={() => openReviews('album', album.id, album.name, album.artists?.[0]?.name || '', album.images?.[0]?.url || '', album.id)}>
+                <TouchableOpacity key={review.id} style={styles.reviewCard} onPress={() => router.push({ pathname: '/review/[id]', params: { id: String(review.id) } } as any)}>
                   <View style={styles.reviewerRow}>
                     {person?.avatar_url ? <Image source={{ uri: person.avatar_url }} style={styles.avatar} /> : <View style={styles.avatarPlaceholder}><Text style={styles.avatarLetter}>{(person?.username || 'L').slice(0, 1).toUpperCase()}</Text></View>}
                     <View style={{ flex: 1 }}>
