@@ -18,6 +18,7 @@ type ListItem = {
   friendLikeCount: number;
   weekLikeCount: number;
   likedByMe: boolean;
+  isMine: boolean;
 };
 
 export default function FriendsLists() {
@@ -92,6 +93,7 @@ export default function FriendsLists() {
           friendLikeCount: likes.filter((like: any) => friendIds.includes(like.user_id)).length,
           weekLikeCount: likes.filter((like: any) => new Date(like.created_at).getTime() >= weekStart).length,
           likedByMe: likes.some((like: any) => like.user_id === auth.user.id),
+          isMine: row.user_id === auth.user.id,
         };
       };
 
@@ -168,18 +170,24 @@ export default function FriendsLists() {
             <Text style={styles.meta}>{item.items.length} {item.items.length === 1 ? 'item' : 'items'}</Text>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.likeButton}
-          onPress={() => void toggleLike(item)}
-          disabled={likingIds.includes(item.id)}
-          accessibilityRole="button"
-          accessibilityLabel={item.likedByMe ? 'Unlike list' : 'Like list'}
-        >
-          <Text style={[styles.heart, item.likedByMe && { color: accentColor }]}>
-            {item.likedByMe ? '♥' : '♡'}
-          </Text>
-          <Text style={styles.likeCount}>{item.likeCount}</Text>
-        </TouchableOpacity>
+        {item.isMine ? (
+          <View style={styles.likeButton}>
+            <Text style={styles.likeCount}>{item.likeCount} ♥</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.likeButton}
+            onPress={() => void toggleLike(item)}
+            disabled={likingIds.includes(item.id)}
+            accessibilityRole="button"
+            accessibilityLabel={item.likedByMe ? 'Unlike list' : 'Like list'}
+          >
+            <Text style={[styles.heart, item.likedByMe && { color: accentColor }]}>
+              {item.likedByMe ? '♥' : '♡'}
+            </Text>
+            <Text style={styles.likeCount}>{item.likeCount}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
