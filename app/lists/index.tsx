@@ -70,6 +70,13 @@ export default function Lists() {
           list_id: String(list.id), user_id: authData.user.id,
         });
         if (error) throw error;
+        await recordActivity('liked_list', String(list.id), {
+          id: String(list.id),
+          name: list.name || 'Untitled list',
+          description: list.description || '',
+          type: 'list',
+          itemCount: Array.isArray(list.albums) ? list.albums.length : 0,
+        });
       }
       await loadListLikes(lists, authData.user.id);
     } catch (error) {
