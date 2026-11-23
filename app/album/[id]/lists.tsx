@@ -73,7 +73,7 @@ export default function AlbumListsPage() {
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.resultCount}>{lists.length.toLocaleString()} {lists.length === 1 ? 'LIST' : 'LISTS'}</Text>
           {lists.length ? lists.map(item => (
-            <TouchableOpacity key={item.id} style={styles.listRow} onPress={() => router.push({ pathname: '/user/[id]', params: { id: item.user_id } } as any)}>
+            <TouchableOpacity key={item.id} style={styles.listRow} onPress={() => router.push({ pathname: '/list/[id]', params: { id: item.id } } as any)}>
               {item.avatar_url ? <Image source={{ uri: item.avatar_url }} style={styles.avatar} /> : <View style={styles.avatarFallback}><Text style={styles.avatarInitial}>{(item.username || 'L').slice(0, 1).toUpperCase()}</Text></View>}
               <View style={styles.listInfo}>
                 <Text style={styles.listName}>{item.name}</Text>
