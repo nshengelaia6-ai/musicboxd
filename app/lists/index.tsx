@@ -37,7 +37,7 @@ export default function Lists() {
   const [likeLoading, setLikeLoading] = useState(false);
   const searchRequestId = useRef(0);
 
-  async function loadListLikes(rows: any[], currentUserId?: string) {
+  const loadListLikes = useCallback(async (rows: any[], currentUserId?: string) => {
     const ids = rows.map((row) => String(row.id)).filter(Boolean);
     if (!ids.length) { setListLikes({}); return; }
     const { data, error } = await supabase.from('music_list_likes')
@@ -51,7 +51,7 @@ export default function Lists() {
       if (currentUserId && like.user_id === currentUserId) next[key].liked = true;
     });
     setListLikes(next);
-  }
+  }, []);
 
   async function toggleListLike(list: any) {
     if (likeLoading || !isOtherProfile || list?.privacy !== 'public') return;
@@ -167,7 +167,7 @@ export default function Lists() {
       }
       loadLists();
       return () => { active = false; };
-    }, [userId])
+    }, [userId, loadListLikes])
   );
 
   async function runSearch(query: string, type: 'album' | 'track') {
