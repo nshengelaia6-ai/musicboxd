@@ -49,8 +49,6 @@ export default function AlbumPage() {
   const [artist, setArtist] = useState<any>(null);
   const [tracks, setTracks] = useState<any[]>([]);
   const [showAlbumTracks, setShowAlbumTracks] = useState(false);
-  const [albumReviews, setAlbumReviews] = useState<any[]>([]);
-  const [albumReviewPeople, setAlbumReviewPeople] = useState<Record<string, any>>({});
   const [albumReviewCount, setAlbumReviewCount] = useState(0);
   const [albumRatingAverage, setAlbumRatingAverage] = useState(0);
   const [albumRatingDistribution, setAlbumRatingDistribution] = useState<{ rating: number; count: number }[]>([]);
@@ -298,13 +296,11 @@ export default function AlbumPage() {
       }
 
       try {
-        const { data: recentReviews, error: recentReviewsError, count: totalReviews } = await supabase.from('music_reviews')
-          .select('id,user_id,rating,review_text,created_at,updated_at', { count: 'exact' })
+        const { count: totalReviews, error: reviewCountError } = await supabase.from('music_reviews')
+          .select('id', { count: 'exact', head: true })
           .eq('item_type', 'album')
-          .eq('item_id', String(data.id))
-          .order('updated_at', { ascending: false })
-          .limit(3);
-        if (recentReviewsError) throw recentReviewsError;
+          .eq('item_id', String(data.id));
+        if (reviewCountError) throw reviewCountError;
         setAlbumReviewCount(totalReviews || 0);
 
         const { data: ratingRows, error: ratingRowsError } = await supabase
@@ -332,19 +328,9 @@ export default function AlbumPage() {
           })
         );
 
-        const reviewerIds = [...new Set((recentReviews || []).map((review: any) => review.user_id))];
-        const { data: reviewerProfiles, error: reviewerProfilesError } = reviewerIds.length
-          ? await supabase.from('users').select('id,username,avatar_url').in('id', reviewerIds)
-          : { data: [], error: null };
-        if (reviewerProfilesError) throw reviewerProfilesError;
-        const reviewerMap: Record<string, any> = {};
-        (reviewerProfiles || []).forEach((person: any) => { reviewerMap[person.id] = person; });
-        setAlbumReviews(recentReviews || []);
-        setAlbumReviewPeople(reviewerMap);
+
       } catch (reviewLoadError) {
         console.warn('Could not load album reviews:', reviewLoadError);
-        setAlbumReviews([]);
-        setAlbumReviewPeople({});
         setAlbumReviewCount(0);
         setAlbumRatingAverage(0);
         setAlbumRatingDistribution([]);
