@@ -873,18 +873,7 @@ export default function AlbumPage() {
                 <Text style={[styles.seeAll, { color: accentColor }]}>See all ›</Text>
               </TouchableOpacity>
             </View>
-            {albumReviews.length === 0 ? (
-              <View style={styles.emptyReviews}>
-                <Text style={styles.emptyTitle}>No reviews yet</Text>
-                <Text style={styles.emptyText}>Be the first to write about this album.</Text>
-                <TouchableOpacity onPress={() => router.push({ pathname: '/review/new', params: {
-                  albumId: album.id, albumName: album.name, albumArtist: album.artists?.[0]?.name,
-                  albumCover: album.images?.[0]?.url, itemType: 'album', parentAlbumId: album.id,
-                } } as any)}>
-                  <Text style={[styles.emptyLink, { color: accentColor }]}>Write the first review ›</Text>
-                </TouchableOpacity>
-              </View>
-            ) : albumReviews.map((review: any) => {
+            {albumReviews.map((review: any) => {
               const person = albumReviewPeople[review.user_id];
               return (
                 <TouchableOpacity key={review.id} style={styles.reviewCard} onPress={() => router.push({ pathname: '/review/[id]', params: { id: String(review.id) } } as any)}>
