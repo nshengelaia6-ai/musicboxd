@@ -55,13 +55,16 @@ export default function FriendsReviews() {
           return;
         }
 
-        const [reviewRows, usersResult] = await Promise.all([
+        const [reviewRows, usersResult, musicReviewsResult] = await Promise.all([
           loadFriendReviewRows(ids),
           supabase.from('users').select('id,username,avatar_url').in('id', ids),
+          supabase.from('music_reviews').select('id,user_id,item_id').eq('item_type', 'track').in('user_id', ids),
         ]);
         if (usersResult.error) throw usersResult.error;
+        if (musicReviewsResult.error) throw musicReviewsResult.error;
 
         const userMap = new Map((usersResult.data || []).map((user: any) => [user.id, user]));
+        const reviewMap = new Map((musicReviewsResult.data || []).map((review: any) => [String(review.user_id) + ':' + String(review.item_id), review.id]));
         const seenReviews = new Set<string>();
         const rows = reviewRows
           .filter((row: any) => row.data?.type === 'track' && (row.data?.review || Number(row.data?.rating) > 0))
@@ -75,6 +78,7 @@ export default function FriendsReviews() {
             ...row,
             updated_at: row.created_at,
             profile: userMap.get(row.user_id),
+            reviewId: reviewMap.get(String(row.user_id) + ':' + String(row.item_key)),
           }));
         if (active) setItems(rows);
       } catch (e: any) {
@@ -106,17 +110,23 @@ export default function FriendsReviews() {
               const item = row.data || {};
               const cover = item.albumCover || item.cover || item.cover_url;
               return (
-                <View key={row.id} style={styles.card}>
+                <TouchableOpacity
+                  key={row.id}
+                  activeOpacity={0.85}
+                  style={styles.card}
+                  disabled={!row.reviewId}
+                  onPress={() => router.push({ pathname: '/review/[id]', params: { id: String(row.reviewId) } } as any)}
+                >
                   {cover ? <Image source={{ uri: cover }} style={styles.cover} /> : <View style={styles.cover} />}
                   <View style={styles.details}>
-                    <Text style={styles.username}>@{row.profile?.username || 'Music lover'}</Text>
+                    <Text style={styles.username}>{String(row.profile?.username || 'Music lover').replace(/^@+/, '')}</Text>
                     <Text style={styles.song}>{item.albumName || item.name || 'Untitled song'}</Text>
                     <Text style={styles.artist}>{item.albumArtist || item.artist || ''}</Text>
                     {Number(item.rating) > 0 ? <Text style={styles.rating}>{'★'.repeat(Math.floor(Number(item.rating)))}{Number(item.rating) % 1 ? '½' : ''}</Text> : null}
                     {!!item.review && <Text style={styles.review}>{item.review}</Text>}
                     <Text style={styles.date}>{row.updated_at ? new Date(row.updated_at).toLocaleDateString() : ''}</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
         </ScrollView>}
