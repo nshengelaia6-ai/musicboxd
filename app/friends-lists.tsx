@@ -139,6 +139,7 @@ export default function FriendsLists() {
           id: item.id,
           name: item.name,
           description: item.description || '',
+          cover: item.items.find((entry: any) => entry?.cover)?.cover || '',
           type: 'list',
           itemCount: item.items.length,
         });
