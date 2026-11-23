@@ -679,8 +679,8 @@ export default function Home() {
           <Text style={styles.pageTitle}>Musicboxd</Text>
         </View>
         <View style={styles.homeNav}>
-          <View style={[styles.homeNavTab, styles.homeNavTabActive, { borderBottomColor: accentColor }]}>
-            <Text style={[styles.homeNavText, styles.homeNavActive, { color: accentColor }]}>Songs</Text>
+          <View style={[styles.homeNavTab, styles.homeNavTabActive]}>
+            <Text style={[styles.homeNavText, styles.homeNavActive]}>Songs</Text>
           </View>
           <TouchableOpacity style={styles.homeNavTab} onPress={() => router.push('/friends-reviews' as any)}>
             <Text style={styles.homeNavText}>Reviews</Text>
@@ -1283,7 +1283,7 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 60,
+    paddingTop: 42,
     width: '100%',
     maxWidth: 1000,
     alignSelf: 'center',
@@ -1295,8 +1295,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
-    paddingTop: 2,
-    paddingBottom: 12,
+    paddingTop: 0,
+    paddingBottom: 10,
   },
   pageTitle: {
     color: 'white',
@@ -1308,24 +1308,24 @@ const styles = StyleSheet.create({
   homeNav: {
     flexDirection: 'row',
     alignItems: 'stretch',
+    marginHorizontal: 16,
     marginBottom: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: '#292929',
+    padding: 4,
+    borderRadius: 8,
+    backgroundColor: '#292929',
   },
   homeNavTab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-    marginBottom: -1,
+    paddingVertical: 9,
+    borderRadius: 6,
   },
   homeNavTabActive: {
-    borderBottomWidth: 2,
+    backgroundColor: '#555555',
   },
   homeNavText: {
-    color: '#888',
+    color: '#999',
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.2,
