@@ -53,7 +53,12 @@ export default function AlbumListsPage() {
         if (active) setLoading(false);
       }
     }
-    if (id) void load();
+    if (id) {
+      void load();
+    } else {
+      setError('Album not found.');
+      setLoading(false);
+    }
     return () => { active = false; };
   }, [id]);
 
