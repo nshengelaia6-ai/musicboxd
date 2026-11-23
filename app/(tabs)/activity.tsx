@@ -33,6 +33,7 @@ const activityLabels: Record<string, string> = {
   wants_to_listen: 'wants to listen to',
   reviewed: 'reviewed',
   created_list: 'created a list',
+  liked_list: 'liked a list',
   followed_artist: 'followed',
 };
 
