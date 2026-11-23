@@ -74,13 +74,32 @@ export default function FriendsReviews() {
             seenReviews.add(key);
             return true;
           })
-          .map((row: any) => ({
-            ...row,
-            updated_at: row.created_at,
-            profile: userMap.get(row.user_id),
-            reviewId: reviewMap.get(String(row.user_id) + ':' + String(row.item_key)),
-          }));
-        if (active) setItems(rows);
+          .slice(0, 50);
+
+        const releaseYears = await Promise.all(rows.map(async (row: any) => {
+          const item = row.data || {};
+          const storedDate = item.release_date || item.releaseDate || item.albumReleaseDate;
+          if (storedDate) return String(storedDate).slice(0, 4);
+          try {
+            const { data, error } = await supabase.functions.invoke('spotify-search', {
+              body: { action: 'track', id: String(row.item_key) },
+            });
+            if (error || data?.error) return '';
+            const date = data?.album?.release_date || data?.release_date;
+            return date ? String(date).slice(0, 4) : '';
+          } catch {
+            return '';
+          }
+        }));
+
+        const enrichedRows = rows.map((row: any, index: number) => ({
+          ...row,
+          releaseYear: releaseYears[index],
+          updated_at: row.created_at,
+          profile: userMap.get(row.user_id),
+          reviewId: reviewMap.get(String(row.user_id) + ':' + String(row.item_key)),
+        }));
+        if (active) setItems(enrichedRows);
       } catch (e: any) {
         if (active) setError(e?.message || 'Could not load friends’ reviews.');
       } finally {
@@ -117,16 +136,23 @@ export default function FriendsReviews() {
                   disabled={!row.reviewId}
                   onPress={() => router.push({ pathname: '/review/[id]', params: { id: String(row.reviewId) } } as any)}
                 >
-                  {cover ? <Image source={{ uri: cover }} style={styles.cover} /> : <View style={styles.cover} />}
-                  <View style={styles.details}>
-                    <View style={styles.authorRow}>
-                      <Text style={styles.username}>{String(row.profile?.username || 'Music lover').replace(/^@+/, '')}</Text>
-                      {row.profile?.avatar_url ? <Image source={{ uri: row.profile.avatar_url }} style={styles.avatar} /> : <View style={styles.avatar} />}
+                  <View style={styles.cardInner}>
+                    <View style={styles.titleRow}>
+                      <Text style={styles.song} numberOfLines={2}>{item.name || 'Untitled song'}</Text>
+                      {!!row.releaseYear && <Text style={styles.releaseYear}>{row.releaseYear}</Text>}
                     </View>
-                    <Text style={styles.song}>{item.albumName || item.name || 'Untitled song'}</Text>
-                    <Text style={styles.artist}>{item.albumArtist || item.artist || ''}</Text>
-                    {Number(item.rating) > 0 ? <Text style={styles.rating}>{'★'.repeat(Math.floor(Number(item.rating)))}{Number(item.rating) % 1 ? '½' : ''}</Text> : null}
-                    {!!item.review && <Text style={styles.review}>{item.review}</Text>}
+                    <View style={styles.reviewLayout}>
+                      {cover ? <Image source={{ uri: cover }} style={styles.cover} /> : <View style={styles.cover} />}
+                      <View style={styles.details}>
+                        <View style={styles.authorRow}>
+                          <Text style={styles.username}>{String(row.profile?.username || 'Music lover').replace(/^@+/, '')}</Text>
+                          {row.profile?.avatar_url ? <Image source={{ uri: row.profile.avatar_url }} style={styles.avatar} /> : <View style={styles.avatar} />}
+                        </View>
+                        <Text style={styles.artist}>{item.albumArtist || item.artist || ''}</Text>
+                        {Number(item.rating) > 0 ? <Text style={styles.rating}>{'★'.repeat(Math.floor(Number(item.rating)))}{Number(item.rating) % 1 ? '½' : ''}</Text> : null}
+                        {!!item.review && <Text style={styles.review}>{item.review}</Text>}
+                      </View>
+                    </View>
                   </View>
                 </TouchableOpacity>
               );
@@ -146,13 +172,17 @@ const styles = StyleSheet.create({
   navText: { color: '#888', fontSize: 14, fontWeight: '700', letterSpacing: 0.2 },
   activeText: { color: '#fff' },
   content: { padding: 16, paddingBottom: 32 },
-  card: { flexDirection: 'row', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#252525' },
+  card: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#252525' },
+  cardInner: { flex: 1 },
+  titleRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  reviewLayout: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   cover: { width: 76, height: 76, borderRadius: 6, backgroundColor: '#252525' },
-  details: { flex: 1 },
+  details: { flex: 1, minWidth: 0 },
   authorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 8 },
   avatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#333' },
   username: { color: '#aaa', fontSize: 12 },
-  song: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  song: { color: '#fff', fontSize: 16, fontWeight: '700', flexShrink: 1 },
+  releaseYear: { color: '#999', fontSize: 12 },
   artist: { color: '#999', fontSize: 12, marginTop: 2 },
   rating: { color: '#9BA7B2', marginTop: 5 },
   review: { color: '#ddd', fontSize: 14, lineHeight: 20, marginTop: 7 },
