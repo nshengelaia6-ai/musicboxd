@@ -108,8 +108,8 @@ export default function ReviewDetail() {
         </TouchableOpacity>
       </View>
       <View style={styles.authorRow}>
-        {author?.avatar_url?<Image source={{uri:author.avatar_url}} style={styles.avatar}/>:<View style={styles.avatar}/>}
         <Text style={styles.username}>{author?.username||'listener'}</Text>
+        {author?.avatar_url?<Image source={{uri:author.avatar_url}} style={styles.avatar}/>:<View style={styles.avatar}/>}
       </View>
       {!!review.review_text&&<Text style={styles.reviewText}>{review.review_text}</Text>}
       {!!error&&<Text style={styles.error}>{error}</Text>}
@@ -146,7 +146,7 @@ const styles=StyleSheet.create({
   content:{padding:18,paddingBottom:50},songRow:{flexDirection:'row',alignItems:'stretch',gap:18,minHeight:132},
   songInfo:{flex:1,justifyContent:'center'},songTitle:{color:'#fff',fontSize:21,fontWeight:'600',lineHeight:27},artist:{color:'#aaa',fontSize:14,marginTop:6},
   stars:{color:'#00e054',fontSize:20,marginTop:12},cover:{width:132,height:132,borderRadius:5,backgroundColor:'#292929'},
-  authorRow:{flexDirection:'row',alignItems:'center',gap:9,marginTop:22,marginBottom:16},avatar:{width:30,height:30,borderRadius:15,backgroundColor:'#333'},
+  authorRow:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',alignSelf:'stretch',gap:8,marginTop:22,marginBottom:16},avatar:{width:30,height:30,borderRadius:15,backgroundColor:'#333'},
   username:{color:'#ddd',fontSize:13,fontWeight:'500'},reviewText:{color:'#eee',fontSize:16,lineHeight:25,marginBottom:20},
   actions:{flexDirection:'row',alignItems:'center',gap:24,borderTopWidth:1,borderTopColor:'#252525',paddingTop:14,marginTop:8,marginBottom:8},
   action:{flexDirection:'row',alignItems:'center',gap:7},heart:{fontSize:22},actionText:{color:'#aaa',fontSize:13},
