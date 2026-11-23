@@ -53,7 +53,7 @@ export default function FriendsLists() {
         supabase.from('music_lists')
           .select('id,user_id,name,description,items,created_at,updated_at')
           .eq('privacy', 'public')
-          .order('created_at', { ascending: false }).limit(200),
+          .order('created_at', { ascending: false }).limit(1000),
       ]);
       if (friendListsResult.error) throw friendListsResult.error;
       if (publicListsResult.error) throw publicListsResult.error;
@@ -98,7 +98,7 @@ export default function FriendsLists() {
       const friendItems = friendRows.map(decorate);
       const publicItems = publicRows.map(decorate);
       setNewFromFriends(friendItems);
-      setPopularWithFriends(friendItems
+      setPopularWithFriends(publicItems
         .filter((item) => item.friendLikeCount > 0)
         .sort((a, b) => b.friendLikeCount - a.friendLikeCount || b.likeCount - a.likeCount)
         .slice(0, 20));
