@@ -40,15 +40,21 @@ export default function Reviews() {
       const uid=auth.user?.id||''; setMyId(uid);
       let likedIds:string[]=[];
       if(filter==='LIKED') {
-        if(!uid) { setReviews([]); setPeople({}); setLoading(false); return; }
+        if(!uid) {
+          setReviews([]); setPeople({}); setReplies({}); setLikeCounts({}); setLikedReviewIds(new Set());
+          return;
+        }
         const {data:myLikes,error:likesError}=await supabase.from('music_review_likes').select('review_id').eq('user_id',uid);
         if(likesError) throw likesError;
         likedIds=(myLikes||[]).map((row:any)=>String(row.review_id));
-        if(!likedIds.length) { setReviews([]); setPeople({}); setLoading(false); return; }
+        if(!likedIds.length) {
+          setReviews([]); setPeople({}); setReplies({}); setLikeCounts({}); setLikedReviewIds(new Set());
+          return;
+        }
       }
       let request=supabase.from('music_reviews').select('id,user_id,item_type,item_id,parent_album_id,item_name,artist_name,cover_url,rating,review_text,created_at,updated_at').eq('item_type',itemType).order('updated_at',{ascending:false}).limit(100);
       if(itemId) request=request.eq('item_id',itemId);
-      if(filter==='YOU') request=request.eq('user_id',uid);
+      if(filter==='YOU') request=request.eq('user_id',uid || '__signed_out__');
       if(filter==='LIKED') request=request.in('id',likedIds);
       const {data,error:reviewError}=await request;
       if(reviewError) throw reviewError;
@@ -115,7 +121,7 @@ export default function Reviews() {
         <Text style={styles.heading}>{itemType === 'track' ? `REVIEWS OF ${params.itemName || 'TRACK'}` : 'REVIEWS'}</Text>
         <View style={{width:36}} />
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{filters.map(value=><TouchableOpacity key={value} onPress={()=>setFilter(value)} style={[styles.filter,filter===value&&styles.filterActive]}><Text style={[styles.filterText,filter===value&&styles.filterTextActive]}>{value}</Text></TouchableOpacity>)}</ScrollView>
+      <ScrollView horizontal style={styles.filterScroll} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{filters.map(value=><TouchableOpacity key={value} accessibilityRole="button" accessibilityState={{selected:filter===value}} onPress={()=>setFilter(value)} style={[styles.filter,filter===value&&styles.filterActive]}><Text style={[styles.filterText,filter===value&&styles.filterTextActive]}>{value}</Text></TouchableOpacity>)}</ScrollView>
     </View>
     {loading?<ActivityIndicator color={accentColor} style={{marginTop:40}}/>:
       <ScrollView contentContainerStyle={styles.list}>
@@ -158,6 +164,6 @@ const styles=StyleSheet.create({
  screen:{flex:1},header:{paddingTop:58,paddingHorizontal:18,paddingBottom:9,borderBottomWidth:1,borderBottomColor:'#252525'},headerTop:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
  back:{color:'#fff',fontSize:32,width:36},heading:{color:'#fff',fontSize:16,fontWeight:'700',letterSpacing:1.5},write:{fontSize:14,fontWeight:'700'},
  itemHeader:{flexDirection:'row',alignItems:'center',gap:14,padding:18},cover:{width:66,height:66,borderRadius:6,backgroundColor:'#292929'},itemTitle:{color:'#fff',fontSize:17,fontWeight:'700'},artist:{color:'#aaa',marginTop:3},count:{color:'#777',fontSize:12,marginTop:6},
- filters:{flexDirection:'row',alignItems:'center',justifyContent:'center',paddingTop:9,gap:8},filter:{paddingHorizontal:14,paddingVertical:8,borderRadius:5,backgroundColor:'#25292E',borderWidth:1,borderColor:'#30363D'},filterActive:{backgroundColor:'#41474F',borderColor:'#626B76'},filterText:{color:'#A0A7AF',fontSize:11,fontWeight:'700',letterSpacing:0.8},filterTextActive:{color:'#fff'},
+ filterScroll:{width:'100%',alignSelf:'stretch',flexGrow:0,marginTop:9},filters:{flexGrow:1,flexDirection:'row',alignItems:'center',justifyContent:'center',paddingHorizontal:4,gap:8},filter:{paddingHorizontal:14,paddingVertical:8,borderRadius:5,backgroundColor:'#25292E',borderWidth:1,borderColor:'#30363D'},filterActive:{backgroundColor:'#41474F',borderColor:'#626B76'},filterText:{color:'#A0A7AF',fontSize:11,fontWeight:'700',letterSpacing:0.8},filterTextActive:{color:'#fff'},
  list:{paddingHorizontal:18,paddingBottom:50},reviewActions:{flexDirection:'row',alignItems:'center',marginTop:12},replyButton:{paddingVertical:5,paddingHorizontal:8},replyButtonText:{fontSize:13,fontWeight:'700'},replyRow:{flexDirection:'row',gap:9,marginTop:12,marginLeft:8},replyAvatar:{width:27,height:27,borderRadius:14,backgroundColor:'#333',overflow:'hidden'},replyAvatarImage:{width:27,height:27,borderRadius:14},replyContent:{flex:1},replyUsername:{color:'#bbb',fontSize:12,fontWeight:'700'},replyText:{color:'#ddd',fontSize:13,lineHeight:19,marginTop:2},replyDate:{color:'#777',fontSize:10,marginTop:3},replyComposer:{marginTop:12,marginLeft:8,gap:8},replyInput:{minHeight:42,maxHeight:110,borderWidth:1,borderColor:'#3a3a3a',borderRadius:7,paddingHorizontal:11,paddingVertical:9,color:'#fff',fontSize:13},replySend:{alignSelf:'flex-end',paddingHorizontal:16,paddingVertical:8,borderRadius:6},replySendText:{color:'#fff',fontSize:12,fontWeight:'700'},likeButton:{flexDirection:'row',alignItems:'center',gap:6,paddingVertical:4,paddingRight:12},likeIcon:{color:'#9299A1',fontSize:19},likeIconActive:{color:'#00E054'},likeCount:{color:'#9299A1',fontSize:12},card:{paddingVertical:18,borderBottomWidth:1,borderBottomColor:'#252525'},personRow:{flexDirection:'row',alignItems:'center',gap:10},avatar:{width:38,height:38,borderRadius:19,backgroundColor:'#333'},username:{color:'#ddd',fontWeight:'500',fontSize:14},date:{color:'#777',fontSize:11,marginTop:3},edit:{fontSize:13,fontWeight:'700'},stars:{color:'#00e054',fontSize:18,marginTop:12},rating:{color:'#888',fontSize:12},reviewText:{color:'#e5e5e5',fontSize:15,lineHeight:23,marginTop:12},empty:{color:'#888',textAlign:'center',marginTop:48,lineHeight:22},error:{color:'#ff7777',marginTop:20}
 });
