@@ -74,6 +74,7 @@ export default function Lists() {
           id: String(list.id),
           name: list.name || 'Untitled list',
           description: list.description || '',
+          cover: list.albums?.find((entry: any) => entry?.cover)?.cover || '',
           type: 'list',
           itemCount: Array.isArray(list.albums) ? list.albums.length : 0,
         });
