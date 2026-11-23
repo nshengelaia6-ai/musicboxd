@@ -48,6 +48,7 @@ export default function AlbumPage() {
   const [album, setAlbum] = useState<any>(null);
   const [artist, setArtist] = useState<any>(null);
   const [tracks, setTracks] = useState<any[]>([]);
+  const [showAlbumTracks, setShowAlbumTracks] = useState(false);
   const [albumReviews, setAlbumReviews] = useState<any[]>([]);
   const [albumReviewPeople, setAlbumReviewPeople] = useState<Record<string, any>>({});
   const [albumReviewCount, setAlbumReviewCount] = useState(0);
@@ -722,7 +723,16 @@ export default function AlbumPage() {
 
         {album && (
           <View style={styles.tracklistHeader}>
-            <Text style={styles.sectionTitle}>Tracklist</Text>
+            <TouchableOpacity
+              style={styles.songsToggle}
+              onPress={() => setShowAlbumTracks(value => !value)}
+              accessibilityRole="button"
+              accessibilityLabel={showAlbumTracks ? "Hide album songs" : "Show album songs"}
+            >
+              <Text style={styles.sectionTitle}>SONGS</Text>
+              <Text style={styles.songsToggleMeta}>{tracks.length} TRACKS</Text>
+              <Text style={styles.songsToggleArrow}>{showAlbumTracks ? '−' : '+'}</Text>
+            </TouchableOpacity>
             <View style={styles.ratingBlock}>
               <View style={styles.ratingOverview}>
                 <View style={styles.ratingHistogram}>
@@ -747,6 +757,7 @@ export default function AlbumPage() {
           </View>
         )}
 
+        {showAlbumTracks && (
         <View>
           {tracks.map((item, index) => {
             const isHighlighted =
@@ -797,6 +808,7 @@ export default function AlbumPage() {
             );
           })}
         </View>
+        )}
 
         {(listenedByFriends.length > 0 || wantToListenFriends.length > 0) && (
           <View style={styles.friendStatusSection}>
@@ -1610,6 +1622,9 @@ const styles = StyleSheet.create({
   stars: { fontSize: 14, fontWeight: '700' },
   reviewText: { color: '#E5E9EC', fontSize: 14, lineHeight: 21, marginTop: 11 },
   tracklistHeader: { paddingHorizontal: 18, paddingVertical: 10, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#2C3440', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  songsToggle: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 38, paddingRight: 4 },
+  songsToggleMeta: { color: '#89939D', fontSize: 9, fontWeight: '700', letterSpacing: 1.2 },
+  songsToggleArrow: { color: '#E5E9EC', fontSize: 22, lineHeight: 24, marginLeft: 2 },
   ratingBlock: { width: 148, marginLeft: 12 },
   ratingOverview: { flexDirection: 'row', alignItems: 'flex-end', gap: 7, height: 34 },
   ratingHistogram: { flex: 1, height: 32, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 1, paddingBottom: 1, borderBottomWidth: 1, borderBottomColor: '#52616F' },
