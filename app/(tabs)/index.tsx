@@ -791,14 +791,14 @@ export default function Home() {
             contentContainerStyle={styles.favoritesRow}
           >
             {friendsMonthlyFavs.map((favorite) => (
-              <TouchableOpacity key={favorite.id} style={styles.favItem} activeOpacity={0.8} onPress={() => openFriendTrack(favorite)}>
+              <TouchableOpacity key={favorite.id} style={styles.friendsFavItem} activeOpacity={0.8} onPress={() => openFriendTrack(favorite)}>
                 {favorite.cover_url ? (
                   <Image
                     source={{ uri: favorite.cover_url }}
-                    style={styles.favCover}
+                    style={styles.friendsFavCover}
                   />
                 ) : (
-                  <View style={[styles.favCover, styles.noCover]}>
+                  <View style={[styles.friendsFavCover, styles.noCover]}>
                     <Text style={styles.noCoverText}>♪</Text>
                   </View>
                 )}
@@ -1366,6 +1366,16 @@ const styles = StyleSheet.create({
   favItem: {
     width: 112,
     marginBottom: 8,
+  },
+  friendsFavItem: {
+    width: 100,
+    marginBottom: 8,
+  },
+  friendsFavCover: {
+    width: 100,
+    height: 150,
+    borderRadius: 5,
+    backgroundColor: '#1a1a1a',
   },
   favCover: {
     width: 112,
