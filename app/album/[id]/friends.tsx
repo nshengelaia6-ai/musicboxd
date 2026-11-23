@@ -30,68 +30,13 @@ export default function AlbumMembersPage() {
       setLoading(true);
       setError('');
       try {
-        const [statusesResult, reviewsResult] = await Promise.all([
-          supabase.from('music_album_status').select('user_id,status').eq('album_id', String(id)),
-          supabase.from('music_reviews').select('user_id,rating,review_text').eq('item_type', 'album').eq('item_id', String(id)),
-        ]);
-        if (statusesResult.error) throw statusesResult.error;
-        if (reviewsResult.error) throw reviewsResult.error;
-
-        let allowedIds: string[] | null = null;
-        if (filter === 'friends') {
-          const { data: authData, error: authError } = await supabase.auth.getUser();
-          if (authError) throw authError;
-          if (!authData.user) {
-            setMembers([]);
-            return;
-          }
-          const [following, followers] = await Promise.all([
-            supabase.from('friendships').select('friend_id').eq('user_id', authData.user.id),
-            supabase.from('friendships').select('user_id').eq('friend_id', authData.user.id),
-          ]);
-          if (following.error) throw following.error;
-          if (followers.error) throw followers.error;
-          const followingIds = new Set((following.data || []).map((row: any) => String(row.friend_id)));
-          allowedIds = [...new Set((followers.data || []).map((row: any) => String(row.user_id)).filter((friendId: string) => followingIds.has(friendId)))];
-        }
-
-        const statusByUser: Record<string, { listened: boolean; wants_to_listen: boolean }> = {};
-        (statusesResult.data || []).forEach((row: any) => {
-          const uid = String(row.user_id);
-          statusByUser[uid] ||= { listened: false, wants_to_listen: false };
-          if (row.status === 'listened') statusByUser[uid].listened = true;
-          if (row.status === 'wants_to_listen') statusByUser[uid].wants_to_listen = true;
+        const { data, error: invokeError } = await supabase.functions.invoke('swift-service', {
+          body: { action: 'album-members', item_id: String(id), scope: filter },
         });
-        const reviewByUser: Record<string, any> = {};
-        (reviewsResult.data || []).forEach((row: any) => { reviewByUser[String(row.user_id)] = row; });
-        let ids = [...new Set([...Object.keys(statusByUser), ...Object.keys(reviewByUser)])];
-        if (allowedIds) {
-          const allowed = new Set(allowedIds);
-          ids = ids.filter(uid => allowed.has(uid));
-        }
-        const { data: profiles, error: profilesError } = ids.length
-          ? await supabase.from('users').select('id,username,avatar_url').in('id', ids)
-          : { data: [], error: null };
-        if (profilesError) throw profilesError;
-        const profileMap: Record<string, any> = {};
-        (profiles || []).forEach((person: any) => { profileMap[String(person.id)] = person; });
-        const result = ids.flatMap(uid => {
-          const person = profileMap[uid];
-          if (!person) return [];
-          const review = reviewByUser[uid];
-          const status = statusByUser[uid] || { listened: false, wants_to_listen: false };
-          return [{
-            id: uid,
-            username: person.username || null,
-            avatar_url: person.avatar_url || null,
-            rating: review && Number(review.rating) > 0 ? Number(review.rating) : null,
-            listened: status.listened,
-            wants_to_listen: status.wants_to_listen,
-            has_review: Boolean(review && String(review.review_text || '').trim()),
-          }];
-        });
-        result.sort((a, b) => Number(b.listened) - Number(a.listened));
-        if (active) setMembers(result);
+        if (invokeError) throw invokeError;
+        if (!data?.success) throw new Error(data?.error || 'Could not load album members.');
+        if (active) setMembers(Array.isArray(data.members) ? data.members : []);
+
       } catch (e: any) {
         if (active) setError(e?.message || 'Could not load album members.');
       } finally {
