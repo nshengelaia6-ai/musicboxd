@@ -239,8 +239,6 @@ export default function AlbumPage() {
     setAlbum(null);
     setArtist(null);
     setTracks([]);
-    setAlbumReviews([]);
-    setAlbumReviewPeople({});
     setAlbumReviewCount(0);
     setAlbumRatingAverage(0);
     setAlbumRatingDistribution([]);
