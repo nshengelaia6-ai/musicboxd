@@ -99,22 +99,42 @@ Deno.serve(async (req) => {
         row.blocker_id === userId ? row.blocked_id : row.blocker_id
       ));
 
-      const [statusesResult, reviewsResult] = await Promise.all([
-        supabase.from("music_album_status").select("user_id,status,updated_at").eq("album_id", itemId),
-        supabase.from("music_reviews").select("user_id,rating,review_text,updated_at").eq("item_type", "album").eq("item_id", itemId),
-      ]);
-      if (statusesResult.error || reviewsResult.error) {
-        return respond({ error: "Could not load album members" }, 500);
+      const statusRows: any[] = [];
+      for (let from = 0; ; from += 500) {
+        const { data, error } = await supabase.from("music_album_status")
+          .select("user_id,status,updated_at")
+          .eq("album_id", itemId)
+          .order("updated_at", { ascending: false })
+          .range(from, from + 499);
+        if (error) return respond({ error: "Could not load album listening statuses" }, 500);
+        statusRows.push(...(data || []));
+        if (!data || data.length < 500) break;
+      }
+
+      const reviewRows: any[] = [];
+      for (let from = 0; ; from += 500) {
+        const { data, error } = await supabase.from("music_reviews")
+          .select("user_id,rating,review_text,updated_at")
+          .eq("item_type", "album")
+          .eq("item_id", itemId)
+          .order("updated_at", { ascending: false })
+          .range(from, from + 499);
+        if (error) return respond({ error: "Could not load album reviews" }, 500);
+        reviewRows.push(...(data || []));
+        if (!data || data.length < 500) break;
       }
 
       const statusByUser: Record<string, any> = {};
-      for (const row of statusesResult.data || []) {
+      for (const row of statusRows) {
         if (blockedIds.has(row.user_id)) continue;
-        statusByUser[row.user_id] ||= { listened: false, wants_to_listen: false };
+        statusByUser[row.user_id] ||= { listened: false, wants_to_listen: false, updated_at: "" };
         if (row.status === "listened") statusByUser[row.user_id].listened = true;
         if (row.status === "wants_to_listen") statusByUser[row.user_id].wants_to_listen = true;
+        if (!statusByUser[row.user_id].updated_at || row.updated_at > statusByUser[row.user_id].updated_at) {
+          statusByUser[row.user_id].updated_at = row.updated_at;
+        }
       }
-      const reviewByUser = new Map((reviewsResult.data || [])
+      const reviewByUser = new Map(reviewRows
         .filter((row: any) => !blockedIds.has(row.user_id))
         .map((row: any) => [row.user_id, row]));
 
@@ -138,6 +158,19 @@ Deno.serve(async (req) => {
         people.push(...(data || []));
       }
       const profileMap = new Map(people.map((person: any) => [person.id, person]));
+      selectedIds.sort((a, b) => {
+        const aReview: any = reviewByUser.get(a);
+        const bReview: any = reviewByUser.get(b);
+        const aTime = Math.max(
+          statusByUser[a]?.updated_at ? new Date(statusByUser[a].updated_at).getTime() : 0,
+          aReview?.updated_at ? new Date(aReview.updated_at).getTime() : 0
+        );
+        const bTime = Math.max(
+          statusByUser[b]?.updated_at ? new Date(statusByUser[b].updated_at).getTime() : 0,
+          bReview?.updated_at ? new Date(bReview.updated_at).getTime() : 0
+        );
+        return bTime - aTime;
+      });
       const members = selectedIds.flatMap((id) => {
         const person: any = profileMap.get(id);
         if (!person) return [];
@@ -153,7 +186,6 @@ Deno.serve(async (req) => {
           has_review: Boolean(review && String(review.review_text || "").trim()),
         }];
       });
-      members.sort((a, b) => Number(b.listened) - Number(a.listened));
       return respond({ success: true, members, total: members.length });
     }
 
