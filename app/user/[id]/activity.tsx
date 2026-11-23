@@ -25,6 +25,7 @@ const labels: Record<string, string> = {
   liked: 'LIKED',
   wants_to_listen: 'WANTS TO LISTEN',
   created_list: 'CREATED A LIST',
+  liked_list: 'LIKED A LIST',
   followed_artist: 'FOLLOWED AN ARTIST',
 };
 
@@ -196,7 +197,7 @@ export default function UserActivityScreen() {
                 item.comment ||
                 item.review ||
                 item.notes ||
-                (entry.activity_type === 'created_list'
+                (entry.activity_type === 'created_list' || entry.activity_type === 'liked_list'
                   ? item.description
                   : '');
 
