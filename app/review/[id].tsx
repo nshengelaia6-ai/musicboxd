@@ -27,6 +27,7 @@ export default function ReviewDetail() {
   const [sending,setSending]=useState(false);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
+  const [releaseYear,setReleaseYear]=useState('');
 
   const load=useCallback(async()=>{
     setLoading(true);setError('');
@@ -39,6 +40,14 @@ export default function ReviewDetail() {
       if(reviewError) throw reviewError;
       if(!row) {setReview(null);return;}
       const uid=auth.user?.id||'';setUserId(uid);setReview(row as Review);
+      setReleaseYear('');
+      try {
+        const {data:musicData,error:musicError}=await supabase.functions.invoke('spotify-search',{body:{action:row.item_type==='album'?'album':'track',id:row.item_id}});
+        if(!musicError&&!musicData?.error){
+          const date= row.item_type==='album' ? musicData?.release_date : musicData?.album?.release_date;
+          if(date) setReleaseYear(String(date).slice(0,4));
+        }
+      } catch { /* Release year is optional; keep the review available if Spotify lookup fails. */ }
       const [{data:profile,error:profileError},{data:likeRows,error:likesError},{data:myLike,error:myLikeError},{data:replyRows,error:repliesError}]=await Promise.all([
         supabase.from('users').select('username,avatar_url').eq('id',row.user_id).maybeSingle(),
         supabase.from('music_review_likes').select('user_id').eq('review_id',row.id),
@@ -97,21 +106,18 @@ export default function ReviewDetail() {
       <View style={{width:30}}/>
     </View>
     <ScrollView contentContainerStyle={styles.content}>
-      <View style={styles.songRow}>
-        <View style={styles.songInfo}>
-          <Text style={styles.songTitle}>{review.item_name}</Text>
-          <Text style={styles.artist}>{review.artist_name}</Text>
-          <Text style={styles.stars}>{'★'.repeat(Math.floor(Number(review.rating)||0))}{Number(review.rating)%1?'½':''}</Text>
-        </View>
+      <View style={styles.reviewLayout}>
         <TouchableOpacity onPress={()=>router.push({pathname:review.item_type==='album'?'/album/[id]':'/track/[id]',params:{id:review.item_id}} as any)}>
           {review.cover_url?<Image source={{uri:review.cover_url}} style={styles.cover}/>:<View style={styles.cover}/>}
         </TouchableOpacity>
+        <View style={styles.reviewSide}>
+          <View style={styles.titleRow}>
+            <Text style={styles.songTitle} numberOfLines={2}>{review.item_name}</Text>
+            {!!releaseYear&&<Text style={styles.releaseYear}>{releaseYear}</Text>}
+          </View>
+          {!!review.review_text&&<Text style={styles.reviewText}>{review.review_text}</Text>}
+        </View>
       </View>
-      <View style={styles.authorRow}>
-        <Text style={styles.username}>{(author?.username||'listener').replace(/^@+/, '')}</Text>
-        {author?.avatar_url?<Image source={{uri:author.avatar_url}} style={styles.avatar}/>:<View style={styles.avatar}/>}
-      </View>
-      {!!review.review_text&&<Text style={styles.reviewText}>{review.review_text}</Text>}
       {!!error&&<Text style={styles.error}>{error}</Text>}
       <View style={styles.actions}>
         <TouchableOpacity style={styles.action} onPress={()=>void toggleLike()} disabled={!userId}>
@@ -143,11 +149,10 @@ export default function ReviewDetail() {
 const styles=StyleSheet.create({
   screen:{flex:1},header:{height:104,paddingTop:58,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#252525'},
   back:{color:'#fff',fontSize:32,width:30},headerTitle:{color:'#fff',fontSize:16,fontWeight:'700',letterSpacing:1.5},
-  content:{padding:18,paddingBottom:50},songRow:{flexDirection:'row',alignItems:'stretch',gap:18,minHeight:132},
-  songInfo:{flex:1,justifyContent:'center'},songTitle:{color:'#fff',fontSize:21,fontWeight:'600',lineHeight:27},artist:{color:'#aaa',fontSize:14,marginTop:6},
-  stars:{color:'#00e054',fontSize:20,marginTop:12},cover:{width:132,height:132,borderRadius:5,backgroundColor:'#292929'},
-  authorRow:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',alignSelf:'stretch',gap:8,marginTop:22,marginBottom:16},avatar:{width:30,height:30,borderRadius:15,backgroundColor:'#333'},
-  username:{color:'#ddd',fontSize:13,fontWeight:'500'},reviewText:{color:'#eee',fontSize:16,lineHeight:25,marginBottom:20},
+  content:{padding:18,paddingBottom:50},reviewLayout:{flexDirection:'row',alignItems:'flex-start',gap:16},
+  reviewSide:{flex:1,minWidth:0},titleRow:{flexDirection:'row',alignItems:'baseline',flexWrap:'wrap',columnGap:8,rowGap:3,marginBottom:12},
+  songTitle:{color:'#fff',fontSize:18,fontWeight:'600',lineHeight:24,flexShrink:1},releaseYear:{color:'#999',fontSize:13},
+  cover:{width:116,height:116,borderRadius:5,backgroundColor:'#292929'},reviewText:{color:'#eee',fontSize:15,lineHeight:23},
   actions:{flexDirection:'row',alignItems:'center',gap:24,borderTopWidth:1,borderTopColor:'#252525',paddingTop:14,marginTop:8,marginBottom:8},
   action:{flexDirection:'row',alignItems:'center',gap:7},heart:{fontSize:22},actionText:{color:'#aaa',fontSize:13},
   replyRow:{flexDirection:'row',alignItems:'flex-start',gap:9,paddingVertical:12,borderTopWidth:1,borderTopColor:'#202020'},
