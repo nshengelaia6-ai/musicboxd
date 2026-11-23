@@ -87,6 +87,76 @@ Deno.serve(async (req) => {
       return respond({ success: true, reply: { ...reply, username: user.username, avatar: user.avatar_url || "" } });
     }
 
+    if (body.action === "album-members") {
+      const itemId = typeof body.item_id === "string" ? body.item_id.trim() : "";
+      if (!itemId || itemId.length > 200) return respond({ error: "Invalid album ID" }, 400);
+
+      const blockedResult = await supabase.from("blocked_users")
+        .select("blocker_id, blocked_id")
+        .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`);
+      if (blockedResult.error) return respond({ error: "Could not verify block settings" }, 500);
+      const blockedIds = new Set((blockedResult.data || []).map((row: any) =>
+        row.blocker_id === userId ? row.blocked_id : row.blocker_id
+      ));
+
+      const [statusesResult, reviewsResult] = await Promise.all([
+        supabase.from("music_album_status").select("user_id,status,updated_at").eq("album_id", itemId),
+        supabase.from("music_reviews").select("user_id,rating,review_text,updated_at").eq("item_type", "album").eq("item_id", itemId),
+      ]);
+      if (statusesResult.error || reviewsResult.error) {
+        return respond({ error: "Could not load album members" }, 500);
+      }
+
+      const statusByUser: Record<string, any> = {};
+      for (const row of statusesResult.data || []) {
+        if (blockedIds.has(row.user_id)) continue;
+        statusByUser[row.user_id] ||= { listened: false, wants_to_listen: false };
+        if (row.status === "listened") statusByUser[row.user_id].listened = true;
+        if (row.status === "wants_to_listen") statusByUser[row.user_id].wants_to_listen = true;
+      }
+      const reviewByUser = new Map((reviewsResult.data || [])
+        .filter((row: any) => !blockedIds.has(row.user_id))
+        .map((row: any) => [row.user_id, row]));
+
+      let selectedIds = [...new Set([...Object.keys(statusByUser), ...reviewByUser.keys()])];
+      if (body.scope === "friends") {
+        const [following, followers] = await Promise.all([
+          supabase.from("friendships").select("friend_id").eq("user_id", userId),
+          supabase.from("friendships").select("user_id").eq("friend_id", userId),
+        ]);
+        if (following.error || followers.error) return respond({ error: "Could not load friends" }, 500);
+        const followingIds = new Set((following.data || []).map((row: any) => String(row.friend_id)));
+        const mutualIds = new Set((followers.data || []).map((row: any) => String(row.user_id)).filter((id: string) => followingIds.has(id)));
+        selectedIds = selectedIds.filter((id) => mutualIds.has(id));
+      }
+
+      const people: any[] = [];
+      for (let i = 0; i < selectedIds.length; i += 500) {
+        const { data, error } = await supabase.from("users")
+          .select("id,username,avatar_url").in("id", selectedIds.slice(i, i + 500));
+        if (error) return respond({ error: "Could not load member profiles" }, 500);
+        people.push(...(data || []));
+      }
+      const profileMap = new Map(people.map((person: any) => [person.id, person]));
+      const members = selectedIds.flatMap((id) => {
+        const person: any = profileMap.get(id);
+        if (!person) return [];
+        const review: any = reviewByUser.get(id);
+        const status = statusByUser[id] || { listened: false, wants_to_listen: false };
+        return [{
+          id,
+          username: person.username || null,
+          avatar_url: person.avatar_url || null,
+          rating: review && Number(review.rating) > 0 ? Number(review.rating) : null,
+          listened: Boolean(status.listened),
+          wants_to_listen: Boolean(status.wants_to_listen),
+          has_review: Boolean(review && String(review.review_text || "").trim()),
+        }];
+      });
+      members.sort((a, b) => Number(b.listened) - Number(a.listened));
+      return respond({ success: true, members, total: members.length });
+    }
+
     if (body.action === "track-members") {
       const itemId = typeof body.item_id === "string" ? body.item_id.trim() : "";
       const relationship = ["liked", "listened", "wants_to_listen", "member"].includes(body.relationship) ? body.relationship : "listened";
