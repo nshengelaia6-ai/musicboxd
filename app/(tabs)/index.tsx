@@ -1364,13 +1364,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   favItem: {
-    width: 140,
+    width: 112,
     marginBottom: 8,
   },
   favCover: {
-    width: 140,
-    height: 140,
-    borderRadius: 9,
+    width: 112,
+    height: 112,
+    borderRadius: 5,
     backgroundColor: '#1a1a1a',
   },
   favPlus: {
@@ -1421,14 +1421,14 @@ const styles = StyleSheet.create({
     fontSize: 42,
   },
   card: {
-    width: 140,
-    marginLeft: 16,
+    width: 112,
+    marginLeft: 12,
     marginBottom: 8,
   },
   cover: {
-    width: 140,
-    height: 140,
-    borderRadius: 8,
+    width: 112,
+    height: 112,
+    borderRadius: 5,
     backgroundColor: '#1a1a1a',
   },
   trackName: {
