@@ -108,7 +108,7 @@ export default function ReviewDetail() {
         </TouchableOpacity>
       </View>
       <View style={styles.authorRow}>
-        <Text style={styles.username}>{author?.username||'listener'}</Text>
+        <Text style={styles.username}>{(author?.username||'listener').replace(/^@+/, '')}</Text>
         {author?.avatar_url?<Image source={{uri:author.avatar_url}} style={styles.avatar}/>:<View style={styles.avatar}/>}
       </View>
       {!!review.review_text&&<Text style={styles.reviewText}>{review.review_text}</Text>}
