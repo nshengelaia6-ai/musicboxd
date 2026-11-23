@@ -1,5 +1,6 @@
 import { useAppTheme } from '@/context/ThemeContext';
 import { supabase } from '@/utils/supabase';
+import { recordActivity } from '@/utils/activity';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -132,6 +133,13 @@ export default function FriendsLists() {
         const { error: insertError } = await supabase.from('music_list_likes')
           .insert({ list_id: item.id, user_id: auth.user.id });
         if (insertError) throw insertError;
+        await recordActivity('liked_list', item.id, {
+          id: item.id,
+          name: item.name,
+          description: item.description || '',
+          type: 'list',
+          itemCount: item.items.length,
+        });
       }
       await load();
     } catch (e: any) {
