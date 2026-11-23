@@ -7,6 +7,7 @@ export type ActivityType =
   | 'wants_to_listen'
   | 'reviewed'
   | 'created_list'
+  | 'liked_list'
   | 'followed_artist';
 
 type PendingActivity = {
