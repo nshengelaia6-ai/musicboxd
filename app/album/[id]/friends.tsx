@@ -75,7 +75,7 @@ export default function AlbumMembersPage() {
               {person.avatar_url ? <Image source={{ uri: person.avatar_url }} style={styles.avatar} /> : <View style={styles.avatarFallback}><Text style={styles.avatarInitial}>{(person.username || 'U').slice(0, 1).toUpperCase()}</Text></View>}
               <View style={styles.memberInfo}>
                 <Text style={styles.username}>@{person.username || 'listener'}</Text>
-                <Text style={styles.statusText}>{[person.listened ? 'LISTENED' : '', person.wants_to_listen ? 'WANTS TO LISTEN' : ''].filter(Boolean).join(' · ') || (person.has_review ? 'REVIEWED' : '')}</Text>
+                <Text style={styles.statusText}>{[person.listened ? 'LISTENED' : '', person.wants_to_listen ? 'WANTS TO LISTEN' : '', person.has_review ? 'REVIEWED' : (!person.listened && !person.wants_to_listen && person.rating != null ? 'RATED' : '')].filter(Boolean).join(' · ')}</Text>
               </View>
               <View style={styles.memberIndicators}>
                 {person.rating != null ? <Text style={styles.rating}>{'★'.repeat(Math.floor(person.rating))}{person.rating % 1 ? '½' : ''}</Text> : null}
