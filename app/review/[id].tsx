@@ -2,7 +2,7 @@ import { useAppTheme } from '@/context/ThemeContext';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 type Review = {
   id:string; user_id:string; item_type:string; item_id:string; item_name:string;
@@ -38,7 +38,7 @@ export default function ReviewDetail() {
   const likedPeopleScroll=useRef<ScrollView>(null);
 
   const load=useCallback(async()=>{
-    setLoading(true);setError('');
+    setLoading(true);setError('');setMyProfile(null);setLikedPeople([]);setReplyPeople({});setReplies([]);setReleaseYear('');setAlbumId('');
     try {
       const [{data:auth,error:authError},{data:row,error:reviewError}]=await Promise.all([
         supabase.auth.getUser(),
@@ -131,7 +131,8 @@ export default function ReviewDetail() {
       <Text style={styles.headerTitle}>REVIEW</Text>
       <View style={{width:30}}/>
     </View>
-    <ScrollView contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView style={styles.keyboardArea} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={0}>
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
       <View style={styles.titleBlock}>
         <View style={styles.reviewSide}>
           <View style={styles.authorRow}>
@@ -148,6 +149,7 @@ export default function ReviewDetail() {
             ) : null}
             <TouchableOpacity style={styles.inlineLike} onPress={()=>void toggleLike()} disabled={!userId}>
               <Text style={[styles.heart,{color:liked?accentColor:'#aaa'}]}>{liked?'♥':'♡'}</Text>
+              {likes>0&&<Text style={styles.likeCount}>{likes}</Text>}
             </TouchableOpacity>
           </View>
           {!!listenedAt&&<Text style={styles.listenedDate}>Listened {new Date(listenedAt).toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}</Text>}
@@ -177,11 +179,23 @@ export default function ReviewDetail() {
         <TouchableOpacity style={styles.replyButton} onPress={()=>setReplyOpen(value=>!value)}>
           <Text style={styles.replyButtonText}>Reply</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.albumButton} onPress={()=>{const targetAlbumId=albumId||(review.item_type==='album'?review.item_id:'');if(targetAlbumId)router.push({pathname:'/album/[id]',params:{id:targetAlbumId}} as any);}}>
+        <TouchableOpacity disabled={!(albumId||(review.item_type==='album'?review.item_id:''))} style={[styles.albumButton,!(albumId||(review.item_type==='album'?review.item_id:''))&&styles.albumButtonDisabled]} onPress={()=>{const targetAlbumId=albumId||(review.item_type==='album'?review.item_id:'');if(targetAlbumId)router.push({pathname:'/album/[id]',params:{id:targetAlbumId}} as any);}}>
           <Text style={styles.albumButtonText}>Album</Text>
           <Text style={styles.albumButtonIcon}>{">"}</Text>
         </TouchableOpacity>
       </View>
+      {replyOpen&&<View style={styles.composer}>
+        {myProfile?.avatar_url?<Image source={{uri:myProfile.avatar_url}} style={styles.composerAvatar}/>:<View style={styles.composerAvatar}/>}
+        <View style={styles.composerBody}>
+          <TextInput value={replyText} onChangeText={setReplyText} placeholder={`Reply to ${author?.username||'listener'}...`} placeholderTextColor="#777" multiline maxLength={2000} autoFocus editable={!!userId} style={styles.input}/>
+          <View style={styles.composerFooter}>
+            <Text style={styles.replyAs}>{userId?(myProfile?.username||'Your reply'):'Sign in to reply'}</Text>
+            <TouchableOpacity disabled={!replyText.trim()||sending||!userId} onPress={()=>void sendReply()} style={[styles.send,{backgroundColor:accentColor,opacity:!replyText.trim()||sending||!userId?0.5:1}]}>
+              <Text style={styles.sendText}>{sending?'Posting...':'Post'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>}
       {replies.map(reply=>{
         const person=replyPeople[reply.user_id];
         return <View key={reply.id} style={styles.replyRow}>
@@ -192,34 +206,23 @@ export default function ReviewDetail() {
           </View>
         </View>;
       })}
-      {replyOpen&&<View style={styles.composer}>
-        {myProfile?.avatar_url?<Image source={{uri:myProfile.avatar_url}} style={styles.composerAvatar}/>:<View style={styles.composerAvatar}/>}
-        <View style={styles.composerBody}>
-          <TextInput value={replyText} onChangeText={setReplyText} placeholder={`Reply to ${author?.username||'listener'}...`} placeholderTextColor="#777" multiline maxLength={2000} autoFocus style={styles.input}/>
-          <View style={styles.composerFooter}>
-            <Text style={styles.replyAs}>{myProfile?.username||'Your reply'}</Text>
-            <TouchableOpacity disabled={!replyText.trim()||sending||!userId} onPress={()=>void sendReply()} style={[styles.send,{backgroundColor:accentColor,opacity:!replyText.trim()||sending||!userId?0.5:1}]}>
-              <Text style={styles.sendText}>{sending?'Posting...':'Post'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>}
     </ScrollView>
+    </KeyboardAvoidingView>
   </View>;
 }
 
 const styles=StyleSheet.create({
-  screen:{flex:1},header:{height:104,paddingTop:58,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#252525'},
+  screen:{flex:1},keyboardArea:{flex:1},header:{height:104,paddingTop:58,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#252525'},
   back:{color:'#fff',fontSize:32,width:30},headerTitle:{color:'#fff',fontSize:16,fontWeight:'700',letterSpacing:1.5},
   content:{padding:18,paddingBottom:50},
   reviewSide:{flex:1,minWidth:0},titleBlock:{flexDirection:'row',alignItems:'flex-start',justifyContent:'space-between',gap:12,marginBottom:14},titleHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12},
   songHeading:{flex:1,minWidth:0},titleRow:{flexDirection:'row',alignItems:'baseline',flexWrap:'wrap',columnGap:8,rowGap:3},
-  rating:{color:'#9BA7B2',fontSize:15,letterSpacing:1},ratingAndLike:{flexDirection:'row',alignItems:'center',gap:12,marginTop:8,marginBottom:2},inlineLike:{flexDirection:'row',alignItems:'center',gap:4},listenedDate:{color:'#777',fontSize:11,marginBottom:10},authorRow:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:10},
+  rating:{color:'#9BA7B2',fontSize:15,letterSpacing:1},ratingAndLike:{flexDirection:'row',alignItems:'center',gap:12,marginTop:8,marginBottom:2},inlineLike:{flexDirection:'row',alignItems:'center',gap:5},likeCount:{color:'#999',fontSize:12},listenedDate:{color:'#777',fontSize:11,marginBottom:10},authorRow:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:10},
   authorAvatar:{width:30,height:30,borderRadius:15,backgroundColor:'#333'},authorName:{color:'#aaa',fontSize:12,flexShrink:1},
   songTitle:{color:'#fff',fontSize:18,fontWeight:'600',lineHeight:24,flexShrink:1},releaseYear:{color:'#999',fontSize:13},
   cover:{width:116,height:116,borderRadius:5,backgroundColor:'#292929'},reviewText:{color:'#eee',fontSize:14,lineHeight:21,marginTop:2},
   actions:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,borderTopWidth:1,borderTopColor:'#252525',paddingTop:14,marginTop:8,marginBottom:8},likedByHeading:{color:'#aaa',fontSize:13,fontWeight:'600'},likedPeopleRow:{flexDirection:'row',alignItems:'center',marginTop:2,borderBottomWidth:1,borderBottomColor:'#252525',paddingBottom:8,marginBottom:8},emptyLikedPeopleDivider:{height:1,backgroundColor:'#252525',marginTop:14,marginBottom:8},likedPeopleContent:{flexDirection:'row',alignItems:'center',paddingVertical:6,paddingRight:6},likedPersonButton:{width:32,height:32,borderRadius:16,borderWidth:1.5,borderColor:'#000',overflow:'hidden'},likedPersonOverlap:{marginLeft:-7},likedPersonAvatar:{width:32,height:32,borderRadius:16,backgroundColor:'#333'},likedPeopleMore:{width:28,height:28,alignItems:'center',justifyContent:'center',marginLeft:8},likedPeopleMoreText:{color:'#aaa',fontSize:25,lineHeight:27},
-  reviewLinksRow:{flexDirection:'row',alignItems:'center',justifyContent:'flex-start',gap:10,paddingTop:10,paddingBottom:4},replyButton:{backgroundColor:'#d0d0d0',paddingHorizontal:10,paddingVertical:5,borderRadius:5},replyButtonText:{color:'#222',fontSize:12,fontWeight:'600'},albumButton:{flexDirection:'row',alignItems:'center',gap:4,backgroundColor:'#454545',paddingHorizontal:10,paddingVertical:5,borderRadius:5},albumButtonText:{color:'#f2f2f2',fontSize:12,fontWeight:'600'},albumButtonIcon:{color:'#f2f2f2',fontSize:13,fontWeight:'600'},action:{flexDirection:'row',alignItems:'center',gap:7},heart:{fontSize:22},actionText:{color:'#aaa',fontSize:13},
+  reviewLinksRow:{flexDirection:'row',alignItems:'center',justifyContent:'flex-start',gap:10,paddingTop:10,paddingBottom:4},replyButton:{backgroundColor:'#d0d0d0',paddingHorizontal:10,paddingVertical:5,borderRadius:5},replyButtonText:{color:'#222',fontSize:12,fontWeight:'600'},albumButton:{flexDirection:'row',alignItems:'center',gap:4,backgroundColor:'#454545',paddingHorizontal:10,paddingVertical:5,borderRadius:5},albumButtonDisabled:{opacity:0.45},albumButtonText:{color:'#f2f2f2',fontSize:12,fontWeight:'600'},albumButtonIcon:{color:'#f2f2f2',fontSize:13,fontWeight:'600'},action:{flexDirection:'row',alignItems:'center',gap:7},heart:{fontSize:22},actionText:{color:'#aaa',fontSize:13},
   replyRow:{flexDirection:'row',alignItems:'flex-start',gap:9,paddingVertical:12,borderTopWidth:1,borderTopColor:'#202020'},
   replyAvatar:{width:28,height:28,borderRadius:14,backgroundColor:'#333'},replyUsername:{color:'#bbb',fontSize:12,fontWeight:'600'},
   replyText:{color:'#ddd',fontSize:14,lineHeight:20,marginTop:3},composer:{flexDirection:'row',alignItems:'flex-start',gap:10,marginTop:14,paddingTop:13,borderTopWidth:1,borderTopColor:'#252525'},composerAvatar:{width:32,height:32,borderRadius:16,backgroundColor:'#333'},composerBody:{flex:1,minWidth:0},input:{minHeight:58,maxHeight:140,borderWidth:1,borderColor:'#383838',borderRadius:6,padding:10,color:'#fff',fontSize:14,textAlignVertical:'top'},composerFooter:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:8},replyAs:{color:'#777',fontSize:11},
