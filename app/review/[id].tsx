@@ -1,7 +1,7 @@
 import { useAppTheme } from '@/context/ThemeContext';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 type Review = {
@@ -11,6 +11,7 @@ type Review = {
 type Reply = { id:string; review_id:string; user_id:string; reply_text:string; created_at:string };
 type Person = { username:string|null; avatar_url:string|null };
 type LikedReview = { id:string; user_id:string; item_name:string; artist_name:string; cover_url:string|null; item_type:string; item_id:string };
+type LikedPerson = { id:string; username:string|null; avatar_url:string|null };
 
 export default function ReviewDetail() {
   const { id } = useLocalSearchParams<{id:string}>();
@@ -31,6 +32,8 @@ export default function ReviewDetail() {
   const [releaseYear,setReleaseYear]=useState('');
   const [listenedAt,setListenedAt]=useState('');
   const [authorLikedReviews,setAuthorLikedReviews]=useState<LikedReview[]>([]);
+  const [likedPeople,setLikedPeople]=useState<LikedPerson[]>([]);
+  const likedPeopleScroll=useRef<ScrollView>(null);
 
   const load=useCallback(async()=>{
     setLoading(true);setError('');
@@ -66,8 +69,16 @@ export default function ReviewDetail() {
       if(likedReviewIds.length){
         const {data:likedReviews,error:likedReviewsError}=await supabase.from('music_reviews').select('id,user_id,item_name,artist_name,cover_url,item_type,item_id').in('id',likedReviewIds);
         if(likedReviewsError) throw likedReviewsError;
-        setAuthorLikedReviews((likedReviews||[]) as LikedReview[]);
-      } else setAuthorLikedReviews([]);
+        const likedReviewList=(likedReviews||[]) as LikedReview[];
+        setAuthorLikedReviews(likedReviewList);
+        const likedUserIds=[...new Set(likedReviewList.map(item=>item.user_id).filter(Boolean))];
+        if(likedUserIds.length){
+          const {data:likedProfiles,error:likedProfilesError}=await supabase.from('users').select('id,username,avatar_url').in('id',likedUserIds);
+          if(likedProfilesError) throw likedProfilesError;
+          const peopleById=new Map((likedProfiles||[]).map((person:any)=>[person.id,person]));
+          setLikedPeople(likedUserIds.map(personId=>peopleById.get(personId)).filter(Boolean) as LikedPerson[]);
+        } else setLikedPeople([]);
+      } else { setAuthorLikedReviews([]); setLikedPeople([]); }
       const loadedReplies=(replyRows||[]) as Reply[];setReplies(loadedReplies);
       const ids=[...new Set(loadedReplies.map(item=>item.user_id))];
       if(ids.length){
@@ -150,13 +161,16 @@ export default function ReviewDetail() {
         <Text style={styles.likedByHeading}>Liked by {author?.username || 'listener'}</Text>
         <TouchableOpacity onPress={()=>setReplyOpen(value=>!value)}><Text style={[styles.actionText,{color:accentColor,fontWeight:'600'}]}>Reply</Text></TouchableOpacity>
       </View>
-      {authorLikedReviews.map(item=><TouchableOpacity key={item.id} style={styles.likedReviewRow} onPress={()=>router.push({pathname:'/review/[id]',params:{id:item.id}} as any)}>
-        {item.cover_url?<Image source={{uri:item.cover_url}} style={styles.likedReviewCover}/>:<View style={styles.likedReviewCover}/>}
-        <View style={{flex:1,minWidth:0}}>
-          <Text style={styles.likedReviewTitle} numberOfLines={1}>{item.item_name}</Text>
-          <Text style={styles.likedReviewArtist} numberOfLines={1}>{item.artist_name}</Text>
-        </View>
-      </TouchableOpacity>)}
+      {likedPeople.length>0&&<View style={styles.likedPeopleRow}>
+        <ScrollView ref={likedPeopleScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.likedPeopleContent}>
+          {likedPeople.map((person,index)=><TouchableOpacity key={person.id} activeOpacity={0.8} style={[styles.likedPersonButton,index>0&&styles.likedPersonOverlap]} onPress={()=>router.push({pathname:'/user/[id]',params:{id:person.id}} as any)}>
+            {person.avatar_url?<Image source={{uri:person.avatar_url}} style={styles.likedPersonAvatar}/>:<View style={styles.likedPersonAvatar}/>}
+          </TouchableOpacity>)}
+        </ScrollView>
+        {likedPeople.length>5&&<TouchableOpacity style={styles.likedPeopleMore} onPress={()=>likedPeopleScroll.current?.scrollTo({x:9999,y:0,animated:true})}>
+          <Text style={styles.likedPeopleMoreText}>›</Text>
+        </TouchableOpacity>}
+      </View>}
       {replies.map(reply=>{
         const person=replyPeople[reply.user_id];
         return <View key={reply.id} style={styles.replyRow}>
@@ -187,7 +201,7 @@ const styles=StyleSheet.create({
   authorAvatar:{width:30,height:30,borderRadius:15,backgroundColor:'#333'},authorName:{color:'#aaa',fontSize:12,flexShrink:1},
   songTitle:{color:'#fff',fontSize:18,fontWeight:'600',lineHeight:24,flexShrink:1},releaseYear:{color:'#999',fontSize:13},
   cover:{width:116,height:116,borderRadius:5,backgroundColor:'#292929'},reviewText:{color:'#eee',fontSize:14,lineHeight:21,marginTop:2},
-  actions:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12,borderTopWidth:1,borderTopColor:'#252525',paddingTop:14,marginTop:8,marginBottom:8},likedByHeading:{color:'#aaa',fontSize:13,fontWeight:'600'},likedReviewRow:{flexDirection:'row',alignItems:'center',gap:10,paddingVertical:8},likedReviewCover:{width:42,height:42,borderRadius:3,backgroundColor:'#292929'},likedReviewTitle:{color:'#eee',fontSize:13,fontWeight:'600'},likedReviewArtist:{color:'#888',fontSize:11,marginTop:3},
+  actions:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12,borderTopWidth:1,borderTopColor:'#252525',paddingTop:14,marginTop:8,marginBottom:8},likedByHeading:{color:'#aaa',fontSize:13,fontWeight:'600'},likedPeopleRow:{flexDirection:'row',alignItems:'center',marginTop:2},likedPeopleContent:{flexDirection:'row',alignItems:'center',paddingVertical:6,paddingRight:6},likedPersonButton:{width:32,height:32,borderRadius:16,borderWidth:1.5,borderColor:'#000',overflow:'hidden'},likedPersonOverlap:{marginLeft:-7},likedPersonAvatar:{width:32,height:32,borderRadius:16,backgroundColor:'#333'},likedPeopleMore:{width:30,height:30,alignItems:'center',justifyContent:'center',marginLeft:4,borderRadius:15,backgroundColor:'#222'},likedPeopleMoreText:{color:'#fff',fontSize:24,lineHeight:27},
   action:{flexDirection:'row',alignItems:'center',gap:7},heart:{fontSize:22},actionText:{color:'#aaa',fontSize:13},
   replyRow:{flexDirection:'row',alignItems:'flex-start',gap:9,paddingVertical:12,borderTopWidth:1,borderTopColor:'#202020'},
   replyAvatar:{width:28,height:28,borderRadius:14,backgroundColor:'#333'},replyUsername:{color:'#bbb',fontSize:12,fontWeight:'600'},
