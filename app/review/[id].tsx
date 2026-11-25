@@ -10,6 +10,7 @@ type Review = {
 };
 type Reply = { id:string; review_id:string; user_id:string; reply_text:string; created_at:string };
 type Person = { username:string|null; avatar_url:string|null };
+type LikedReview = { id:string; user_id:string; item_name:string; artist_name:string; cover_url:string|null; item_type:string; item_id:string };
 
 export default function ReviewDetail() {
   const { id } = useLocalSearchParams<{id:string}>();
@@ -29,6 +30,7 @@ export default function ReviewDetail() {
   const [error,setError]=useState('');
   const [releaseYear,setReleaseYear]=useState('');
   const [listenedAt,setListenedAt]=useState('');
+  const [authorLikedReviews,setAuthorLikedReviews]=useState<LikedReview[]>([]);
 
   const load=useCallback(async()=>{
     setLoading(true);setError('');
@@ -49,16 +51,23 @@ export default function ReviewDetail() {
           if(date) setReleaseYear(String(date).slice(0,4));
         }
       } catch { /* Release year is optional; keep the review available if Spotify lookup fails. */ }
-      const [{data:profile,error:profileError},{data:likeRows,error:likesError},{data:myLike,error:myLikeError},{data:replyRows,error:repliesError},{data:listenedRow,error:listenedError}]=await Promise.all([
+      const [{data:profile,error:profileError},{data:likeRows,error:likesError},{data:myLike,error:myLikeError},{data:replyRows,error:repliesError},{data:listenedRow,error:listenedError},{data:authorLikeRows,error:authorLikesError}]=await Promise.all([
         supabase.from('users').select('username,avatar_url').eq('id',row.user_id).maybeSingle(),
         supabase.from('music_review_likes').select('user_id').eq('review_id',row.id),
         uid?supabase.from('music_review_likes').select('review_id').eq('review_id',row.id).eq('user_id',uid).maybeSingle():Promise.resolve({data:null,error:null} as any),
         supabase.from('music_review_replies').select('id,review_id,user_id,reply_text,created_at').eq('review_id',row.id).order('created_at',{ascending:true}),
-        supabase.from('user_activity').select('created_at').eq('user_id',row.user_id).eq('activity_type','listened').eq('item_key',row.item_id).order('created_at',{ascending:false}).limit(1).maybeSingle()
+        supabase.from('user_activity').select('created_at').eq('user_id',row.user_id).eq('activity_type','listened').eq('item_key',row.item_id).order('created_at',{ascending:false}).limit(1).maybeSingle(),
+        supabase.from('music_review_likes').select('review_id').eq('user_id',row.user_id)
       ]);
-      if(profileError) throw profileError;if(likesError) throw likesError;if(myLikeError) throw myLikeError;if(repliesError) throw repliesError;if(listenedError) throw listenedError;
+      if(profileError) throw profileError;if(likesError) throw likesError;if(myLikeError) throw myLikeError;if(repliesError) throw repliesError;if(listenedError) throw listenedError;if(authorLikesError) throw authorLikesError;
       setAuthor(profile as Person|null);setLikes((likeRows||[]).length);setLiked(!!myLike);
       setListenedAt(listenedRow?.created_at || '');
+      const likedReviewIds=[...new Set((authorLikeRows||[]).map((item:any)=>item.review_id).filter((likedId:string)=>likedId!==row.id))];
+      if(likedReviewIds.length){
+        const {data:likedReviews,error:likedReviewsError}=await supabase.from('music_reviews').select('id,user_id,item_name,artist_name,cover_url,item_type,item_id').in('id',likedReviewIds);
+        if(likedReviewsError) throw likedReviewsError;
+        setAuthorLikedReviews((likedReviews||[]) as LikedReview[]);
+      } else setAuthorLikedReviews([]);
       const loadedReplies=(replyRows||[]) as Reply[];setReplies(loadedReplies);
       const ids=[...new Set(loadedReplies.map(item=>item.user_id))];
       if(ids.length){
@@ -138,8 +147,16 @@ export default function ReviewDetail() {
       </View>
       {!!error&&<Text style={styles.error}>{error}</Text>}
       <View style={styles.actions}>
+        <Text style={styles.likedByHeading}>Liked by {author?.username || 'listener'}</Text>
         <TouchableOpacity onPress={()=>setReplyOpen(value=>!value)}><Text style={[styles.actionText,{color:accentColor,fontWeight:'600'}]}>Reply</Text></TouchableOpacity>
       </View>
+      {authorLikedReviews.map(item=><TouchableOpacity key={item.id} style={styles.likedReviewRow} onPress={()=>router.push({pathname:'/review/[id]',params:{id:item.id}} as any)}>
+        {item.cover_url?<Image source={{uri:item.cover_url}} style={styles.likedReviewCover}/>:<View style={styles.likedReviewCover}/>}
+        <View style={{flex:1,minWidth:0}}>
+          <Text style={styles.likedReviewTitle} numberOfLines={1}>{item.item_name}</Text>
+          <Text style={styles.likedReviewArtist} numberOfLines={1}>{item.artist_name}</Text>
+        </View>
+      </TouchableOpacity>)}
       {replies.map(reply=>{
         const person=replyPeople[reply.user_id];
         return <View key={reply.id} style={styles.replyRow}>
@@ -170,7 +187,7 @@ const styles=StyleSheet.create({
   authorAvatar:{width:30,height:30,borderRadius:15,backgroundColor:'#333'},authorName:{color:'#aaa',fontSize:12,flexShrink:1},
   songTitle:{color:'#fff',fontSize:18,fontWeight:'600',lineHeight:24,flexShrink:1},releaseYear:{color:'#999',fontSize:13},
   cover:{width:116,height:116,borderRadius:5,backgroundColor:'#292929'},reviewText:{color:'#eee',fontSize:14,lineHeight:21,marginTop:2},
-  actions:{flexDirection:'row',alignItems:'center',gap:24,borderTopWidth:1,borderTopColor:'#252525',paddingTop:14,marginTop:8,marginBottom:8},
+  actions:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12,borderTopWidth:1,borderTopColor:'#252525',paddingTop:14,marginTop:8,marginBottom:8},likedByHeading:{color:'#aaa',fontSize:13,fontWeight:'600'},likedReviewRow:{flexDirection:'row',alignItems:'center',gap:10,paddingVertical:8},likedReviewCover:{width:42,height:42,borderRadius:3,backgroundColor:'#292929'},likedReviewTitle:{color:'#eee',fontSize:13,fontWeight:'600'},likedReviewArtist:{color:'#888',fontSize:11,marginTop:3},
   action:{flexDirection:'row',alignItems:'center',gap:7},heart:{fontSize:22},actionText:{color:'#aaa',fontSize:13},
   replyRow:{flexDirection:'row',alignItems:'flex-start',gap:9,paddingVertical:12,borderTopWidth:1,borderTopColor:'#202020'},
   replyAvatar:{width:28,height:28,borderRadius:14,backgroundColor:'#333'},replyUsername:{color:'#bbb',fontSize:12,fontWeight:'600'},
