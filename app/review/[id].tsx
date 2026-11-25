@@ -28,6 +28,7 @@ export default function ReviewDetail() {
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
   const [releaseYear,setReleaseYear]=useState('');
+  const [listenedAt,setListenedAt]=useState('');
 
   const load=useCallback(async()=>{
     setLoading(true);setError('');
@@ -48,14 +49,16 @@ export default function ReviewDetail() {
           if(date) setReleaseYear(String(date).slice(0,4));
         }
       } catch { /* Release year is optional; keep the review available if Spotify lookup fails. */ }
-      const [{data:profile,error:profileError},{data:likeRows,error:likesError},{data:myLike,error:myLikeError},{data:replyRows,error:repliesError}]=await Promise.all([
+      const [{data:profile,error:profileError},{data:likeRows,error:likesError},{data:myLike,error:myLikeError},{data:replyRows,error:repliesError},{data:listenedRow,error:listenedError}]=await Promise.all([
         supabase.from('users').select('username,avatar_url').eq('id',row.user_id).maybeSingle(),
         supabase.from('music_review_likes').select('user_id').eq('review_id',row.id),
         uid?supabase.from('music_review_likes').select('review_id').eq('review_id',row.id).eq('user_id',uid).maybeSingle():Promise.resolve({data:null,error:null} as any),
-        supabase.from('music_review_replies').select('id,review_id,user_id,reply_text,created_at').eq('review_id',row.id).order('created_at',{ascending:true})
+        supabase.from('music_review_replies').select('id,review_id,user_id,reply_text,created_at').eq('review_id',row.id).order('created_at',{ascending:true}),
+        supabase.from('user_activity').select('created_at').eq('user_id',row.user_id).eq('activity_type','listened').eq('item_key',row.item_id).order('created_at',{ascending:false}).limit(1).maybeSingle()
       ]);
-      if(profileError) throw profileError;if(likesError) throw likesError;if(myLikeError) throw myLikeError;if(repliesError) throw repliesError;
+      if(profileError) throw profileError;if(likesError) throw likesError;if(myLikeError) throw myLikeError;if(repliesError) throw repliesError;if(listenedError) throw listenedError;
       setAuthor(profile as Person|null);setLikes((likeRows||[]).length);setLiked(!!myLike);
+      setListenedAt(listenedRow?.created_at || '');
       const loadedReplies=(replyRows||[]) as Reply[];setReplies(loadedReplies);
       const ids=[...new Set(loadedReplies.map(item=>item.user_id))];
       if(ids.length){
@@ -107,36 +110,35 @@ export default function ReviewDetail() {
     </View>
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.titleBlock}>
-        <View style={styles.titleHeader}>
-          <View style={styles.authorRow}>
-            {author?.avatar_url ? <Image source={{uri:author.avatar_url}} style={styles.authorAvatar}/> : <View style={styles.authorAvatar}/>}
-            <Text style={styles.authorName} numberOfLines={1}>{author?.username || 'listener'}</Text>
-          </View>
-          <View style={styles.songHeading}>
-            <View style={[styles.titleRow,{justifyContent:'flex-end'}]}>
-              <Text style={[styles.songTitle,{textAlign:'right'}]} numberOfLines={2}>{review.item_name}</Text>
-              {!!releaseYear&&<Text style={styles.releaseYear}>{releaseYear}</Text>}
-            </View>
-            {Number(review.rating) > 0 ? (
-              <Text style={[styles.rating,{textAlign:'right'}]}>{'★'.repeat(Math.floor(Number(review.rating)))}{Number(review.rating) % 1 ? '½' : ''}</Text>
-            ) : null}
-          </View>
+        <View style={styles.authorRow}>
+          {author?.avatar_url ? <Image source={{uri:author.avatar_url}} style={styles.authorAvatar}/> : <View style={styles.authorAvatar}/>}
+          <Text style={styles.authorName} numberOfLines={1}>{author?.username || 'listener'}</Text>
         </View>
       </View>
       <View style={styles.reviewLayout}>
+        <View style={styles.reviewSide}>
+          <View style={styles.titleRow}>
+            <Text style={styles.songTitle} numberOfLines={3}>{review.item_name}</Text>
+            {!!releaseYear&&<Text style={styles.releaseYear}>{releaseYear}</Text>}
+          </View>
+          <View style={styles.ratingAndLike}>
+            {Number(review.rating) > 0 ? (
+              <Text style={styles.rating}>{'★'.repeat(Math.floor(Number(review.rating)))}{Number(review.rating) % 1 ? '½' : ''}</Text>
+            ) : null}
+            <TouchableOpacity style={styles.inlineLike} onPress={()=>void toggleLike()} disabled={!userId}>
+              <Text style={[styles.heart,{color:liked?accentColor:'#aaa'}]}>{liked?'♥':'♡'}</Text>
+              <Text style={styles.inlineLikeCount}>{likes}</Text>
+            </TouchableOpacity>
+          </View>
+          {!!listenedAt&&<Text style={styles.listenedDate}>Listened {new Date(listenedAt).toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}</Text>}
+          {!!review.review_text&&<Text style={styles.reviewText}>{review.review_text}</Text>}
+        </View>
         <TouchableOpacity onPress={()=>router.push({pathname:review.item_type==='album'?'/album/[id]':'/track/[id]',params:{id:review.item_id}} as any)}>
           {review.cover_url?<Image source={{uri:review.cover_url}} style={styles.cover}/>:<View style={styles.cover}/>}
         </TouchableOpacity>
-        <View style={styles.reviewSide}>
-          {!!review.review_text&&<Text style={styles.reviewText}>{review.review_text}</Text>}
-        </View>
       </View>
       {!!error&&<Text style={styles.error}>{error}</Text>}
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.action} onPress={()=>void toggleLike()} disabled={!userId}>
-          <Text style={[styles.heart,{color:liked?accentColor:'#aaa'}]}>{liked?'♥':'♡'}</Text>
-          <Text style={styles.actionText}>{likes}</Text>
-        </TouchableOpacity>
         <TouchableOpacity onPress={()=>setReplyOpen(value=>!value)}><Text style={[styles.actionText,{color:accentColor,fontWeight:'600'}]}>Reply</Text></TouchableOpacity>
       </View>
       {replies.map(reply=>{
@@ -165,10 +167,10 @@ const styles=StyleSheet.create({
   content:{padding:18,paddingBottom:50},reviewLayout:{flexDirection:'row',alignItems:'flex-start',gap:16},
   reviewSide:{flex:1,minWidth:0},titleBlock:{marginBottom:14},titleHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12},
   songHeading:{flex:1,minWidth:0},titleRow:{flexDirection:'row',alignItems:'baseline',flexWrap:'wrap',columnGap:8,rowGap:3},
-  rating:{color:'#9BA7B2',fontSize:15,letterSpacing:1,marginTop:5},authorRow:{flexDirection:'row',alignItems:'center',gap:7,maxWidth:'42%',flexShrink:0},
+  rating:{color:'#9BA7B2',fontSize:15,letterSpacing:1},ratingAndLike:{flexDirection:'row',alignItems:'center',gap:12,marginTop:8,marginBottom:10},inlineLike:{flexDirection:'row',alignItems:'center',gap:4},inlineLikeCount:{color:'#888',fontSize:11},listenedDate:{color:'#777',fontSize:11,marginBottom:10},authorRow:{flexDirection:'row',alignItems:'center',gap:7,maxWidth:'42%',flexShrink:0},
   authorAvatar:{width:30,height:30,borderRadius:15,backgroundColor:'#333'},authorName:{color:'#aaa',fontSize:12,flexShrink:1},
   songTitle:{color:'#fff',fontSize:18,fontWeight:'600',lineHeight:24,flexShrink:1},releaseYear:{color:'#999',fontSize:13},
-  cover:{width:116,height:116,borderRadius:5,backgroundColor:'#292929'},reviewText:{color:'#eee',fontSize:15,lineHeight:23},
+  cover:{width:116,height:116,borderRadius:5,backgroundColor:'#292929'},reviewText:{color:'#eee',fontSize:14,lineHeight:21,marginTop:2},
   actions:{flexDirection:'row',alignItems:'center',gap:24,borderTopWidth:1,borderTopColor:'#252525',paddingTop:14,marginTop:8,marginBottom:8},
   action:{flexDirection:'row',alignItems:'center',gap:7},heart:{fontSize:22},actionText:{color:'#aaa',fontSize:13},
   replyRow:{flexDirection:'row',alignItems:'flex-start',gap:9,paddingVertical:12,borderTopWidth:1,borderTopColor:'#202020'},
