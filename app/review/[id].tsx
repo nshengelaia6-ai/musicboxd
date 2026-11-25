@@ -30,6 +30,7 @@ export default function ReviewDetail() {
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
   const [releaseYear,setReleaseYear]=useState('');
+  const [albumId,setAlbumId]=useState('');
   const [listenedAt,setListenedAt]=useState('');
   const [authorLikedReviews,setAuthorLikedReviews]=useState<LikedReview[]>([]);
   const [likedPeople,setLikedPeople]=useState<LikedPerson[]>([]);
@@ -47,9 +48,11 @@ export default function ReviewDetail() {
       if(!row) {setReview(null);return;}
       const uid=auth.user?.id||'';setUserId(uid);setReview(row as Review);
       setReleaseYear('');
+      setAlbumId(row.item_type==='album'?row.item_id:'');
       try {
         const {data:musicData,error:musicError}=await supabase.functions.invoke('spotify-search',{body:{action:row.item_type==='album'?'album':'track',id:row.item_id}});
         if(!musicError&&!musicData?.error){
+          if(row.item_type==='track'&&musicData?.album?.id) setAlbumId(String(musicData.album.id));
           const date= row.item_type==='album' ? musicData?.release_date : musicData?.album?.release_date;
           if(date) setReleaseYear(String(date).slice(0,4));
         }
@@ -157,7 +160,6 @@ export default function ReviewDetail() {
       {!!error&&<Text style={styles.error}>{error}</Text>}
       <View style={styles.actions}>
         <Text style={styles.likedByHeading}>Liked by {author?.username || 'listener'}</Text>
-        <TouchableOpacity onPress={()=>setReplyOpen(value=>!value)}><Text style={[styles.actionText,{color:accentColor,fontWeight:'600'}]}>Reply</Text></TouchableOpacity>
       </View>
       <View style={styles.likedPeopleRow}>
         <ScrollView ref={likedPeopleScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.likedPeopleContent}>
@@ -168,6 +170,14 @@ export default function ReviewDetail() {
         <TouchableOpacity style={styles.likedPeopleMore} onPress={()=>likedPeopleScroll.current?.scrollTo({x:9999,y:0,animated:true})}>
           <Text style={styles.likedPeopleMoreText}>›</Text>
         </TouchableOpacity>
+      </View>
+      <View style={styles.reviewLinksRow}>
+        <TouchableOpacity onPress={()=>setReplyOpen(value=>!value)}>
+          <Text style={[styles.actionText,{color:accentColor,fontWeight:'600'}]}>Reply</Text>
+        </TouchableOpacity>
+        {!!albumId&&<TouchableOpacity onPress={()=>router.push({pathname:'/album/[id]',params:{id:albumId}} as any)}>
+          <Text style={[styles.actionText,{color:accentColor,fontWeight:'600'}]}>Album</Text>
+        </TouchableOpacity>}
       </View>
       {replies.map(reply=>{
         const person=replyPeople[reply.user_id];
@@ -200,7 +210,7 @@ const styles=StyleSheet.create({
   songTitle:{color:'#fff',fontSize:18,fontWeight:'600',lineHeight:24,flexShrink:1},releaseYear:{color:'#999',fontSize:13},
   cover:{width:116,height:116,borderRadius:5,backgroundColor:'#292929'},reviewText:{color:'#eee',fontSize:14,lineHeight:21,marginTop:2},
   actions:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12,borderTopWidth:1,borderTopColor:'#252525',paddingTop:14,marginTop:8,marginBottom:8},likedByHeading:{color:'#aaa',fontSize:13,fontWeight:'600'},likedPeopleRow:{flexDirection:'row',alignItems:'center',marginTop:2,borderBottomWidth:1,borderBottomColor:'#252525',paddingBottom:8,marginBottom:8},likedPeopleContent:{flexDirection:'row',alignItems:'center',paddingVertical:6,paddingRight:6},likedPersonButton:{width:32,height:32,borderRadius:16,borderWidth:1.5,borderColor:'#000',overflow:'hidden'},likedPersonOverlap:{marginLeft:-7},likedPersonAvatar:{width:32,height:32,borderRadius:16,backgroundColor:'#333'},likedPeopleMore:{width:30,height:30,alignItems:'center',justifyContent:'center',marginLeft:4,borderRadius:15,backgroundColor:'#222'},likedPeopleMoreText:{color:'#fff',fontSize:24,lineHeight:27},
-  action:{flexDirection:'row',alignItems:'center',gap:7},heart:{fontSize:22},actionText:{color:'#aaa',fontSize:13},
+  reviewLinksRow:{flexDirection:'row',alignItems:'center',justifyContent:'flex-start',gap:20,paddingTop:10,paddingBottom:4},action:{flexDirection:'row',alignItems:'center',gap:7},heart:{fontSize:22},actionText:{color:'#aaa',fontSize:13},
   replyRow:{flexDirection:'row',alignItems:'flex-start',gap:9,paddingVertical:12,borderTopWidth:1,borderTopColor:'#202020'},
   replyAvatar:{width:28,height:28,borderRadius:14,backgroundColor:'#333'},replyUsername:{color:'#bbb',fontSize:12,fontWeight:'600'},
   replyText:{color:'#ddd',fontSize:14,lineHeight:20,marginTop:3},composer:{marginTop:16,gap:9},input:{minHeight:46,maxHeight:120,borderWidth:1,borderColor:'#383838',borderRadius:7,padding:11,color:'#fff',fontSize:14},
