@@ -590,7 +590,17 @@ if (Array.isArray(sourceAlbums)) {
         )}
         {reviews.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>RECENT ACTIVITY</Text>
+            <View style={styles.activityHeadingRow}>
+              <Text style={styles.sectionTitle}>RECENT ACTIVITY</Text>
+              <TouchableOpacity
+                style={styles.activitySeeAll}
+                onPress={() => router.push({ pathname: '/(tabs)/activity', params: { tab: 'You' } } as any)}
+                accessibilityRole="button"
+                accessibilityLabel="See all recent activity"
+              >
+                <Text style={styles.activitySeeAllArrow}>{'>'}</Text>
+              </TouchableOpacity>
+            </View>
 
             <ScrollView
               horizontal
@@ -943,6 +953,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   statLabel: { color: '#888', fontSize: 12 },
+  activityHeadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 20 },
+  activitySeeAll: { minWidth: 32, minHeight: 32, alignItems: 'center', justifyContent: 'center' },
+  activitySeeAllArrow: { color: '#aaa', fontSize: 25, lineHeight: 28, fontWeight: '400' },
   sectionTitle: {
     color: '#888',
     fontSize: 11,
