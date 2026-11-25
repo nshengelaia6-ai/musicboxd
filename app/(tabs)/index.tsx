@@ -923,6 +923,10 @@ export default function Home() {
                 <Text style={styles.artistName} numberOfLines={1}>
                   {item.artist_name}
                 </Text>
+
+                <Text style={styles.friendName}>
+                  {item.listener_count} listeners this week
+                </Text>
               </TouchableOpacity>
             )}
           />
