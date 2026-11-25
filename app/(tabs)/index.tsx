@@ -59,9 +59,11 @@ export default function Home() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [newFromFriends, setNewFromFriends] = useState<any[]>([]);
-  const [popularWithFriends, setPopularWithFriends] = useState<any[]>([]);
+  const [popularThisWeek, setPopularThisWeek] = useState<any[]>([]);
   const [friendFeedLoading, setFriendFeedLoading] = useState(true);
   const [friendFeedError, setFriendFeedError] = useState('');
+  const [popularThisWeekLoading, setPopularThisWeekLoading] = useState(true);
+  const [popularThisWeekError, setPopularThisWeekError] = useState('');
   const friendIdsRef = useRef<Set<string>>(new Set());
 
   // Monthly Favs
@@ -236,6 +238,25 @@ export default function Home() {
     }, [loadPublicMonthlyFavs])
   );
 
+  // Load globally aggregated track popularity from the last seven days.
+  // The database function returns counts only, never individual listening activity.
+  const loadPopularThisWeek = useCallback(async () => {
+    setPopularThisWeekLoading(true);
+    setPopularThisWeekError('');
+
+    try {
+      const { data, error } = await supabase.rpc('get_popular_tracks_this_week');
+      if (error) throw error;
+      setPopularThisWeek(data || []);
+    } catch (error) {
+      console.log('Popular This Week failed', error);
+      setPopularThisWeek([]);
+      setPopularThisWeekError('Popular tracks are temporarily unavailable.');
+    } finally {
+      setPopularThisWeekLoading(false);
+    }
+  }, []);
+
   // Load friends activity from user_activity
   const loadFriendsActivity = useCallback(async (userId: string) => {
     setFriendFeedLoading(true);
@@ -381,6 +402,7 @@ export default function Home() {
       }
 
       loadFriendsActivity(currentUserId);
+      loadPopularThisWeek();
 
       const channel = supabase
         .channel(`friends-feed-${currentUserId}`)
@@ -406,6 +428,7 @@ export default function Home() {
             ) {
               loadFriendsActivity(currentUserId);
             }
+            loadPopularThisWeek();
           }
         )
         .subscribe();
@@ -413,7 +436,7 @@ export default function Home() {
       return () => {
         void supabase.removeChannel(channel);
       };
-    }, [currentUserId, loadFriendsActivity])
+    }, [currentUserId, loadFriendsActivity, loadPopularThisWeek])
   );
 
   // Spotify track search
@@ -900,36 +923,29 @@ export default function Home() {
           />
         )}
 
-        {/* POPULAR WITH FRIENDS */}
+        {/* POPULAR THIS WEEK */}
         <View style={styles.headingRow}>
-          <Text style={styles.headingInline}>Popular with Friends</Text>
-          <TouchableOpacity
-            onPress={() => router.push({ pathname: '/friends-music', params: { type: 'popular' } } as any)}
-            accessibilityRole="button"
-            hitSlop={10}
-          >
-            <Text style={{ color: accentColor, fontSize: 25, fontWeight: '400' }}>›</Text>
-          </TouchableOpacity>
+          <Text style={styles.headingInline}>Popular This Week</Text>
         </View>
-        {friendFeedLoading ? (
+        {popularThisWeekLoading ? (
           <ActivityIndicator
             color={accentColor}
             style={styles.sectionLoading}
           />
-        ) : friendFeedError ? (
+        ) : popularThisWeekError ? (
           <Text style={styles.sectionError}>
-            {friendFeedError}
+            {popularThisWeekError}
           </Text>
-        ) : popularWithFriends.length === 0 ? (
+        ) : popularThisWeek.length === 0 ? (
           <View style={styles.emptySection}>
             <Text style={styles.emptyText}>
-              Popular picks from friends will appear here.
+              Popular tracks from this week will appear here.
             </Text>
           </View>
         ) : (
           <FlatList
             horizontal
-            data={popularWithFriends.slice(0, 12)}
+            data={popularThisWeek.slice(0, 12)}
             keyExtractor={(item: any) => item.item_id}
             showsHorizontalScrollIndicator={false}
             renderItem={({ item }: any) => (
@@ -952,8 +968,6 @@ export default function Home() {
                 <Text style={styles.artistName} numberOfLines={1}>
                   {item.artist_name}
                 </Text>
-
-
               </TouchableOpacity>
             )}
           />
