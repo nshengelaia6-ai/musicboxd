@@ -740,6 +740,59 @@ export default function Home() {
           })}
         </ScrollView>
 
+        {/* POPULAR THIS WEEK */}
+        <View style={styles.headingRow}>
+          <Text style={styles.headingInline}>Popular This Week</Text>
+        </View>
+        {popularThisWeekLoading ? (
+          <ActivityIndicator
+            color={accentColor}
+            style={styles.sectionLoading}
+          />
+        ) : popularThisWeekError ? (
+          <Text style={styles.sectionError}>
+            {popularThisWeekError}
+          </Text>
+        ) : popularThisWeek.length === 0 ? (
+          <View style={styles.emptySection}>
+            <Text style={styles.emptyText}>
+              Popular tracks from this week will appear here.
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            horizontal
+            data={popularThisWeek.slice(0, 12)}
+            keyExtractor={(item: any) => item.item_id}
+            showsHorizontalScrollIndicator={false}
+            renderItem={({ item }: any) => (
+              <TouchableOpacity style={styles.card} activeOpacity={0.8} onPress={() => openFriendTrack(item)}>
+                {item.cover_url ? (
+                  <Image
+                    source={{ uri: item.cover_url }}
+                    style={styles.cover}
+                  />
+                ) : (
+                  <View style={[styles.cover, styles.noCover]}>
+                    <Text style={styles.noCoverText}>♪</Text>
+                  </View>
+                )}
+
+                <Text style={styles.trackName} numberOfLines={1}>
+                  {item.item_name}
+                </Text>
+
+                <Text style={styles.artistName} numberOfLines={1}>
+                  {item.artist_name}
+                </Text>
+
+                <Text style={styles.friendName}>
+                  {item.listener_count} listeners this week
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        )}
         {/* FRIENDS' MONTHLY FAVS */}
         <View style={styles.headingRow}>
           <Text style={styles.headingInline}>Friends&apos; Monthly Favs</Text>
@@ -878,59 +931,6 @@ export default function Home() {
           />
         )}
 
-        {/* POPULAR THIS WEEK */}
-        <View style={styles.headingRow}>
-          <Text style={styles.headingInline}>Popular This Week</Text>
-        </View>
-        {popularThisWeekLoading ? (
-          <ActivityIndicator
-            color={accentColor}
-            style={styles.sectionLoading}
-          />
-        ) : popularThisWeekError ? (
-          <Text style={styles.sectionError}>
-            {popularThisWeekError}
-          </Text>
-        ) : popularThisWeek.length === 0 ? (
-          <View style={styles.emptySection}>
-            <Text style={styles.emptyText}>
-              Popular tracks from this week will appear here.
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            horizontal
-            data={popularThisWeek.slice(0, 12)}
-            keyExtractor={(item: any) => item.item_id}
-            showsHorizontalScrollIndicator={false}
-            renderItem={({ item }: any) => (
-              <TouchableOpacity style={styles.card} activeOpacity={0.8} onPress={() => openFriendTrack(item)}>
-                {item.cover_url ? (
-                  <Image
-                    source={{ uri: item.cover_url }}
-                    style={styles.cover}
-                  />
-                ) : (
-                  <View style={[styles.cover, styles.noCover]}>
-                    <Text style={styles.noCoverText}>♪</Text>
-                  </View>
-                )}
-
-                <Text style={styles.trackName} numberOfLines={1}>
-                  {item.item_name}
-                </Text>
-
-                <Text style={styles.artistName} numberOfLines={1}>
-                  {item.artist_name}
-                </Text>
-
-                <Text style={styles.friendName}>
-                  {item.listener_count} listeners this week
-                </Text>
-              </TouchableOpacity>
-            )}
-          />
-        )}
       </ScrollView>
 
       {/* MONTHLY FAVORITE PICKER */}
