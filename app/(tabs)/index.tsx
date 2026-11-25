@@ -282,7 +282,6 @@ export default function Home() {
 
       if (friendIds.length === 0) {
         setNewFromFriends([]);
-        setPopularWithFriends([]);
         return;
       }
 
@@ -342,53 +341,9 @@ export default function Home() {
 
       setNewFromFriends(recentTracks);
 
-      const counts: Record<string, any> = {};
-
-      uniqueTrackActivities.forEach((activity: any) => {
-        const trackId = activity.item_key || activity.data?.id;
-
-        if (!trackId) return;
-
-        if (!counts[trackId]) {
-          counts[trackId] = {
-            item_id: trackId,
-            item_name: activity.data?.name || 'Unknown track',
-            artist_name:
-              activity.data?.artist_name ||
-              activity.data?.artistName ||
-              activity.data?.artist ||
-              activity.data?.artists ||
-              '',
-            cover_url:
-              activity.data?.cover ||
-              activity.data?.cover_url ||
-              '',
-            friend_user_ids: [],
-            latest_activity: activity.created_at,
-          };
-        }
-
-        if (!counts[trackId].friend_user_ids.includes(activity.user_id)) {
-          counts[trackId].friend_user_ids.push(activity.user_id);
-        }
-      });
-
-      setPopularWithFriends(
-        Object.values(counts)
-          .map((item: any) => ({
-            item_id: item.item_id,
-            item_name: item.item_name,
-            artist_name: item.artist_name,
-            cover_url: item.cover_url,
-            count: item.friend_user_ids.length,
-          }))
-          .sort((a: any, b: any) => b.count - a.count)
-          .slice(0, 100)
-      );
     } catch (error) {
       console.log('Friends feed failed', error);
       setNewFromFriends([]);
-      setPopularWithFriends([]);
       setFriendFeedError('Friends activity is temporarily unavailable.');
     } finally {
       setFriendFeedLoading(false);
