@@ -193,11 +193,12 @@ export default function FriendsLists() {
     );
   }
 
-  function renderSection(title: string, items: ListItem[], emptyText: string) {
+  function renderSection(title: string, items: ListItem[]) {
+    if (items.length === 0) return null;
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{title}</Text>
-        {items.length ? items.map(renderList) : <Text style={styles.sectionEmpty}>{emptyText}</Text>}
+        {items.map(renderList)}
       </View>
     );
   }
@@ -216,9 +217,9 @@ export default function FriendsLists() {
       {loading ? <ActivityIndicator color={accentColor} style={{ marginTop: 36 }} /> :
         error ? <Text style={styles.empty}>{error}</Text> :
         <ScrollView contentContainerStyle={styles.content}>
-          {renderSection('New from Friends', newFromFriends, 'Your friends’ new public lists will appear here.')}
-          {renderSection('Popular with Friends', popularWithFriends, 'Lists liked by your friends will appear here.')}
-          {renderSection('Popular This Week', popularThisWeek, 'Popular public lists from this week will appear here.')}
+          {renderSection('New from Friends', newFromFriends)}
+          {renderSection('Popular with Friends', popularWithFriends)}
+          {renderSection('Popular This Week', popularThisWeek)}
         </ScrollView>}
     </View>
   );
