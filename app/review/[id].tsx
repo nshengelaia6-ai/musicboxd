@@ -131,16 +131,11 @@ export default function ReviewDetail() {
     </View>
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.titleBlock}>
-        <View style={styles.authorRow}>
-          {author?.avatar_url ? <Image source={{uri:author.avatar_url}} style={styles.authorAvatar}/> : <View style={styles.authorAvatar}/>}
-          <Text style={styles.authorName} numberOfLines={1}>{author?.username || 'listener'}</Text>
-        </View>
-        <TouchableOpacity onPress={()=>router.push({pathname:review.item_type==='album'?'/album/[id]':'/track/[id]',params:{id:review.item_id}} as any)}>
-          {review.cover_url?<Image source={{uri:review.cover_url}} style={styles.cover}/>:<View style={styles.cover}/>}
-        </TouchableOpacity>
-      </View>
-      <View style={styles.reviewLayout}>
         <View style={styles.reviewSide}>
+          <View style={styles.authorRow}>
+            {author?.avatar_url ? <Image source={{uri:author.avatar_url}} style={styles.authorAvatar}/> : <View style={styles.authorAvatar}/>}
+            <Text style={styles.authorName} numberOfLines={1}>{author?.username || 'listener'}</Text>
+          </View>
           <View style={styles.titleRow}>
             <Text style={styles.songTitle} numberOfLines={3}>{review.item_name}</Text>
             {!!releaseYear&&<Text style={styles.releaseYear}>{releaseYear}</Text>}
@@ -156,6 +151,9 @@ export default function ReviewDetail() {
           {!!listenedAt&&<Text style={styles.listenedDate}>Listened {new Date(listenedAt).toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}</Text>}
           {!!review.review_text&&<Text style={styles.reviewText}>{review.review_text}</Text>}
         </View>
+        <TouchableOpacity onPress={()=>router.push({pathname:review.item_type==='album'?'/album/[id]':'/track/[id]',params:{id:review.item_id}} as any)}>
+          {review.cover_url?<Image source={{uri:review.cover_url}} style={styles.cover}/>:<View style={styles.cover}/>}
+        </TouchableOpacity>
       </View>
       {!!error&&<Text style={styles.error}>{error}</Text>}
       {likedPeople.length > 0 ? <>
@@ -204,10 +202,10 @@ export default function ReviewDetail() {
 const styles=StyleSheet.create({
   screen:{flex:1},header:{height:104,paddingTop:58,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#252525'},
   back:{color:'#fff',fontSize:32,width:30},headerTitle:{color:'#fff',fontSize:16,fontWeight:'700',letterSpacing:1.5},
-  content:{padding:18,paddingBottom:50},reviewLayout:{flexDirection:'row',alignItems:'flex-start',gap:16},
+  content:{padding:18,paddingBottom:50},
   reviewSide:{flex:1,minWidth:0},titleBlock:{flexDirection:'row',alignItems:'flex-start',justifyContent:'space-between',gap:12,marginBottom:14},titleHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12},
   songHeading:{flex:1,minWidth:0},titleRow:{flexDirection:'row',alignItems:'baseline',flexWrap:'wrap',columnGap:8,rowGap:3},
-  rating:{color:'#9BA7B2',fontSize:15,letterSpacing:1},ratingAndLike:{flexDirection:'row',alignItems:'center',gap:12,marginTop:8,marginBottom:2},inlineLike:{flexDirection:'row',alignItems:'center',gap:4},listenedDate:{color:'#777',fontSize:11,marginBottom:10},authorRow:{flexDirection:'row',alignItems:'center',gap:7,maxWidth:'42%',flexShrink:0},
+  rating:{color:'#9BA7B2',fontSize:15,letterSpacing:1},ratingAndLike:{flexDirection:'row',alignItems:'center',gap:12,marginTop:8,marginBottom:2},inlineLike:{flexDirection:'row',alignItems:'center',gap:4},listenedDate:{color:'#777',fontSize:11,marginBottom:10},authorRow:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:10},
   authorAvatar:{width:30,height:30,borderRadius:15,backgroundColor:'#333'},authorName:{color:'#aaa',fontSize:12,flexShrink:1},
   songTitle:{color:'#fff',fontSize:18,fontWeight:'600',lineHeight:24,flexShrink:1},releaseYear:{color:'#999',fontSize:13},
   cover:{width:116,height:116,borderRadius:5,backgroundColor:'#292929'},reviewText:{color:'#eee',fontSize:14,lineHeight:21,marginTop:2},
