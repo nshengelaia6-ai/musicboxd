@@ -155,8 +155,7 @@ export default function ReviewDetail() {
           {!!review.review_text&&<Text style={styles.reviewText}>{review.review_text}</Text>}
           <TouchableOpacity style={styles.reviewLikeRow} onPress={()=>void toggleLike()} disabled={!userId}>
             <Text style={[styles.reviewLikeHeart,{color:liked?accentColor:'#aaa'}]}>{liked?'♥':'♡'}</Text>
-            <Text style={styles.reviewLikeLabel}>Like review</Text>
-            {likes>0&&<Text style={styles.likeCount}>{likes}</Text>}
+            {likes>0&&<Text style={styles.reviewLikeLabel}>{likes} {likes===1?'like':'likes'}</Text>}
           </TouchableOpacity>
         </View>
         <TouchableOpacity onPress={()=>router.push({pathname:review.item_type==='album'?'/album/[id]':'/track/[id]',params:{id:review.item_id}} as any)}>
