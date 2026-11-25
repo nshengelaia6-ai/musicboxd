@@ -2,6 +2,7 @@ import { useAppTheme } from '@/context/ThemeContext';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { flushPendingActivities } from '@/utils/activity';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -104,7 +105,8 @@ async function loadActivityPages(userIds: string[]) {
 export default function Activity() {
   const router = useRouter();
   const { backgroundColor, accentColor } = useAppTheme();
-  const [activeTab, setActiveTab] = useState<ActivityTab>('Friends');
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [activeTab, setActiveTab] = useState<ActivityTab>(params.tab === 'You' ? 'You' : 'Friends');
   const [youItems, setYouItems] = useState<ActivityEntry[]>([]);
   const [friendItems, setFriendItems] = useState<ActivityEntry[]>([]);
   const [incomingItems, setIncomingItems] = useState<any[]>([]);
