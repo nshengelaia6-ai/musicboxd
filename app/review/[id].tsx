@@ -54,22 +54,28 @@ export default function ReviewDetail() {
           if(date) setReleaseYear(String(date).slice(0,4));
         }
       } catch { /* Release year is optional; keep the review available if Spotify lookup fails. */ }
-      const [{data:profile,error:profileError},{data:likeRows,error:likesError},{data:myLike,error:myLikeError},{data:replyRows,error:repliesError},{data:listenedRow,error:listenedError}]=await Promise.all([
+      const [{data:profile,error:profileError},{data:likeRows,error:likesError},{data:myLike,error:myLikeError},{data:replyRows,error:repliesError},{data:listenedRow,error:listenedError},{data:authorLikeRows,error:authorLikesError}]=await Promise.all([
         supabase.from('users').select('username,avatar_url').eq('id',row.user_id).maybeSingle(),
         supabase.from('music_review_likes').select('user_id').eq('review_id',row.id),
         uid?supabase.from('music_review_likes').select('review_id').eq('review_id',row.id).eq('user_id',uid).maybeSingle():Promise.resolve({data:null,error:null} as any),
         supabase.from('music_review_replies').select('id,review_id,user_id,reply_text,created_at').eq('review_id',row.id).order('created_at',{ascending:true}),
-        supabase.from('user_activity').select('created_at').eq('user_id',row.user_id).eq('activity_type','listened').eq('item_key',row.item_id).order('created_at',{ascending:false}).limit(1).maybeSingle()
+        supabase.from('user_activity').select('created_at').eq('user_id',row.user_id).eq('activity_type','listened').eq('item_key',row.item_id).order('created_at',{ascending:false}).limit(1).maybeSingle(),
+        supabase.from('music_review_likes').select('review_id').eq('user_id',row.user_id)
       ]);
-      if(profileError) throw profileError;if(likesError) throw likesError;if(myLikeError) throw myLikeError;if(repliesError) throw repliesError;if(listenedError) throw listenedError;
+      if(profileError) throw profileError;if(likesError) throw likesError;if(myLikeError) throw myLikeError;if(repliesError) throw repliesError;if(listenedError) throw listenedError;if(authorLikesError) throw authorLikesError;
       setAuthor(profile as Person|null);setLikes((likeRows||[]).length);setLiked(!!myLike);
       setListenedAt(listenedRow?.created_at || '');
-      const likedUserIds=[...new Set((likeRows||[]).map((item:any)=>item.user_id).filter(Boolean))];
-      if(likedUserIds.length){
-        const {data:likedProfiles,error:likedProfilesError}=await supabase.from('users').select('id,username,avatar_url').in('id',likedUserIds);
-        if(likedProfilesError) throw likedProfilesError;
-        const peopleById=new Map((likedProfiles||[]).map((person:any)=>[person.id,person]));
-        setLikedPeople(likedUserIds.map(personId=>peopleById.get(personId)).filter(Boolean) as LikedPerson[]);
+      const likedReviewIds=[...new Set((authorLikeRows||[]).map((item:any)=>item.review_id).filter((likedId:string)=>likedId!==row.id))];
+      if(likedReviewIds.length){
+        const {data:likedReviews,error:likedReviewsError}=await supabase.from('music_reviews').select('id,user_id').in('id',likedReviewIds);
+        if(likedReviewsError) throw likedReviewsError;
+        const likedUserIds=[...new Set((likedReviews||[]).map((item:any)=>item.user_id).filter(Boolean))];
+        if(likedUserIds.length){
+          const {data:likedProfiles,error:likedProfilesError}=await supabase.from('users').select('id,username,avatar_url').in('id',likedUserIds);
+          if(likedProfilesError) throw likedProfilesError;
+          const peopleById=new Map((likedProfiles||[]).map((person:any)=>[person.id,person]));
+          setLikedPeople(likedUserIds.map(personId=>peopleById.get(personId)).filter(Boolean) as LikedPerson[]);
+        } else setLikedPeople([]);
       } else setLikedPeople([]);
       const loadedReplies=(replyRows||[]) as Reply[];setReplies(loadedReplies);
       const ids=[...new Set(loadedReplies.map(item=>item.user_id))];
@@ -153,16 +159,16 @@ export default function ReviewDetail() {
         <Text style={styles.likedByHeading}>Liked by {author?.username || 'listener'}</Text>
         <TouchableOpacity onPress={()=>setReplyOpen(value=>!value)}><Text style={[styles.actionText,{color:accentColor,fontWeight:'600'}]}>Reply</Text></TouchableOpacity>
       </View>
-      {likedPeople.length>0&&<View style={styles.likedPeopleRow}>
+      <View style={styles.likedPeopleRow}>
         <ScrollView ref={likedPeopleScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.likedPeopleContent}>
           {likedPeople.map((person,index)=><TouchableOpacity key={person.id} activeOpacity={0.8} style={[styles.likedPersonButton,index>0&&styles.likedPersonOverlap]} onPress={()=>router.push({pathname:'/user/[id]',params:{id:person.id}} as any)}>
             {person.avatar_url?<Image source={{uri:person.avatar_url}} style={styles.likedPersonAvatar}/>:<View style={styles.likedPersonAvatar}/>}
           </TouchableOpacity>)}
         </ScrollView>
-        {<TouchableOpacity style={styles.likedPeopleMore} onPress={()=>likedPeopleScroll.current?.scrollTo({x:9999,y:0,animated:true})}>
+        <TouchableOpacity style={styles.likedPeopleMore} onPress={()=>likedPeopleScroll.current?.scrollTo({x:9999,y:0,animated:true})}>
           <Text style={styles.likedPeopleMoreText}>›</Text>
-        </TouchableOpacity>}
-      </View>}
+        </TouchableOpacity>
+      </View>
       {replies.map(reply=>{
         const person=replyPeople[reply.user_id];
         return <View key={reply.id} style={styles.replyRow}>
