@@ -138,18 +138,20 @@ export default function FriendsReviews() {
                 >
                   <View style={styles.cardInner}>
                     <View style={styles.titleRow}>
-                      <Text style={styles.song} numberOfLines={2}>{item.name || 'Untitled song'}</Text>
-                      {!!row.releaseYear && <Text style={styles.releaseYear}>{row.releaseYear}</Text>}
+                      <View style={styles.songTitleGroup}>
+                        <Text style={styles.song} numberOfLines={2}>{item.name || 'Untitled song'}</Text>
+                        {!!row.releaseYear && <Text style={styles.releaseYear}>{row.releaseYear}</Text>}
+                      </View>
+                      <View style={styles.authorRow}>
+                        <Text style={styles.username} numberOfLines={1}>{String(row.profile?.username || 'Music lover').replace(/^@+/, '')}</Text>
+                        {row.profile?.avatar_url ? <Image source={{ uri: row.profile.avatar_url }} style={styles.avatar} /> : <View style={styles.avatar} />}
+                      </View>
                     </View>
+                    {Number(item.rating) > 0 ? <Text style={styles.rating}>{'★'.repeat(Math.floor(Number(item.rating)))}{Number(item.rating) % 1 ? '½' : ''}</Text> : null}
                     <View style={styles.reviewLayout}>
                       {cover ? <Image source={{ uri: cover }} style={styles.cover} /> : <View style={styles.cover} />}
                       <View style={styles.details}>
-                        <View style={styles.authorRow}>
-                          <Text style={styles.username}>{String(row.profile?.username || 'Music lover').replace(/^@+/, '')}</Text>
-                          {row.profile?.avatar_url ? <Image source={{ uri: row.profile.avatar_url }} style={styles.avatar} /> : <View style={styles.avatar} />}
-                        </View>
                         <Text style={styles.artist}>{item.albumArtist || item.artist || ''}</Text>
-                        {Number(item.rating) > 0 ? <Text style={styles.rating}>{'★'.repeat(Math.floor(Number(item.rating)))}{Number(item.rating) % 1 ? '½' : ''}</Text> : null}
                         {!!item.review && <Text style={styles.review}>{item.review}</Text>}
                       </View>
                     </View>
@@ -174,17 +176,18 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 32 },
   card: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#252525' },
   cardInner: { flex: 1 },
-  titleRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 },
+  songTitleGroup: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 7 },
   reviewLayout: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   cover: { width: 76, height: 76, borderRadius: 6, backgroundColor: '#252525' },
   details: { flex: 1, minWidth: 0 },
-  authorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 8 },
+  authorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 7, flexShrink: 0, maxWidth: '42%' },
   avatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#333' },
   username: { color: '#aaa', fontSize: 12 },
   song: { color: '#fff', fontSize: 16, fontWeight: '700', flexShrink: 1 },
   releaseYear: { color: '#999', fontSize: 12 },
   artist: { color: '#999', fontSize: 12, marginTop: 2 },
-  rating: { color: '#9BA7B2', marginTop: 5 },
+  rating: { color: '#9BA7B2', marginTop: 0, marginBottom: 10 },
   review: { color: '#ddd', fontSize: 14, lineHeight: 20, marginTop: 7 },
   empty: { color: '#888', textAlign: 'center', padding: 28, marginTop: 20 },
 });
