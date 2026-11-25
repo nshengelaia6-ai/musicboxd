@@ -175,10 +175,10 @@ export default function ReviewDetail() {
         <TouchableOpacity style={styles.replyButton} onPress={()=>setReplyOpen(value=>!value)}>
           <Text style={styles.replyButtonText}>Reply</Text>
         </TouchableOpacity>
-        {!!albumId&&<TouchableOpacity style={styles.albumButton} onPress={()=>router.push({pathname:'/album/[id]',params:{id:albumId}} as any)}>
+        <TouchableOpacity style={styles.albumButton} onPress={()=>{const targetAlbumId=albumId||(review.item_type==='album'?review.item_id:'');if(targetAlbumId)router.push({pathname:'/album/[id]',params:{id:targetAlbumId}} as any);}}>
           <Text style={styles.albumButtonText}>Album</Text>
           <Text style={styles.albumButtonIcon}>↗</Text>
-        </TouchableOpacity>}
+        </TouchableOpacity>
       </View>
       {replies.map(reply=>{
         const person=replyPeople[reply.user_id];
