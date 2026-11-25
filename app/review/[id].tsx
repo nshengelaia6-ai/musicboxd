@@ -166,7 +166,7 @@ const styles=StyleSheet.create({
   content:{padding:18,paddingBottom:50},reviewLayout:{flexDirection:'row',alignItems:'flex-start',gap:16},
   reviewSide:{flex:1,minWidth:0},titleBlock:{marginBottom:14},titleHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12},
   songHeading:{flex:1,minWidth:0},titleRow:{flexDirection:'row',alignItems:'baseline',flexWrap:'wrap',columnGap:8,rowGap:3},
-  rating:{color:'#9BA7B2',fontSize:15,letterSpacing:1},ratingAndLike:{flexDirection:'row',alignItems:'center',gap:12,marginTop:8,marginBottom:10},inlineLike:{flexDirection:'row',alignItems:'center',gap:4},listenedDate:{color:'#777',fontSize:11,marginBottom:10},authorRow:{flexDirection:'row',alignItems:'center',gap:7,maxWidth:'42%',flexShrink:0},
+  rating:{color:'#9BA7B2',fontSize:15,letterSpacing:1},ratingAndLike:{flexDirection:'row',alignItems:'center',gap:12,marginTop:8,marginBottom:2},inlineLike:{flexDirection:'row',alignItems:'center',gap:4},listenedDate:{color:'#777',fontSize:11,marginBottom:10},authorRow:{flexDirection:'row',alignItems:'center',gap:7,maxWidth:'42%',flexShrink:0},
   authorAvatar:{width:30,height:30,borderRadius:15,backgroundColor:'#333'},authorName:{color:'#aaa',fontSize:12,flexShrink:1},
   songTitle:{color:'#fff',fontSize:18,fontWeight:'600',lineHeight:24,flexShrink:1},releaseYear:{color:'#999',fontSize:13},
   cover:{width:116,height:116,borderRadius:5,backgroundColor:'#292929'},reviewText:{color:'#eee',fontSize:14,lineHeight:21,marginTop:2},
