@@ -1346,13 +1346,13 @@ const styles = StyleSheet.create({
   },
   friendsFavCover: {
     width: 100,
-    height: 150,
+    height: 100,
     borderRadius: 5,
     backgroundColor: '#1a1a1a',
   },
   favCover: {
     width: 112,
-    height: 168,
+    height: 112,
     borderRadius: 5,
     backgroundColor: '#1a1a1a',
   },
@@ -1410,7 +1410,7 @@ const styles = StyleSheet.create({
   },
   cover: {
     width: 112,
-    height: 168,
+    height: 112,
     borderRadius: 5,
     backgroundColor: '#1a1a1a',
   },
