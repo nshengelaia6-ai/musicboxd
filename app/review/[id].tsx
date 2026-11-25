@@ -177,7 +177,7 @@ export default function ReviewDetail() {
         </TouchableOpacity>
         <TouchableOpacity style={styles.albumButton} onPress={()=>{const targetAlbumId=albumId||(review.item_type==='album'?review.item_id:'');if(targetAlbumId)router.push({pathname:'/album/[id]',params:{id:targetAlbumId}} as any);}}>
           <Text style={styles.albumButtonText}>Album</Text>
-          <Text style={styles.albumButtonIcon}>↗</Text>
+          <Text style={styles.albumButtonIcon}>→</Text>
         </TouchableOpacity>
       </View>
       {replies.map(reply=>{
