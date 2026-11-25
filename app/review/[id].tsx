@@ -158,19 +158,21 @@ export default function ReviewDetail() {
         </TouchableOpacity>
       </View>
       {!!error&&<Text style={styles.error}>{error}</Text>}
-      <View style={styles.actions}>
-        <Text style={styles.likedByHeading}>Liked by {author?.username || 'listener'}</Text>
-        <TouchableOpacity style={styles.likedPeopleMore} onPress={()=>likedPeopleScroll.current?.scrollTo({x:9999,y:0,animated:true})}>
-          <Text style={styles.likedPeopleMoreText}>›</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.likedPeopleRow}>
-        <ScrollView ref={likedPeopleScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.likedPeopleContent}>
-          {likedPeople.map((person,index)=><TouchableOpacity key={person.id} activeOpacity={0.8} style={[styles.likedPersonButton,index>0&&styles.likedPersonOverlap]} onPress={()=>router.push({pathname:'/user/[id]',params:{id:person.id}} as any)}>
-            {person.avatar_url?<Image source={{uri:person.avatar_url}} style={styles.likedPersonAvatar}/>:<View style={styles.likedPersonAvatar}/>}
-          </TouchableOpacity>)}
-        </ScrollView>
-      </View>
+      {likedPeople.length > 0 ? <>
+        <View style={styles.actions}>
+          <Text style={styles.likedByHeading}>Liked by {author?.username || 'listener'}</Text>
+          <TouchableOpacity style={styles.likedPeopleMore} onPress={()=>likedPeopleScroll.current?.scrollTo({x:9999,y:0,animated:true})}>
+            <Text style={styles.likedPeopleMoreText}>›</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.likedPeopleRow}>
+          <ScrollView ref={likedPeopleScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.likedPeopleContent}>
+            {likedPeople.map((person,index)=><TouchableOpacity key={person.id} activeOpacity={0.8} style={[styles.likedPersonButton,index>0&&styles.likedPersonOverlap]} onPress={()=>router.push({pathname:'/user/[id]',params:{id:person.id}} as any)}>
+              {person.avatar_url?<Image source={{uri:person.avatar_url}} style={styles.likedPersonAvatar}/>:<View style={styles.likedPersonAvatar}/>}
+            </TouchableOpacity>)}
+          </ScrollView>
+        </View>
+      </> : <View style={styles.emptyLikedPeopleDivider} />}
       <View style={styles.reviewLinksRow}>
         <TouchableOpacity onPress={()=>setReplyOpen(value=>!value)}>
           <Text style={[styles.actionText,{color:accentColor,fontWeight:'600'}]}>Reply</Text>
@@ -209,7 +211,7 @@ const styles=StyleSheet.create({
   authorAvatar:{width:30,height:30,borderRadius:15,backgroundColor:'#333'},authorName:{color:'#aaa',fontSize:12,flexShrink:1},
   songTitle:{color:'#fff',fontSize:18,fontWeight:'600',lineHeight:24,flexShrink:1},releaseYear:{color:'#999',fontSize:13},
   cover:{width:116,height:116,borderRadius:5,backgroundColor:'#292929'},reviewText:{color:'#eee',fontSize:14,lineHeight:21,marginTop:2},
-  actions:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,borderTopWidth:1,borderTopColor:'#252525',paddingTop:14,marginTop:8,marginBottom:8},likedByHeading:{color:'#aaa',fontSize:13,fontWeight:'600'},likedPeopleRow:{flexDirection:'row',alignItems:'center',marginTop:2,borderBottomWidth:1,borderBottomColor:'#252525',paddingBottom:8,marginBottom:8},likedPeopleContent:{flexDirection:'row',alignItems:'center',paddingVertical:6,paddingRight:6},likedPersonButton:{width:32,height:32,borderRadius:16,borderWidth:1.5,borderColor:'#000',overflow:'hidden'},likedPersonOverlap:{marginLeft:-7},likedPersonAvatar:{width:32,height:32,borderRadius:16,backgroundColor:'#333'},likedPeopleMore:{width:28,height:28,alignItems:'center',justifyContent:'center',marginLeft:8},likedPeopleMoreText:{color:'#aaa',fontSize:25,lineHeight:27},
+  actions:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,borderTopWidth:1,borderTopColor:'#252525',paddingTop:14,marginTop:8,marginBottom:8},likedByHeading:{color:'#aaa',fontSize:13,fontWeight:'600'},likedPeopleRow:{flexDirection:'row',alignItems:'center',marginTop:2,borderBottomWidth:1,borderBottomColor:'#252525',paddingBottom:8,marginBottom:8},emptyLikedPeopleDivider:{height:1,backgroundColor:'#252525',marginTop:14,marginBottom:8},likedPeopleContent:{flexDirection:'row',alignItems:'center',paddingVertical:6,paddingRight:6},likedPersonButton:{width:32,height:32,borderRadius:16,borderWidth:1.5,borderColor:'#000',overflow:'hidden'},likedPersonOverlap:{marginLeft:-7},likedPersonAvatar:{width:32,height:32,borderRadius:16,backgroundColor:'#333'},likedPeopleMore:{width:28,height:28,alignItems:'center',justifyContent:'center',marginLeft:8},likedPeopleMoreText:{color:'#aaa',fontSize:25,lineHeight:27},
   reviewLinksRow:{flexDirection:'row',alignItems:'center',justifyContent:'flex-start',gap:20,paddingTop:10,paddingBottom:4},action:{flexDirection:'row',alignItems:'center',gap:7},heart:{fontSize:22},actionText:{color:'#aaa',fontSize:13},
   replyRow:{flexDirection:'row',alignItems:'flex-start',gap:9,paddingVertical:12,borderTopWidth:1,borderTopColor:'#202020'},
   replyAvatar:{width:28,height:28,borderRadius:14,backgroundColor:'#333'},replyUsername:{color:'#bbb',fontSize:12,fontWeight:'600'},
