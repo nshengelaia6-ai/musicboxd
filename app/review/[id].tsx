@@ -108,18 +108,18 @@ export default function ReviewDetail() {
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.titleBlock}>
         <View style={styles.titleHeader}>
-          <View style={styles.songHeading}>
-            <View style={styles.titleRow}>
-              <Text style={styles.songTitle} numberOfLines={2}>{review.item_name}</Text>
-              {!!releaseYear&&<Text style={styles.releaseYear}>{releaseYear}</Text>}
-            </View>
-            {Number(review.rating) > 0 ? (
-              <Text style={styles.rating}>{'★'.repeat(Math.floor(Number(review.rating)))}{Number(review.rating) % 1 ? '½' : ''}</Text>
-            ) : null}
-          </View>
           <View style={styles.authorRow}>
             {author?.avatar_url ? <Image source={{uri:author.avatar_url}} style={styles.authorAvatar}/> : <View style={styles.authorAvatar}/>}
             <Text style={styles.authorName} numberOfLines={1}>{author?.username || 'listener'}</Text>
+          </View>
+          <View style={styles.songHeading}>
+            <View style={[styles.titleRow,{justifyContent:'flex-end'}]}>
+              <Text style={[styles.songTitle,{textAlign:'right'}]} numberOfLines={2}>{review.item_name}</Text>
+              {!!releaseYear&&<Text style={styles.releaseYear}>{releaseYear}</Text>}
+            </View>
+            {Number(review.rating) > 0 ? (
+              <Text style={[styles.rating,{textAlign:'right'}]}>{'★'.repeat(Math.floor(Number(review.rating)))}{Number(review.rating) % 1 ? '½' : ''}</Text>
+            ) : null}
           </View>
         </View>
       </View>
@@ -165,7 +165,7 @@ const styles=StyleSheet.create({
   content:{padding:18,paddingBottom:50},reviewLayout:{flexDirection:'row',alignItems:'flex-start',gap:16},
   reviewSide:{flex:1,minWidth:0},titleBlock:{marginBottom:14},titleHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12},
   songHeading:{flex:1,minWidth:0},titleRow:{flexDirection:'row',alignItems:'baseline',flexWrap:'wrap',columnGap:8,rowGap:3},
-  rating:{color:'#9BA7B2',fontSize:15,letterSpacing:1,marginTop:5},authorRow:{flexDirection:'row',alignItems:'center',gap:7,maxWidth:'42%'},
+  rating:{color:'#9BA7B2',fontSize:15,letterSpacing:1,marginTop:5},authorRow:{flexDirection:'row',alignItems:'center',gap:7,maxWidth:'42%',flexShrink:0},
   authorAvatar:{width:30,height:30,borderRadius:15,backgroundColor:'#333'},authorName:{color:'#aaa',fontSize:12,flexShrink:1},
   songTitle:{color:'#fff',fontSize:18,fontWeight:'600',lineHeight:24,flexShrink:1},releaseYear:{color:'#999',fontSize:13},
   cover:{width:116,height:116,borderRadius:5,backgroundColor:'#292929'},reviewText:{color:'#eee',fontSize:15,lineHeight:23},
