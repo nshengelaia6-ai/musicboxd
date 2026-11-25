@@ -21,6 +21,7 @@ export default function ReviewDetail() {
   const [author,setAuthor]=useState<Person|null>(null);
   const [replies,setReplies]=useState<Reply[]>([]);
   const [replyPeople,setReplyPeople]=useState<Record<string,Person>>({});
+  const [myProfile,setMyProfile]=useState<Person|null>(null);
   const [replyText,setReplyText]=useState('');
   const [replyOpen,setReplyOpen]=useState(false);
   const [userId,setUserId]=useState('');
@@ -47,6 +48,7 @@ export default function ReviewDetail() {
       if(reviewError) throw reviewError;
       if(!row) {setReview(null);return;}
       const uid=auth.user?.id||'';setUserId(uid);setReview(row as Review);
+      if(uid){const {data:ownProfile}=await supabase.from('users').select('username,avatar_url').eq('id',uid).maybeSingle();setMyProfile(ownProfile as Person|null);}
       setReleaseYear('');
       setAlbumId(row.item_type==='album'?row.item_id:'');
       try {
@@ -191,10 +193,16 @@ export default function ReviewDetail() {
         </View>;
       })}
       {replyOpen&&<View style={styles.composer}>
-        <TextInput value={replyText} onChangeText={setReplyText} placeholder="Write a reply..." placeholderTextColor="#777" multiline maxLength={2000} style={styles.input}/>
-        <TouchableOpacity disabled={!replyText.trim()||sending||!userId} onPress={()=>void sendReply()} style={[styles.send,{backgroundColor:accentColor,opacity:!replyText.trim()||sending||!userId?0.5:1}]}>
-          <Text style={styles.sendText}>{sending?'Sending...':'Send'}</Text>
-        </TouchableOpacity>
+        {myProfile?.avatar_url?<Image source={{uri:myProfile.avatar_url}} style={styles.composerAvatar}/>:<View style={styles.composerAvatar}/>}
+        <View style={styles.composerBody}>
+          <TextInput value={replyText} onChangeText={setReplyText} placeholder={`Reply to ${author?.username||'listener'}...`} placeholderTextColor="#777" multiline maxLength={2000} autoFocus style={styles.input}/>
+          <View style={styles.composerFooter}>
+            <Text style={styles.replyAs}>{myProfile?.username||'Your reply'}</Text>
+            <TouchableOpacity disabled={!replyText.trim()||sending||!userId} onPress={()=>void sendReply()} style={[styles.send,{backgroundColor:accentColor,opacity:!replyText.trim()||sending||!userId?0.5:1}]}>
+              <Text style={styles.sendText}>{sending?'Posting...':'Post'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>}
     </ScrollView>
   </View>;
@@ -214,6 +222,6 @@ const styles=StyleSheet.create({
   reviewLinksRow:{flexDirection:'row',alignItems:'center',justifyContent:'flex-start',gap:10,paddingTop:10,paddingBottom:4},replyButton:{backgroundColor:'#d0d0d0',paddingHorizontal:10,paddingVertical:5,borderRadius:5},replyButtonText:{color:'#222',fontSize:12,fontWeight:'600'},albumButton:{flexDirection:'row',alignItems:'center',gap:4,backgroundColor:'#454545',paddingHorizontal:10,paddingVertical:5,borderRadius:5},albumButtonText:{color:'#f2f2f2',fontSize:12,fontWeight:'600'},albumButtonIcon:{color:'#f2f2f2',fontSize:13,fontWeight:'600'},action:{flexDirection:'row',alignItems:'center',gap:7},heart:{fontSize:22},actionText:{color:'#aaa',fontSize:13},
   replyRow:{flexDirection:'row',alignItems:'flex-start',gap:9,paddingVertical:12,borderTopWidth:1,borderTopColor:'#202020'},
   replyAvatar:{width:28,height:28,borderRadius:14,backgroundColor:'#333'},replyUsername:{color:'#bbb',fontSize:12,fontWeight:'600'},
-  replyText:{color:'#ddd',fontSize:14,lineHeight:20,marginTop:3},composer:{marginTop:16,gap:9},input:{minHeight:46,maxHeight:120,borderWidth:1,borderColor:'#383838',borderRadius:7,padding:11,color:'#fff',fontSize:14},
+  replyText:{color:'#ddd',fontSize:14,lineHeight:20,marginTop:3},composer:{flexDirection:'row',alignItems:'flex-start',gap:10,marginTop:14,paddingTop:13,borderTopWidth:1,borderTopColor:'#252525'},composerAvatar:{width:32,height:32,borderRadius:16,backgroundColor:'#333'},composerBody:{flex:1,minWidth:0},input:{minHeight:58,maxHeight:140,borderWidth:1,borderColor:'#383838',borderRadius:6,padding:10,color:'#fff',fontSize:14,textAlignVertical:'top'},composerFooter:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:8},replyAs:{color:'#777',fontSize:11},
   send:{alignSelf:'flex-end',paddingHorizontal:17,paddingVertical:9,borderRadius:6},sendText:{color:'#fff',fontSize:12,fontWeight:'700'},error:{color:'#ff7777',padding:18}
 });
