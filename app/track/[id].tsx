@@ -27,14 +27,14 @@ export default function TrackPage() {
   const [artistData, setArtistData] = useState<any>(null);
   const [similarTracks, setSimilarTracks] = useState<any[]>([]);
   const [similarLoading, setSimilarLoading] = useState(false);
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [, setReviews] = useState<any[]>([]);
   const [reviewCount, setReviewCount] = useState(0);
   const [ratingCount, setRatingCount] = useState(0);
   const [averageRating, setAverageRating] = useState(0);
   const [ratingDistribution, setRatingDistribution] = useState<{ rating: number; count: number }[]>([]);
   const [listenedByFriends, setListenedByFriends] = useState<TrackFriend[]>([]);
   const [wantToListenFriends, setWantToListenFriends] = useState<TrackFriend[]>([]);
-  const [people, setPeople] = useState<Record<string, any>>({});
+  const [, setPeople] = useState<Record<string, any>>({});
   const [liked, setLiked] = useState(false);
   const [listened, setListened] = useState(false);
   const [wantToListen, setWantToListen] = useState(false);
