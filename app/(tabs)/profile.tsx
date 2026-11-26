@@ -622,14 +622,29 @@ if (Array.isArray(sourceAlbums)) {
 
             <View style={styles.slotsRow}>
               {favoriteAlbums.map((album, i) => (
-                <View key={i} style={styles.slot}>
+                <TouchableOpacity
+                  key={i}
+                  style={styles.slot}
+                  activeOpacity={0.8}
+                  disabled={!album?.id}
+                  onPress={() => {
+                    if (album?.id) {
+                      router.push({
+                        pathname: '/album/[id]',
+                        params: { id: String(album.id) },
+                      } as any);
+                    }
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={album?.title ? `Open album ${album.title}` : 'Empty album slot'}
+                >
                   {album?.cover ? (
                     <Image
                       source={{ uri: album.cover }}
                       style={styles.slotImage}
                     />
                   ) : null}
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           </>
