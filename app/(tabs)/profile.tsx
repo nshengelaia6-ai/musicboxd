@@ -626,30 +626,13 @@ if (Array.isArray(sourceAlbums)) {
                     />
                   )}
 
-                  <View style={styles.activityMeta}>
-                    <Text
-                      style={[styles.activityRating, { color: '#9BA7B2' }]}
-                    >
-                      {'\u2605'.repeat(Math.floor(item.rating || 0))}
-                    </Text>
-                    <Text style={[styles.activityBadgeText, { color: accentColor }]}>
-                      {item.activityType === 'reviewed'
-                        ? '\u270E'
-                        : item.activityType === 'liked'
-                          ? '\u2665'
-                          : item.activityType === 'wants_to_listen'
-                            ? '\u2661'
-                            : item.activityType === 'created_list'
-                              ? '\u2261'
-                              : item.activityType === 'followed_artist'
-                                ? '+'
-                                : '\u266B'}
-                    </Text>
-                  </View>
-
-                  <Text style={styles.activityAlbum} numberOfLines={1}>
-                    {item.albumName}
-                  </Text>
+                  {Number(item.rating) > 0 && (
+                    <View style={styles.activityMeta}>
+                      <Text style={[styles.activityRating, { color: '#9BA7B2' }]}>
+                        {'\u2605'.repeat(Math.floor(Number(item.rating)))}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               ))}
             </ScrollView>
