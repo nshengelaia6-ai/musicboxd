@@ -112,11 +112,18 @@ export default function TrackFriendsPage() {
         <Text style={styles.message}>{error}</Text>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.resultCount}>{members.length.toLocaleString()} {members.length === 1 ? 'MEMBER' : 'MEMBERS'}</Text>
-          {members.length ? members.map(renderMember) : (
-            <Text style={styles.empty}>
-              {filter === 'liked' ? 'No members have liked this song yet.' : filter === 'friends' ? 'No friends found in this section yet.' : isWantList ? 'No members have added this song to their want-to-listen list yet.' : 'No members have marked this song as listened yet.'}
-            </Text>
+          {members.length > 0 ? (
+            <>
+              <Text style={styles.resultCount}>{members.length.toLocaleString()} {members.length === 1 ? 'MEMBER' : 'MEMBERS'}</Text>
+              {members.map(renderMember)}
+            </>
+          ) : filter === 'friends' ? null : (
+            <>
+              <Text style={styles.resultCount}>0 MEMBERS</Text>
+              <Text style={styles.empty}>
+                {filter === 'liked' ? 'No members have liked this song yet.' : isWantList ? 'No members have added this song to their want-to-listen list yet.' : 'No members have marked this song as listened yet.'}
+              </Text>
+            </>
           )}
         </ScrollView>
       )}
