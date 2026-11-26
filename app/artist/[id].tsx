@@ -30,6 +30,9 @@ export default function ArtistPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
+    setArtist(null);
+    setAlbums([]);
+    setFollowed(false);
 
     try {
       const artistId = Array.isArray(id) ? id[0] : id;
@@ -79,19 +82,23 @@ export default function ArtistPage() {
       setArtist(artistData);
       setAlbums(albumsData?.items || []);
 
-      const followedData = await AsyncStorage.getItem(
-        'followed_artists'
-      );
-
-      const followedArtists = followedData
-        ? JSON.parse(followedData)
-        : [];
-
-      setFollowed(
-        followedArtists.some(
-          (item: any) => item.id === artistData.id
-        )
-      );
+      const { data: { user } } = await supabase.auth.getUser();
+      let isFollowed = false;
+      if (user) {
+        const { data: cloudFollow, error: followError } = await supabase
+          .from('artist_follows')
+          .select('artist_id')
+          .eq('user_id', user.id)
+          .eq('artist_id', String(artistData.id))
+          .maybeSingle();
+        if (followError) throw followError;
+        isFollowed = !!cloudFollow;
+      } else {
+        const followedData = await AsyncStorage.getItem('followed_artists');
+        const followedArtists = followedData ? JSON.parse(followedData) : [];
+        isFollowed = followedArtists.some((item: any) => String(item.id) === String(artistData.id));
+      }
+      setFollowed(isFollowed);
     } catch (loadError) {
       console.log('Artist loading error:', loadError);
 
@@ -115,32 +122,30 @@ export default function ArtistPage() {
     if (!artist) return;
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
       const data = await AsyncStorage.getItem('followed_artists');
       const followedArtists = data ? JSON.parse(data) : [];
-
-      const alreadyFollowed = followedArtists.some(
-        (item: any) => item.id === artist.id
-      );
-
-      const next = !alreadyFollowed;
-
+      const alreadyFollowed = followedArtists.some((item: any) => String(item.id) === String(artist.id));
+      const next = !followed;
       const updated = next
-        ? [
-            {
-              id: artist.id,
-              name: artist.name,
-              image: artist.images?.[0]?.url,
-            },
-            ...followedArtists,
-          ]
-        : followedArtists.filter(
-            (item: any) => item.id !== artist.id
-          );
+        ? [{ id: String(artist.id), name: artist.name, image: artist.images?.[0]?.url }, ...followedArtists.filter((item: any) => String(item.id) !== String(artist.id))]
+        : followedArtists.filter((item: any) => String(item.id) !== String(artist.id));
 
-      await AsyncStorage.setItem(
-        'followed_artists',
-        JSON.stringify(updated)
-      );
+      if (user) {
+        if (next) {
+          const { error: followError } = await supabase.from('artist_follows').upsert({
+            user_id: user.id,
+            artist_id: String(artist.id),
+            artist_name: String(artist.name || ''),
+            artist_image: String(artist.images?.[0]?.url || ''),
+          }, { onConflict: 'user_id,artist_id' });
+          if (followError) throw followError;
+        } else {
+          const { error: unfollowError } = await supabase.from('artist_follows').delete().eq('user_id', user.id).eq('artist_id', String(artist.id));
+          if (unfollowError) throw unfollowError;
+        }
+      }
+      await AsyncStorage.setItem('followed_artists', JSON.stringify(updated));
 
       if (next) {
         await recordActivity('followed_artist', String(artist.id), {
@@ -187,7 +192,7 @@ export default function ArtistPage() {
         <Text style={styles.empty}>Artist not found.</Text>
       )}
 
-      {artist && (
+      {!loading && artist && (
         <View style={styles.heroSection}>
           {artist.images?.[0]?.url ? (
             <Image
@@ -238,7 +243,7 @@ export default function ArtistPage() {
         </View>
       )}
 
-      {albums.length > 0 && (
+      {!loading && albums.length > 0 && (
         <>
           <Text style={styles.sectionTitle}>
             Discography
