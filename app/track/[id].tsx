@@ -609,50 +609,48 @@ export default function TrackPage() {
           </View>
         </View>
 
-        <View style={styles.friendStatusSection}>
-          <View style={styles.friendStatusGroup}>
-            <TouchableOpacity style={styles.friendStatusHeader} onPress={() => openFriendStatuses('listened')} accessibilityRole="button" accessibilityLabel="See everyone who listened">
-              <Text style={styles.friendStatusTitle}>LISTENED BY</Text>
-              <Text style={styles.friendStatusArrow}>›</Text>
-            </TouchableOpacity>
-            {listenedByFriends.length > 0 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendAvatarRow}>
-                {listenedByFriends.map(person => (
-                  <TouchableOpacity key={person.id} style={styles.friendAvatarItem} onPress={() => router.push(`/user/${person.id}` as any)}>
-                    <View style={styles.friendAvatarWrap}>
-                      {person.avatar_url ? <Image source={{ uri: person.avatar_url }} style={styles.friendStatusAvatar} /> : <View style={styles.friendStatusAvatarFallback}><Text style={styles.friendStatusInitial}>{(person.username || 'U').slice(0, 1).toUpperCase()}</Text></View>}
-                      <View style={styles.friendAvatarMenu}><Text style={styles.friendAvatarMenuText}>≡</Text></View>
-                    </View>
-                    <View style={styles.friendRatingStars}>{Array.from({ length: 5 }, (_, index) => <Text key={index} style={[styles.friendRatingStar, (person.rating || 0) >= index + 0.5 && styles.friendRatingStarActive]}>★</Text>)}</View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            ) : (
-              <Text style={styles.friendStatusEmpty}>No friends have listened to this song yet.</Text>
+        {(listenedByFriends.length > 0 || wantToListenFriends.length > 0) && (
+          <View style={styles.friendStatusSection}>
+            {listenedByFriends.length > 0 && (
+              <View style={styles.friendStatusGroup}>
+                <TouchableOpacity style={styles.friendStatusHeader} onPress={() => openFriendStatuses('listened')} accessibilityRole="button" accessibilityLabel="See everyone who listened">
+                  <Text style={styles.friendStatusTitle}>LISTENED BY</Text>
+                  <Text style={styles.friendStatusArrow}>›</Text>
+                </TouchableOpacity>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendAvatarRow}>
+                  {listenedByFriends.map(person => (
+                    <TouchableOpacity key={person.id} style={styles.friendAvatarItem} onPress={() => router.push(`/user/${person.id}` as any)}>
+                      <View style={styles.friendAvatarWrap}>
+                        {person.avatar_url ? <Image source={{ uri: person.avatar_url }} style={styles.friendStatusAvatar} /> : <View style={styles.friendStatusAvatarFallback}><Text style={styles.friendStatusInitial}>{(person.username || 'U').slice(0, 1).toUpperCase()}</Text></View>}
+                        <View style={styles.friendAvatarMenu}><Text style={styles.friendAvatarMenuText}>≡</Text></View>
+                      </View>
+                      <View style={styles.friendRatingStars}>{Array.from({ length: 5 }, (_, index) => <Text key={index} style={[styles.friendRatingStar, (person.rating || 0) >= index + 0.5 && styles.friendRatingStarActive]}>★</Text>)}</View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+            {wantToListenFriends.length > 0 && (
+              <View style={[styles.friendStatusGroup, { marginBottom: 13 }]}>
+                {listenedByFriends.length > 0 && <View style={styles.friendStatusTopRule} />}
+                <TouchableOpacity style={styles.friendStatusHeader} onPress={() => openFriendStatuses('wants_to_listen')} accessibilityRole="button" accessibilityLabel="See everyone who wants to listen">
+                  <Text style={styles.friendStatusTitle}>WANTS TO LISTEN</Text>
+                  <Text style={styles.friendStatusArrow}>›</Text>
+                </TouchableOpacity>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendAvatarRow}>
+                  {wantToListenFriends.map(person => (
+                    <TouchableOpacity key={person.id} style={styles.friendAvatarItem} onPress={() => router.push(`/user/${person.id}` as any)}>
+                      <View style={styles.friendAvatarWrap}>
+                        {person.avatar_url ? <Image source={{ uri: person.avatar_url }} style={styles.friendStatusAvatar} /> : <View style={styles.friendStatusAvatarFallback}><Text style={styles.friendStatusInitial}>{(person.username || 'U').slice(0, 1).toUpperCase()}</Text></View>}
+                        <View style={styles.friendAvatarMenu}><Text style={styles.friendAvatarMenuText}>≡</Text></View>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
             )}
           </View>
-          <View style={[styles.friendStatusGroup, { marginBottom: 13 }]}>
-            <View style={styles.friendStatusTopRule} />
-            <TouchableOpacity style={styles.friendStatusHeader} onPress={() => openFriendStatuses('wants_to_listen')} accessibilityRole="button" accessibilityLabel="See everyone who wants to listen">
-              <Text style={styles.friendStatusTitle}>WANTS TO LISTEN</Text>
-              <Text style={styles.friendStatusArrow}>›</Text>
-            </TouchableOpacity>
-            {wantToListenFriends.length > 0 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendAvatarRow}>
-                {wantToListenFriends.map(person => (
-                  <TouchableOpacity key={person.id} style={styles.friendAvatarItem} onPress={() => router.push(`/user/${person.id}` as any)}>
-                    <View style={styles.friendAvatarWrap}>
-                      {person.avatar_url ? <Image source={{ uri: person.avatar_url }} style={styles.friendStatusAvatar} /> : <View style={styles.friendStatusAvatarFallback}><Text style={styles.friendStatusInitial}>{(person.username || 'U').slice(0, 1).toUpperCase()}</Text></View>}
-                      <View style={styles.friendAvatarMenu}><Text style={styles.friendAvatarMenuText}>≡</Text></View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            ) : (
-              <Text style={styles.friendStatusEmpty}>No friends have added this song yet.</Text>
-            )}
-          </View>
-        </View>
+        )}
 
         <View style={styles.reviewsSection}>
           <View style={styles.trackTopNav}>
