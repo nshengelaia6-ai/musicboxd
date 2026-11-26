@@ -611,6 +611,7 @@ export default function TrackPage() {
         </View>
 
 
+        {ratingCount > 0 && (
         <View style={styles.ratingsSection}>
           <View style={styles.ratingsHeadingRow}>
             <Text style={styles.ratingsTitle}>RATINGS</Text>
@@ -630,6 +631,7 @@ export default function TrackPage() {
             </View>
           </View>
         </View>
+        )}
 
         {(listenedByFriends.length > 0 || wantToListenFriends.length > 0) && (
           <View style={styles.friendStatusSection}>
