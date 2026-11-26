@@ -105,7 +105,7 @@ export default function NotificationsScreen() {
       return;
     }
     if (item.notification_type === 'review_like' || item.notification_type === 'review_reply') {
-      router.push('/reviews' as any);
+      router.push(`/review/${item.entity_id}` as any);
     }
   };
 
