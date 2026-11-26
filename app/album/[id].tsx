@@ -1544,6 +1544,7 @@ const styles = StyleSheet.create({
   albumName: { color: '#fff', fontSize: 29, lineHeight: 34, fontWeight: '800', marginTop: 7 },
   artistName: { color: '#D5DADF', fontSize: 17, marginTop: 7 },
   artistLinks: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 7 },
+  artistLinkWrap: { flexDirection: 'row', alignItems: 'center' },
   artistNameLink: { textDecorationLine: 'underline' },
   meta: { color: '#D5DADF', fontSize: 13, marginTop: 9 },
   albumDescription: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 4 },
