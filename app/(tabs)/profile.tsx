@@ -231,7 +231,7 @@ export default function Profile() {
           if (reviewedKeys.length) {
             const { data: reviewRows, error: reviewRowsError } = await supabase
               .from('music_reviews')
-              .select('id,item_id')
+              .select('id,item_id,review_text')
               .eq('user_id', user.id)
               .in('item_id', reviewedKeys);
             if (reviewRowsError) {
@@ -240,7 +240,11 @@ export default function Profile() {
               (reviewRows || []).forEach((review: any) => {
                 const key = String(review.item_id);
                 const state = activityState.get(key);
-                if (state) state.reviewId = String(review.id);
+                if (state) {
+                  const hasWrittenReview = typeof review.review_text === 'string' && review.review_text.trim().length > 0;
+                  state.reviewed = hasWrittenReview;
+                  state.reviewId = hasWrittenReview ? String(review.id) : null;
+                }
               });
             }
           }
@@ -264,7 +268,7 @@ export default function Profile() {
               rating: activityState.get(String(entry.item_key || data.id || ''))?.rating || Number(data.rating) || 0,
               review: data.review || data.comment || data.notes || data.description || '',
               isLiked: activityState.get(String(entry.item_key || data.id || ''))?.liked || false,
-              hasReview: activityState.get(String(entry.item_key || data.id || ''))?.reviewed || entry.activity_type === 'reviewed',
+              hasReview: activityState.get(String(entry.item_key || data.id || ''))?.reviewed || false,
               reviewId: activityState.get(String(entry.item_key || data.id || ''))?.reviewId || null,
               activityType: entry.activity_type,
               date: entry.created_at,
