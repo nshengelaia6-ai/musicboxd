@@ -10,7 +10,7 @@ test.describe('Authentication screen', () => {
 
   test('shows validation when login is submitted empty', async ({ page }) => {
     await page.goto('/auth');
-    await page.getByPlaceholder('Enter your password').last().press('Enter');
+    await page.getByTestId('auth-submit-button').click();
     await expect(page.getByText('Please enter your email and password.')).toBeVisible();
   });
 
