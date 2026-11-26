@@ -181,8 +181,7 @@ export default function ReviewDetail() {
     setMenuVisible(false);
     try {
       const username = author?.username || 'Someone';
-      const kind = review.item_type === 'album' ? 'album' : 'song';
-      const message = username + "'s review of " + review.item_name + (review.artist_name ? ' by ' + review.artist_name : '') + '\n' + 'https://musicboxd.app/review/' + review.id;
+      const message = username + "'s review of " + review.item_name + (review.artist_name ? ' by ' + review.artist_name : '') + '\n' + 'myapp://review/' + review.id;
       await Share.share({ title: 'Musicboxd review', message });
     } catch (e: any) {
       Alert.alert('Could not share review', e?.message || 'Please try again.');
