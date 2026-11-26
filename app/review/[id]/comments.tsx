@@ -71,7 +71,7 @@ export default function ReviewComments() {
             <View style={{flex:1}}>
               <View style={styles.nameRow}>
                 <Text style={styles.username}>{person?.username||'listener'}</Text>
-                <Text style={styles.date}>{new Date(reply.created_at).toLocaleDateString()}</Text>
+                <Text style={styles.date}>{formatRelativeTime(reply.created_at)}</Text>
               </View>
               <Text style={styles.replyText}>{reply.reply_text}</Text>
             </View>
@@ -92,13 +92,30 @@ export default function ReviewComments() {
   </View>;
 }
 
+function formatRelativeTime(value:string){
+  const elapsed=Math.max(0,Date.now()-new Date(value).getTime());
+  const minutes=Math.floor(elapsed/60000);
+  if(minutes<1)return 'now';
+  if(minutes<60)return minutes+'m';
+  const hours=Math.floor(minutes/60);
+  if(hours<24)return hours+'h';
+  const days=Math.floor(hours/24);
+  if(days<7)return days+'d';
+  const weeks=Math.floor(days/7);
+  if(weeks<5)return weeks+'w';
+  const months=Math.floor(days/30);
+  if(months<12)return months+'mo';
+  const years=Math.floor(days/365);
+  return years+'y';
+}
+
 const styles=StyleSheet.create({
   screen:{flex:1},keyboardArea:{flex:1},header:{height:104,paddingTop:58,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#252525'},
   back:{color:'#fff',fontSize:32,width:30},headerTitle:{color:'#fff',fontSize:16,fontWeight:'700',letterSpacing:1.5},
   content:{padding:18,paddingBottom:24},sectionTitle:{color:'#aaa',fontSize:13,fontWeight:'600',marginBottom:8},
   empty:{color:'#777',fontSize:13,paddingVertical:24,textAlign:'center'},
   replyRow:{flexDirection:'row',alignItems:'flex-start',gap:10,paddingVertical:14,borderBottomWidth:1,borderBottomColor:'#252525'},
-  avatar:{width:32,height:32,borderRadius:16,backgroundColor:'#333'},nameRow:{flexDirection:'row',alignItems:'center',gap:9},
+  avatar:{width:32,height:32,borderRadius:16,backgroundColor:'#333'},nameRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:9},
   username:{color:'#bbb',fontSize:12,fontWeight:'700'},date:{color:'#666',fontSize:10},
   replyText:{color:'#ddd',fontSize:14,lineHeight:21,marginTop:5},
   composer:{flexDirection:'row',alignItems:'flex-start',gap:10,padding:18,borderTopWidth:1,borderTopColor:'#252525'},
