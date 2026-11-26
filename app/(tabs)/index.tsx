@@ -248,6 +248,28 @@ export default function Home() {
     }, [loadPublicMonthlyFavs])
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!currentUserId) return;
+      const refreshUnreadCount = async () => {
+        const { count, error } = await supabase
+          .from('notifications')
+          .select('id', { count: 'exact', head: true })
+          .eq('recipient_id', currentUserId)
+          .is('read_at', null);
+        if (!error) setUnreadNotificationCount(count || 0);
+      };
+      const channel = supabase
+        .channel(`home-notifications-${currentUserId}`)
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'notifications',
+          filter: `recipient_id=eq.${currentUserId}`,
+        }, () => { void refreshUnreadCount(); })
+        .subscribe();
+      return () => { void supabase.removeChannel(channel); };
+    }, [currentUserId])
+  );
+
   // Load globally aggregated track popularity from the last seven days.
   // The database function returns counts only, never individual listening activity.
   const loadPopularThisWeek = useCallback(async () => {
