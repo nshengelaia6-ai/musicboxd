@@ -1,7 +1,7 @@
 import { supabase } from '@/utils/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type SharedList = {
   id: string;
@@ -62,8 +62,9 @@ export default function SharedListScreen() {
   }, [id, token]);
 
   function openItem(item: any) {
-    const url = `https://open.spotify.com/${item.type === 'track' ? 'track' : 'album'}/${encodeURIComponent(item.id)}`;
-    void Linking.openURL(url).catch(() => Alert.alert('Could not open Spotify', 'Please try again.'));
+    if (!item?.id) return;
+    if (item.type === 'track') router.push(`/track/${encodeURIComponent(String(item.id))}` as any);
+    else router.push(`/album/${encodeURIComponent(String(item.id))}` as any);
   }
 
   return (
