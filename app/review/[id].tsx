@@ -21,7 +21,7 @@ export default function ReviewDetail() {
   const [review,setReview]=useState<Review|null>(null);
   const [author,setAuthor]=useState<Person|null>(null);
   const [replies,setReplies]=useState<Reply[]>([]);
-  const [replyPeople,setReplyPeople]=useState<Record<string,Person>>({});
+  const [,setReplyPeople]=useState<Record<string,Person>>({});
   const [myProfile,setMyProfile]=useState<Person|null>(null);
   const [replyText,setReplyText]=useState('');
   const [replyOpen,setReplyOpen]=useState(false);
@@ -42,7 +42,7 @@ export default function ReviewDetail() {
   const [albumId,setAlbumId]=useState('');
   const [listenedAt,setListenedAt]=useState('');
   const [authorLikedSong,setAuthorLikedSong]=useState(false);
-  const [authorLikedReviews,setAuthorLikedReviews]=useState<LikedReview[]>([]);
+  
   const [likedPeople,setLikedPeople]=useState<LikedPerson[]>([]);
   const likedPeopleScroll=useRef<ScrollView>(null);
 
@@ -339,7 +339,7 @@ export default function ReviewDetail() {
             userLists.length ? userLists.map((list:any)=><TouchableOpacity key={String(list.id)} style={styles.listChoice} disabled={actionLoading} onPress={()=>void addReviewItemToList(list)}>
               <Text style={styles.listChoiceText}>{list.name || 'Untitled list'}</Text><Text style={styles.listChoiceArrow}>›</Text>
             </TouchableOpacity>) :
-            <Text style={styles.emptyLists}>You haven't created any lists yet.</Text>}
+            <Text style={styles.emptyLists}>You haven&apos;t created any lists yet.</Text>}
         </View>
       </View>
     </Modal>
