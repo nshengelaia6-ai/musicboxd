@@ -21,7 +21,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 const EMPTY_ALBUMS = [null, null, null, null];
 
@@ -202,11 +202,49 @@ export default function Profile() {
           .select('id, activity_type, item_key, data, created_at')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
-          .limit(10);
+          .limit(500);
 
         if (activityError) {
           console.warn('Could not load cloud profile activity:', activityError);
         } else if (activityRows) {
+          const activityState = new Map<string, { liked: boolean; reviewed: boolean; rating: number; reviewId: string | null }>();
+          const itemKeys = new Set<string>();
+          activityRows.forEach((entry: any) => {
+            const data = entry.data || {};
+            const keys = [String(entry.item_key || ''), String(data.id || '')].filter(Boolean);
+            keys.forEach((key) => {
+              itemKeys.add(key);
+              const state = activityState.get(key) || { liked: false, reviewed: false, rating: 0, reviewId: null };
+              if (entry.activity_type === 'liked') state.liked = true;
+              if (entry.activity_type === 'reviewed') {
+                state.reviewed = true;
+                state.rating = Number(data.rating) || state.rating;
+              }
+              activityState.set(key, state);
+            });
+          });
+
+          const reviewedKeys = [...new Set(activityRows
+            .filter((entry: any) => entry.activity_type === 'reviewed')
+            .map((entry: any) => String(entry.item_key || ''))
+            .filter(Boolean))];
+          if (reviewedKeys.length) {
+            const { data: reviewRows, error: reviewRowsError } = await supabase
+              .from('music_reviews')
+              .select('id,item_id')
+              .eq('user_id', user.id)
+              .in('item_id', reviewedKeys);
+            if (reviewRowsError) {
+              console.warn('Could not load profile review links:', reviewRowsError);
+            } else {
+              (reviewRows || []).forEach((review: any) => {
+                const key = String(review.item_id);
+                const state = activityState.get(key);
+                if (state) state.reviewId = String(review.id);
+              });
+            }
+          }
+
           const cloudItems = activityRows.map((entry: any) => {
             const data = entry.data || {};
             const artists = Array.isArray(data.artists)
@@ -223,8 +261,11 @@ export default function Profile() {
                 data.cover || data.cover_url || data.image || data.imageUrl ||
                 data.image_url || data.artwork || data.albumCover ||
                 data.album?.images?.[0]?.url || '',
-              rating: Number(data.rating) || 0,
+              rating: activityState.get(String(entry.item_key || data.id || ''))?.rating || Number(data.rating) || 0,
               review: data.review || data.comment || data.notes || data.description || '',
+              isLiked: activityState.get(String(entry.item_key || data.id || ''))?.liked || false,
+              hasReview: activityState.get(String(entry.item_key || data.id || ''))?.reviewed || entry.activity_type === 'reviewed',
+              reviewId: activityState.get(String(entry.item_key || data.id || ''))?.reviewId || null,
               activityType: entry.activity_type,
               date: entry.created_at,
               itemType: data.type || (entry.activity_type === 'followed_artist' ? 'artist' : entry.activity_type === 'created_list' ? 'list' : 'album'),
@@ -245,6 +286,11 @@ export default function Profile() {
             .slice(0, 10);
         }
       }
+      recentItems = recentItems.map((item: any) => ({
+        ...item,
+        isLiked: item.isLiked ?? item.activityType === 'liked',
+        hasReview: item.hasReview ?? (!!item.review || item.activityType === 'reviewed'),
+      }));
       setReviews(recentItems);
 
       // Supabase profile data takes priority over device-local cached values.
@@ -626,27 +672,41 @@ if (Array.isArray(sourceAlbums)) {
                     />
                   )}
 
-                  {(Number(item.rating) > 0 || !!item.review || item.activityType === 'listened') && (
-                    <View style={styles.activityMeta}>
-                      {Number(item.rating) > 0 && (
-                        <>
-                          <Text style={styles.activityRatingValue}>
-                            {Number(item.rating).toFixed(1).replace(/\.0$/, '')}
-                          </Text>
-                          <Text style={[styles.activityRating, { color: '#9BA7B2' }]}>
-                            {'\u2605'.repeat(Math.floor(Number(item.rating)))}
-                            {Number(item.rating) % 1 >= 0.5 ? '\u00BD' : ''}
-                          </Text>
-                        </>
-                      )}
-                      {!!item.review && (
-                        <Text style={styles.activityReviewIcon}>{'\u2261'}</Text>
-                      )}
-                      {item.activityType === 'listened' && (
-                        <Text style={styles.activityLoggedIcon}>{'\u25A3'}</Text>
-                      )}
-                    </View>
-                  )}
+                  <View style={styles.activityMeta}>
+                    {Number(item.rating) > 0 && (
+                      <View style={styles.activityStars}>
+                        {Array.from({ length: 5 }, (_, starIndex) => {
+                          const fill = Math.max(0, Math.min(1, Number(item.rating) - starIndex));
+                          return (
+                            <View key={starIndex} style={styles.activityStarClip}>
+                              <Text style={styles.activityStarEmpty}>★</Text>
+                              {fill > 0 && (
+                                <View style={[styles.activityStarFill, { width: 12 * fill }]}>
+                                  <Text style={styles.activityStarActive}>★</Text>
+                                </View>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                    {item.isLiked && <Text style={styles.activityHeart}>♥</Text>}
+                    {item.hasReview && (
+                      <TouchableOpacity
+                        onPress={() => item.reviewId && router.push({ pathname: '/review/[id]', params: { id: item.reviewId } } as any)}
+                        disabled={!item.reviewId}
+                        accessibilityRole="button"
+                        accessibilityLabel="Open review"
+                        hitSlop={6}
+                      >
+                        <Svg width={14} height={14} viewBox="0 0 14 14">
+                          <Line x1="1.5" y1="3" x2="12.5" y2="3" stroke="#9BA7B2" strokeWidth="1.5" strokeLinecap="round" />
+                          <Line x1="1.5" y1="7" x2="12.5" y2="7" stroke="#9BA7B2" strokeWidth="1.5" strokeLinecap="round" />
+                          <Line x1="1.5" y1="11" x2="12.5" y2="11" stroke="#9BA7B2" strokeWidth="1.5" strokeLinecap="round" />
+                        </Svg>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               ))}
             </ScrollView>
@@ -1017,11 +1077,13 @@ const styles = StyleSheet.create({
     minHeight: 16,
     marginTop: 4,
   },
+  activityStars: { flexDirection: 'row', alignItems: 'center', gap: 0 },
+  activityStarClip: { width: 12, height: 14, overflow: 'hidden' },
+  activityStarEmpty: { color: '#555', fontSize: 12, lineHeight: 14, position: 'absolute' },
+  activityStarFill: { height: 14, overflow: 'hidden' },
+  activityStarActive: { color: '#9BA7B2', fontSize: 12, lineHeight: 14, width: 12 },
+  activityHeart: { color: '#e56b83', fontSize: 13, lineHeight: 15 },
   activityBadgeText: { fontSize: 12, fontWeight: '600' },
-  activityRating: { fontSize: 11, letterSpacing: 0.2 },
-  activityRatingValue: { color: '#9BA7B2', fontSize: 10, fontWeight: '600', marginRight: 2 },
-  activityReviewIcon: { color: '#9BA7B2', fontSize: 18, lineHeight: 18, marginLeft: 3, fontWeight: '700' },
-  activityLoggedIcon: { color: '#9BA7B2', fontSize: 13, lineHeight: 16, marginLeft: 3 },
   activityAlbum: {
     color: '#fff',
     fontSize: 11,
