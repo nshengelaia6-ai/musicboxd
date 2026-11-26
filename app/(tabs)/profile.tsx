@@ -1082,7 +1082,7 @@ const styles = StyleSheet.create({
   activityStarEmpty: { color: '#555', fontSize: 12, lineHeight: 14, position: 'absolute' },
   activityStarFill: { height: 14, overflow: 'hidden' },
   activityStarActive: { color: '#9BA7B2', fontSize: 12, lineHeight: 14, width: 12 },
-  activityHeart: { color: '#e56b83', fontSize: 13, lineHeight: 15 },
+  activityHeart: { color: '#9BA7B2', fontSize: 13, lineHeight: 15 },
   activityBadgeText: { fontSize: 12, fontWeight: '600' },
   activityAlbum: {
     color: '#fff',
