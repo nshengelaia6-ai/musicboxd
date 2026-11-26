@@ -4,8 +4,8 @@ test.describe('Authentication screen', () => {
   test('redirects a signed-out visitor to the login screen', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByText('Welcome back.', { exact: true }).last()).toBeVisible();
-    await expect(page.getByPlaceholder('you@example.com')).toBeVisible();
-    await expect(page.getByPlaceholder('Enter your password')).toBeVisible();
+    await expect(page.getByPlaceholder('you@example.com').last()).toBeVisible();
+    await expect(page.getByPlaceholder('Enter your password').last()).toBeVisible();
   });
 
   test('shows validation when login is submitted empty', async ({ page }) => {
