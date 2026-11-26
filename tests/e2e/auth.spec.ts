@@ -16,7 +16,7 @@ test.describe('Authentication screen', () => {
     await page.goto('/');
     await expect(page.getByText('Welcome back.', { exact: true }).last()).toBeVisible();
     await expect(page.getByPlaceholder('you@example.com').last()).toBeVisible();
-    await expect(page.getByPlaceholder('Enter your password', { exact: true })).toBeVisible();
+    await expect(page.getByPlaceholder('Enter your password', { exact: true }).last()).toBeVisible();
   });
 
   test('shows validation when login is submitted empty', async ({ page }) => {
