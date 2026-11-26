@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test.describe('Authentication screen', () => {
   test('redirects a signed-out visitor to the login screen', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByText('Welcome back.')).toBeVisible();
+    await expect(page.getByText('Welcome back.', { exact: true }).last()).toBeVisible();
     await expect(page.getByPlaceholder('you@example.com')).toBeVisible();
     await expect(page.getByPlaceholder('Enter your password')).toBeVisible();
   });
