@@ -73,7 +73,7 @@ export default function DiaryScreen() {
           ...entry,
           artist: entry.artist || review?.albumArtist,
           rating: entry.rating || review?.rating,
-          review: review?.review || '',
+          review: entry.review || review?.review || '',
         };
       });
 
