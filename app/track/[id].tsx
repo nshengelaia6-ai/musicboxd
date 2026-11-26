@@ -434,7 +434,7 @@ export default function TrackPage() {
         { id: `local-${Date.now()}`, activity_type: activityType, item_key: String(track.id), created_at: item.date },
         ...current,
       ].slice(0, 20));
-    } else {
+    } else if (kind !== 'listened') {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { error: removeActivityError } = await supabase.from('user_activity')
@@ -443,6 +443,8 @@ export default function TrackPage() {
       }
       setMyActivity(current => current.filter((entry: any) => entry.activity_type !== activityType));
     }
+    // Unchecking "Listened" only changes the current collection state.
+    // Historical listened events remain append-only so the Diary keeps every listen.
   }
 
 
