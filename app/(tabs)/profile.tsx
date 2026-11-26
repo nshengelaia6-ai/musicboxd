@@ -242,6 +242,15 @@ export default function Profile() {
             if (reviewRowsError) {
               console.warn('Could not load profile review links:', reviewRowsError);
             } else {
+              // A stale `reviewed` activity without a matching non-empty review
+              // must not make a rating-only log appear in Recently Active.
+              reviewedKeys.forEach((key) => {
+                const state = activityState.get(key);
+                if (state) {
+                  state.reviewed = false;
+                  state.reviewId = null;
+                }
+              });
               (reviewRows || []).forEach((review: any) => {
                 const key = String(review.item_id);
                 const state = activityState.get(key);
@@ -281,7 +290,7 @@ export default function Profile() {
               date: entry.created_at,
               itemType: data.type || (entry.activity_type === 'followed_artist' ? 'artist' : entry.activity_type === 'created_list' ? 'list' : 'album'),
             };
-          });
+          }).filter((item: any) => item.activityType !== 'reviewed' || item.hasReview);
           const cloudReviewKeys = new Set(
             cloudItems
               .filter((item: any) => item.activityType === 'reviewed')
