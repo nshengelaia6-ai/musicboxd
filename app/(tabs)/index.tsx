@@ -656,6 +656,9 @@ export default function Home() {
       >
         <View style={styles.header}>
           <Text style={styles.pageTitle}>Musicboxd</Text>
+          <TouchableOpacity onPress={() => router.push('/notifications' as any)} style={styles.notificationsButton} accessibilityRole="button" accessibilityLabel="Open notifications">
+            <Text style={styles.notificationsIcon}>♧</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.homeNav}>
           <View style={[styles.homeNavTab, styles.homeNavTabActive]}>
@@ -1276,6 +1279,8 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 32,
   },
+  notificationsButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  notificationsIcon: { color: '#fff', fontSize: 25 },
   header: {
     alignItems: 'center',
     justifyContent: 'center',
