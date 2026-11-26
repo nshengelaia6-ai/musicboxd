@@ -206,6 +206,28 @@ export default function ReviewPage() {
       }
       await AsyncStorage.setItem('listened', JSON.stringify(listenedList));
 
+      // Keep the Diary (listening log) separate from written Reviews.
+      const diaryEntry = {
+        id: `${resolvedType}-${String(albumId)}`,
+        itemId: String(albumId),
+        name: String(albumName ?? ''),
+        artist: String(albumArtist ?? ''),
+        cover: String(albumCover ?? ''),
+        type: resolvedType,
+        albumId: resolvedType === 'track' ? resolvedParentAlbumId : String(albumId),
+        rating: Number(rating) || 0,
+        date: savedAt,
+        review: String(review || '').trim(),
+      };
+      const diaryData = await AsyncStorage.getItem('diary_entries');
+      const diaryEntries = diaryData ? JSON.parse(diaryData) : [];
+      const diaryIndex = diaryEntries.findIndex((entry: any) =>
+        String(entry.itemId || entry.id) === String(albumId) && entry.type === resolvedType
+      );
+      if (diaryIndex >= 0) diaryEntries[diaryIndex] = { ...diaryEntries[diaryIndex], ...diaryEntry };
+      else diaryEntries.unshift(diaryEntry);
+      await AsyncStorage.setItem('diary_entries', JSON.stringify(diaryEntries));
+
       const savedReview = reviews.find((item: any) =>
         String(item.albumId) === String(albumId) && (item.itemType || 'album') === resolvedType
       );
@@ -242,16 +264,37 @@ export default function ReviewPage() {
           }, { onConflict: 'user_id,item_type,item_id' });
         if (publicReviewError) throw publicReviewError;
 
-        const { error: profileSyncError } = await supabase
+        const { error: diarySyncError } = await supabase
           .from('public_profile_items')
           .upsert({
             user_id: user.id,
-            section: 'reviews',
+            section: 'diary',
             item_key: String(albumId),
-            data: savedReview,
+            data: diaryEntry,
             updated_at: savedAt,
           }, { onConflict: 'user_id,section,item_key' });
-        if (profileSyncError) console.error('Review profile sync failed:', profileSyncError);
+        if (diarySyncError) console.error('Diary profile sync failed:', diarySyncError);
+
+        if (hasReviewText) {
+          const { error: profileSyncError } = await supabase
+            .from('public_profile_items')
+            .upsert({
+              user_id: user.id,
+              section: 'reviews',
+              item_key: String(albumId),
+              data: savedReview,
+              updated_at: savedAt,
+            }, { onConflict: 'user_id,section,item_key' });
+          if (profileSyncError) console.error('Review profile sync failed:', profileSyncError);
+        } else {
+          const { error: removeReviewProfileError } = await supabase
+            .from('public_profile_items')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('section', 'reviews')
+            .eq('item_key', String(albumId));
+          if (removeReviewProfileError) console.error('Could not remove empty review from profile:', removeReviewProfileError);
+        }
 
         if (isNewReview) {
           await recordActivity('reviewed', String(albumId), reviewData);
@@ -304,7 +347,7 @@ export default function ReviewPage() {
           <Text style={styles.cancel}>Cancel</Text>
         </TouchableOpacity>
         <Text style={styles.title}>
-          {loaded && (rating > 0 || review.trim().length > 0) ? 'Edit Review' : 'I Listened...'}
+          {loaded && review.trim().length > 0 ? 'Edit Review' : loaded && rating > 0 ? 'Edit Log' : 'I Listened...'}
         </Text>
         <TouchableOpacity onPress={handleSave} disabled={!canSave || saving}>
           <Text style={[styles.save, (!canSave || saving) && { opacity: 0.4 }]}>{saving ? 'Saving…' : 'Save'}</Text>
