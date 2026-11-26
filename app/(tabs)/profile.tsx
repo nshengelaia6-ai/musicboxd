@@ -626,11 +626,25 @@ if (Array.isArray(sourceAlbums)) {
                     />
                   )}
 
-                  {Number(item.rating) > 0 && (
+                  {(Number(item.rating) > 0 || !!item.review || item.activityType === 'listened') && (
                     <View style={styles.activityMeta}>
-                      <Text style={[styles.activityRating, { color: '#9BA7B2' }]}>
-                        {'\u2605'.repeat(Math.floor(Number(item.rating)))}
-                      </Text>
+                      {Number(item.rating) > 0 && (
+                        <>
+                          <Text style={styles.activityRatingValue}>
+                            {Number(item.rating).toFixed(1).replace(/\.0$/, '')}
+                          </Text>
+                          <Text style={[styles.activityRating, { color: '#9BA7B2' }]}>
+                            {'\u2605'.repeat(Math.floor(Number(item.rating)))}
+                            {Number(item.rating) % 1 >= 0.5 ? '\u00BD' : ''}
+                          </Text>
+                        </>
+                      )}
+                      {!!item.review && (
+                        <Text style={styles.activityReviewIcon}>{'\u2261'}</Text>
+                      )}
+                      {item.activityType === 'listened' && (
+                        <Text style={styles.activityLoggedIcon}>{'\u25A3'}</Text>
+                      )}
                     </View>
                   )}
                 </View>
@@ -1004,7 +1018,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   activityBadgeText: { fontSize: 12, fontWeight: '600' },
-  activityRating: { fontSize: 11 },
+  activityRating: { fontSize: 11, letterSpacing: 0.2 },
+  activityRatingValue: { color: '#9BA7B2', fontSize: 10, fontWeight: '600', marginRight: 2 },
+  activityReviewIcon: { color: '#9BA7B2', fontSize: 18, lineHeight: 18, marginLeft: 3, fontWeight: '700' },
+  activityLoggedIcon: { color: '#9BA7B2', fontSize: 13, lineHeight: 16, marginLeft: 3 },
   activityAlbum: {
     color: '#fff',
     fontSize: 11,
