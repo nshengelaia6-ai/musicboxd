@@ -58,15 +58,16 @@ export default function Reviews() {
       if(filter==='LIKED') request=request.in('id',likedIds);
       const {data,error:reviewError}=await request;
       if(reviewError) throw reviewError;
-      // On a single item's review page, show at most one review per account.
-      // Keep the most recently updated entry if older data contains duplicates.
-      const uniqueAuthors = new Set<string>();
+      // Keep only one review per account for each specific item.
+      // This also protects the unscoped track reviews feed if itemId is missing.
+      // The query is newest-first, so the most recently updated review wins.
+      const seenUserItems = new Set<string>();
       let rows=((data||[]) as Review[])
         .filter(row => typeof row.review_text === 'string' && row.review_text.trim().length > 0)
         .filter(row => {
-          if (!itemId) return true;
-          if (uniqueAuthors.has(row.user_id)) return false;
-          uniqueAuthors.add(row.user_id);
+          const key = `${row.user_id}:${row.item_type}:${row.item_id}`;
+          if (seenUserItems.has(key)) return false;
+          seenUserItems.add(key);
           return true;
         });
       if(filter==='FRIENDS'){
