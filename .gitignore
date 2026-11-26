@@ -55,3 +55,7 @@ app-example
 *.emoji-backup
 
 *.backup.*
+
+# Playwright
+/playwright-report/
+/test-results/
