@@ -208,7 +208,7 @@ export default function ReviewPage() {
 
       // Keep the Diary (listening log) separate from written Reviews.
       const diaryEntry = {
-        id: `${resolvedType}-${String(albumId)}`,
+        id: `listen-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         itemId: String(albumId),
         name: String(albumName ?? ''),
         artist: String(albumArtist ?? ''),
@@ -221,11 +221,7 @@ export default function ReviewPage() {
       };
       const diaryData = await AsyncStorage.getItem('diary_entries');
       const diaryEntries = diaryData ? JSON.parse(diaryData) : [];
-      const diaryIndex = diaryEntries.findIndex((entry: any) =>
-        String(entry.itemId || entry.id) === String(albumId) && entry.type === resolvedType
-      );
-      if (diaryIndex >= 0) diaryEntries[diaryIndex] = { ...diaryEntries[diaryIndex], ...diaryEntry };
-      else diaryEntries.unshift(diaryEntry);
+      diaryEntries.unshift(diaryEntry);
       await AsyncStorage.setItem('diary_entries', JSON.stringify(diaryEntries));
 
       const savedReview = reviews.find((item: any) =>
@@ -269,7 +265,7 @@ export default function ReviewPage() {
           .upsert({
             user_id: user.id,
             section: 'diary',
-            item_key: String(albumId),
+            item_key: diaryEntry.id,
             data: diaryEntry,
             updated_at: savedAt,
           }, { onConflict: 'user_id,section,item_key' });
@@ -333,9 +329,21 @@ export default function ReviewPage() {
         }
       }
 
-      if (isNewListened) {
-        await recordActivity('listened', String(albumId), listenedList[0]);
-      }
+      // Every explicit save of a listen/log creates a separate Diary event.
+      // Ratings and reviews remain one-per-item; listening history is append-only.
+      const listenedEntry = listenedIndex >= 0 ? listenedList[listenedIndex] : listenedList[0];
+      await recordActivity('listened', String(albumId), {
+        ...listenedEntry,
+        id: String(albumId),
+        name: String(albumName ?? ''),
+        artist: String(albumArtist ?? ''),
+        cover: String(albumCover ?? ''),
+        type: resolvedType,
+        albumId: resolvedType === 'track' ? resolvedParentAlbumId : String(albumId),
+        rating: Number(rating) || 0,
+        date: savedAt,
+        review: String(review || '').trim(),
+      });
 
       await AsyncStorage.setItem('review_saved_notification', JSON.stringify({ time: Date.now() }));
       router.back();
