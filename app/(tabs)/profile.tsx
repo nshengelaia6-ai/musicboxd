@@ -672,7 +672,19 @@ if (Array.isArray(sourceAlbums)) {
               }}
             >
               {reviews.slice(0, 10).map((item, index) => (
-                <View key={item.id ?? index} style={styles.activityCard}>
+                <TouchableOpacity
+                  key={item.id ?? index}
+                  style={styles.activityCard}
+                  activeOpacity={0.85}
+                  disabled={!item.hasReview || !item.reviewId}
+                  onPress={() => {
+                    if (item.hasReview && item.reviewId) {
+                      router.push({ pathname: '/review/[id]', params: { id: String(item.reviewId) } } as any);
+                    }
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.hasReview ? 'Open this review' : 'Activity item'}
+                >
                   {item.albumCover ? (
                     <Image
                       source={{ uri: item.albumCover }}
@@ -722,7 +734,7 @@ if (Array.isArray(sourceAlbums)) {
                       </TouchableOpacity>
                     )}
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
           </>
