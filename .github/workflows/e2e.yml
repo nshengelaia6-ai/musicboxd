@@ -1,0 +1,29 @@
+name: Musicboxd browser tests
+
+on:
+  push:
+    branches:
+      - feature/musicboxd-top-navigation
+  pull_request:
+    branches:
+      - feature/musicboxd-top-navigation
+  workflow_dispatch:
+
+jobs:
+  browser-tests:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm install
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run browser tests
+        run: npx playwright test
