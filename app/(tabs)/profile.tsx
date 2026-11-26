@@ -954,8 +954,8 @@ const styles = StyleSheet.create({
   },
   statLabel: { color: '#888', fontSize: 12 },
   activityHeadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 20 },
-  activitySeeAll: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#242424', borderWidth: 1, borderColor: '#383838', alignItems: 'center', justifyContent: 'center' },
-  activitySeeAllArrow: { color: '#e5e5e5', fontSize: 21, lineHeight: 23, fontWeight: '500', marginTop: -1 },
+  activitySeeAll: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  activitySeeAllArrow: { color: '#d8d8d8', fontSize: 27, lineHeight: 30, fontWeight: '700', marginTop: -2 },
   sectionTitle: {
     color: '#888',
     fontSize: 11,
