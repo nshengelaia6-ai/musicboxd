@@ -151,7 +151,7 @@ export default function NotificationsScreen() {
         </TouchableOpacity>
       ) : items.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>You're all caught up</Text>
+          <Text style={styles.emptyTitle}>You&apos;re all caught up</Text>
           <Text style={styles.emptyText}>Your notifications will appear here.</Text>
         </View>
       ) : (
