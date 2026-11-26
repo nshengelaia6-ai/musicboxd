@@ -159,7 +159,12 @@ export default function Profile() {
       let localReviews: any[] = [];
       try {
         const parsedReviews = reviewsData ? JSON.parse(reviewsData) : [];
-        localReviews = Array.isArray(parsedReviews) ? parsedReviews : [];
+        localReviews = Array.isArray(parsedReviews)
+          ? parsedReviews.filter((item: any) => {
+              const reviewText = item?.review ?? item?.review_text ?? item?.text ?? '';
+              return typeof reviewText === 'string' && reviewText.trim().length > 0;
+            })
+          : [];
       } catch {
         localReviews = [];
       }
@@ -283,7 +288,10 @@ export default function Profile() {
               .map((item: any) => String(item.albumId))
           );
           const legacyItems = localReviews.filter(
-            (item: any) => !cloudReviewKeys.has(String(item.albumId))
+            (item: any) =>
+              !cloudReviewKeys.has(String(item.albumId)) &&
+              typeof (item.review ?? item.review_text ?? item.text) === 'string' &&
+              String(item.review ?? item.review_text ?? item.text).trim().length > 0
           );
           recentItems = [...cloudItems, ...legacyItems]
             .sort((a: any, b: any) =>
