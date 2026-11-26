@@ -688,10 +688,6 @@ export default function Home() {
       >
         <View style={styles.header}>
           <Text style={styles.pageTitle}>Musicboxd</Text>
-          <TouchableOpacity onPress={() => router.push('/notifications' as any)} style={styles.notificationsButton} accessibilityRole="button" accessibilityLabel="Open notifications">
-            <Text style={styles.notificationsIcon}>🔔</Text>
-            {unreadNotificationCount > 0 && <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</Text></View>}
-          </TouchableOpacity>
         </View>
         <View style={styles.homeNav}>
           <View style={[styles.homeNavTab, styles.homeNavTabActive]}>
@@ -1312,10 +1308,6 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 32,
   },
-  notificationsButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  notificationsIcon: { color: '#fff', fontSize: 23 },
-  notificationBadge: { position: 'absolute', top: 0, right: -2, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#e04444', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
-  notificationBadgeText: { color: '#fff', fontSize: 9, fontWeight: '700' },
   header: {
     alignItems: 'center',
     justifyContent: 'center',
