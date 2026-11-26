@@ -686,7 +686,16 @@ export default function AlbumPage() {
               <View style={styles.hero} onLayout={e => { headerHeight.current = e.nativeEvent.layout.height + 72; }}>
                 <View style={styles.heroInfo}>
                   <Text style={styles.albumName}>{album.name}</Text>
-                  <Text style={styles.artistName}>{album.artists?.map((artist: any) => artist.name).join(', ')}</Text>
+                  <View style={styles.artistLinks}>
+                    {(album.artists || []).map((artist: any, index: number) => (
+                      <View key={artist.id || `${artist.name}-${index}`} style={styles.artistLinkWrap}>
+                        {index > 0 && <Text style={styles.artistName}>{', '}</Text>}
+                        <TouchableOpacity onPress={() => artist.id && router.push(`/artist/${artist.id}` as any)} disabled={!artist.id} accessibilityRole="button" accessibilityLabel={`Open artist ${artist.name}`}>
+                          <Text style={[styles.artistName, styles.artistNameLink]}>{artist.name}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
                   <Text style={styles.meta}>{album.total_tracks} tracks  ·  {String(album.album_type || 'album').toUpperCase()}</Text>
                 </View>
                 {album.images?.[0]?.url ? <Image source={{ uri: album.images[0].url }} style={styles.cover} /> : <View style={[styles.cover, styles.coverPlaceholder]} />}
@@ -1534,6 +1543,8 @@ const styles = StyleSheet.create({
   heroInfo: { flex: 1, alignItems: 'flex-start' },
   albumName: { color: '#fff', fontSize: 29, lineHeight: 34, fontWeight: '800', marginTop: 7 },
   artistName: { color: '#D5DADF', fontSize: 17, marginTop: 7 },
+  artistLinks: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 7 },
+  artistNameLink: { textDecorationLine: 'underline' },
   meta: { color: '#D5DADF', fontSize: 13, marginTop: 9 },
   albumDescription: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 4 },
   listenRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
