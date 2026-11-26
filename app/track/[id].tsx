@@ -562,7 +562,21 @@ export default function TrackPage() {
           <View style={styles.hero}>
             <View style={styles.heroInfo}>
               <Text style={styles.songTitle}>{track.name}</Text>
-              <Text style={styles.artist}>{artist}</Text>
+              <View style={styles.artistLinks}>
+                {(track.artists || []).map((person: any, index: number) => (
+                  <View key={person.id || `${person.name}-${index}`} style={styles.artistLinkWrap}>
+                    <TouchableOpacity
+                      onPress={() => person.id && router.push(`/artist/${person.id}` as any)}
+                      disabled={!person.id}
+                      accessibilityRole="link"
+                      accessibilityLabel={`Open artist ${person.name}`}
+                    >
+                      <Text style={styles.artist}>{person.name}</Text>
+                    </TouchableOpacity>
+                    {index < (track.artists || []).length - 1 ? <Text style={styles.artistComma}>, </Text> : null}
+                  </View>
+                ))}
+              </View>
               <TouchableOpacity onPress={() => router.push(`/album/${track.album?.id}` as any)}>
                 <Text style={styles.albumLink}>{track.album?.name || 'Album'}</Text>
               </TouchableOpacity>
@@ -570,7 +584,15 @@ export default function TrackPage() {
                 {releaseYear}{releaseYear ? '  ·  ' : ''}SONG
               </Text>
             </View>
-            {cover ? <Image source={{ uri: cover }} style={styles.cover} /> : <View style={[styles.cover, styles.coverPlaceholder]} />}
+            <TouchableOpacity
+              activeOpacity={track.album?.id ? 0.82 : 1}
+              disabled={!track.album?.id}
+              onPress={() => track.album?.id && router.push(`/album/${track.album.id}` as any)}
+              accessibilityRole={track.album?.id ? 'link' : undefined}
+              accessibilityLabel={track.album?.id ? `Open album ${track.album?.name || 'album'}` : undefined}
+            >
+              {cover ? <Image source={{ uri: cover }} style={styles.cover} /> : <View style={[styles.cover, styles.coverPlaceholder]} />}
+            </TouchableOpacity>
           </View>
         </ImageBackground>
 
@@ -819,6 +841,9 @@ const styles = StyleSheet.create({
   coverPlaceholder: { backgroundColor: '#252525' },
   songTitle: { color: '#fff', fontSize: 29, lineHeight: 34, fontWeight: '800', marginTop: 7 },
   artist: { color: '#D5DADF', fontSize: 17, marginTop: 7 },
+  artistLinks: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 2 },
+  artistLinkWrap: { flexDirection: 'row', alignItems: 'center' },
+  artistComma: { color: '#D5DADF', fontSize: 17 },
   albumLink: { color: '#D5DADF', fontSize: 13, marginTop: 9, fontWeight: '600' },
   typeLabel: { color: '#D5DADF', fontSize: 13, marginTop: 9 },
   listenRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 4 },
