@@ -249,7 +249,9 @@ export default function Profile() {
             }
           }
 
-          const cloudItems = activityRows.map((entry: any) => {
+          // Recently Active shows likes and written reviews, not rating-only listening logs.
+          const visibleActivityRows = activityRows.filter((entry: any) => entry.activity_type !== 'listened');
+          const cloudItems = visibleActivityRows.map((entry: any) => {
             const data = entry.data || {};
             const artists = Array.isArray(data.artists)
               ? data.artists.map((artist: any) => artist?.name || artist).filter(Boolean).join(', ')
