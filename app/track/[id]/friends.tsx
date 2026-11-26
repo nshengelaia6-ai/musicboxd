@@ -60,7 +60,7 @@ export default function TrackFriendsPage() {
     }
     if (id) void load();
     return () => { active = false; };
-  }, [id, filter, isWantList]);
+  }, [id, filter, section, isWantList]);
 
   function renderMember(person: MemberStatus) {
     return (
