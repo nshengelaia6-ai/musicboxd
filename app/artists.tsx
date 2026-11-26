@@ -22,7 +22,24 @@ export default function ArtistsScreen() {
           if (user) {
             const { data, error } = await supabase.from('artist_follows').select('artist_id,artist_name,artist_image,created_at').eq('user_id', user.id).order('created_at', { ascending: false });
             if (error) throw error;
-            const cloudArtists = (data || []).map((row: any) => ({ id: String(row.artist_id), name: row.artist_name, image: row.artist_image || '' }));
+            let cloudArtists = (data || []).map((row: any) => ({ id: String(row.artist_id), name: row.artist_name, image: row.artist_image || '' }));
+            if (cloudArtists.length === 0) {
+              const legacyData = await AsyncStorage.getItem('followed_artists');
+              const legacyArtists = legacyData ? JSON.parse(legacyData) : [];
+              if (Array.isArray(legacyArtists) && legacyArtists.length) {
+                const { error: migrationError } = await supabase.from('artist_follows').upsert(
+                  legacyArtists.filter((item: any) => item?.id).map((item: any) => ({
+                    user_id: user.id,
+                    artist_id: String(item.id),
+                    artist_name: String(item.name || ''),
+                    artist_image: String(item.image || ''),
+                  })),
+                  { onConflict: 'user_id,artist_id' }
+                );
+                if (migrationError) throw migrationError;
+                cloudArtists = legacyArtists;
+              }
+            }
             await AsyncStorage.setItem('followed_artists', JSON.stringify(cloudArtists));
             if (active) setArtists(cloudArtists);
           } else {
