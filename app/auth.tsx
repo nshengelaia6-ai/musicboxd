@@ -617,6 +617,8 @@ export default function AuthScreen() {
             {!!message && <Text style={styles.message}>{message}</Text>}
 
             <Pressable
+              testID="auth-submit-button"
+              accessibilityRole="button"
               style={[styles.submitButton, loading && styles.disabled]}
               onPress={handleSubmit}
               disabled={loading}
