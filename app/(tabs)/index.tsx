@@ -335,6 +335,7 @@ export default function Home() {
             username: user?.username || 'User',
           },
           rating: activity.data?.rating ?? '',
+          review: typeof activity.data?.review === 'string' ? activity.data.review : '',
           created_at: activity.created_at,
         };
       });
@@ -928,6 +929,11 @@ export default function Home() {
                     {'\u2605'} {Number(item.rating).toFixed(1)}
                   </Text>
                 ) : null}
+                {item.review?.trim() ? (
+                  <Text style={styles.reviewSnippet} numberOfLines={2}>
+                    {item.review}
+                  </Text>
+                ) : null}
 
                 <Text style={styles.friendName}>
                   {item.users?.username}
@@ -1434,6 +1440,12 @@ const styles = StyleSheet.create({
     color: '#1DB954',
     fontSize: 12,
     marginTop: 2,
+  },
+  reviewSnippet: {
+    color: '#aaa',
+    fontSize: 10,
+    lineHeight: 13,
+    marginTop: 3,
   },
   friendName: {
     color: '#555',
