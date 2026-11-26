@@ -657,7 +657,7 @@ export default function Home() {
         <View style={styles.header}>
           <Text style={styles.pageTitle}>Musicboxd</Text>
           <TouchableOpacity onPress={() => router.push('/notifications' as any)} style={styles.notificationsButton} accessibilityRole="button" accessibilityLabel="Open notifications">
-            <Text style={styles.notificationsIcon}>♧</Text>
+            <Text style={styles.notificationsIcon}>🔔</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.homeNav}>
