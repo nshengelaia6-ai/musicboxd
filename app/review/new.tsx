@@ -296,30 +296,40 @@ export default function ReviewPage() {
           if (removeReviewProfileError) console.error('Could not remove empty review from profile:', removeReviewProfileError);
         }
 
-        if (isNewReview) {
-          await recordActivity('reviewed', String(albumId), reviewData);
-        } else {
-          const { data: activityRows, error: activityLookupError } = await supabase
-            .from('user_activity')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('activity_type', 'reviewed')
-            .eq('item_key', String(albumId))
-            .order('created_at', { ascending: false })
-            .limit(100);
-          if (activityLookupError) throw activityLookupError;
-
-          if (activityRows?.length) {
-            const { error: activityUpdateError } = await supabase
+        if (hasReviewText) {
+          if (isNewReview) {
+            await recordActivity('reviewed', String(albumId), reviewData);
+          } else {
+            const { data: activityRows, error: activityLookupError } = await supabase
               .from('user_activity')
-              .update({ data: reviewData, created_at: savedAt })
+              .select('id')
               .eq('user_id', user.id)
               .eq('activity_type', 'reviewed')
-              .eq('item_key', String(albumId));
-            if (activityUpdateError) throw activityUpdateError;
-          } else {
-            await recordActivity('reviewed', String(albumId), reviewData);
+              .eq('item_key', String(albumId))
+              .order('created_at', { ascending: false })
+              .limit(100);
+            if (activityLookupError) throw activityLookupError;
+
+            if (activityRows?.length) {
+              const { error: activityUpdateError } = await supabase
+                .from('user_activity')
+                .update({ data: reviewData, created_at: savedAt })
+                .eq('user_id', user.id)
+                .eq('activity_type', 'reviewed')
+                .eq('item_key', String(albumId));
+              if (activityUpdateError) throw activityUpdateError;
+            } else {
+              await recordActivity('reviewed', String(albumId), reviewData);
+            }
           }
+        } else {
+          const { error: removeReviewActivityError } = await supabase
+            .from('user_activity')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('activity_type', 'reviewed')
+            .eq('item_key', String(albumId));
+          if (removeReviewActivityError) throw removeReviewActivityError;
         }
       }
 
