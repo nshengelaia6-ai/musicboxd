@@ -1,5 +1,6 @@
 import { useAppTheme } from '@/context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -15,16 +16,31 @@ export default function ArtistsScreen() {
     useCallback(() => {
       let active = true;
       setLoading(true);
-      AsyncStorage.getItem('followed_artists')
-        .then(data => {
-          if (active) setArtists(data ? JSON.parse(data) : []);
-        })
-        .catch(() => {
-          if (active) setError('Could not load followed artists.');
-        })
-        .finally(() => {
+      (async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data, error } = await supabase.from('artist_follows').select('artist_id,artist_name,artist_image,created_at').eq('user_id', user.id).order('created_at', { ascending: false });
+            if (error) throw error;
+            const cloudArtists = (data || []).map((row: any) => ({ id: String(row.artist_id), name: row.artist_name, image: row.artist_image || '' }));
+            await AsyncStorage.setItem('followed_artists', JSON.stringify(cloudArtists));
+            if (active) setArtists(cloudArtists);
+          } else {
+            const data = await AsyncStorage.getItem('followed_artists');
+            if (active) setArtists(data ? JSON.parse(data) : []);
+          }
+        } catch (loadError) {
+          console.error('Could not load followed artists:', loadError);
+          try {
+            const data = await AsyncStorage.getItem('followed_artists');
+            if (active) setArtists(data ? JSON.parse(data) : []);
+          } catch {
+            if (active) setError('Could not load followed artists.');
+          }
+        } finally {
           if (active) setLoading(false);
-        });
+        }
+      })();
       return () => { active = false; };
     }, [])
   );
