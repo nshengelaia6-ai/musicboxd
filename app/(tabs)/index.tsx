@@ -923,6 +923,12 @@ export default function Home() {
                   {item.artist_name}
                 </Text>
 
+                {Number(item.rating) > 0 ? (
+                  <Text style={styles.ratingText}>
+                    {'\u2605'} {Number(item.rating).toFixed(1)}
+                  </Text>
+                ) : null}
+
                 <Text style={styles.friendName}>
                   {item.users?.username}
                 </Text>
