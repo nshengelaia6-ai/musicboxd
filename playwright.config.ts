@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = 'http://127.0.0.1:8081';
+const baseURL = 'http://localhost:8081';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -16,7 +16,7 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
   },
   webServer: {
-    command: 'npm run web -- --host 127.0.0.1 --port 8081',
+    command: 'npm run web -- --host localhost --port 8081',
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
