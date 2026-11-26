@@ -187,7 +187,6 @@ export default function ReviewPage() {
       const listenedIndex = listenedList.findIndex((item: any) =>
         String(item.id) === String(albumId) && (item.type || 'album') === resolvedType
       );
-      const isNewListened = listenedIndex === -1;
 
       if (listenedIndex !== -1) {
         if (rating > 0) listenedList[listenedIndex].rating = rating;
