@@ -58,7 +58,17 @@ export default function Reviews() {
       if(filter==='LIKED') request=request.in('id',likedIds);
       const {data,error:reviewError}=await request;
       if(reviewError) throw reviewError;
-      let rows=((data||[]) as Review[]).filter(row => typeof row.review_text === 'string' && row.review_text.trim().length > 0);
+      // On a single item's review page, show at most one review per account.
+      // Keep the most recently updated entry if older data contains duplicates.
+      const uniqueAuthors = new Set<string>();
+      let rows=((data||[]) as Review[])
+        .filter(row => typeof row.review_text === 'string' && row.review_text.trim().length > 0)
+        .filter(row => {
+          if (!itemId) return true;
+          if (uniqueAuthors.has(row.user_id)) return false;
+          uniqueAuthors.add(row.user_id);
+          return true;
+        });
       if(filter==='FRIENDS'){
         if(!uid) rows=[];
         else {
