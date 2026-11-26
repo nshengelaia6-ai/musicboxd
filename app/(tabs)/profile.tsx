@@ -644,7 +644,7 @@ if (Array.isArray(sourceAlbums)) {
                 accessibilityRole="button"
                 accessibilityLabel="See all recent activity"
               >
-                <Text style={styles.activitySeeAllArrow}>{'>'}</Text>
+                <Text style={styles.activitySeeAllArrow}>{'›'}</Text>
               </TouchableOpacity>
             </View>
 
