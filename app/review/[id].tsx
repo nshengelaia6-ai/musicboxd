@@ -24,7 +24,6 @@ export default function ReviewDetail() {
   const [myProfile,setMyProfile]=useState<Person|null>(null);
   const [replyText,setReplyText]=useState('');
   const [replyOpen,setReplyOpen]=useState(false);
-  const [repliesExpanded,setRepliesExpanded]=useState(false);
   const [userId,setUserId]=useState('');
   const [likes,setLikes]=useState(0);
   const [liked,setLiked]=useState(false);
@@ -38,11 +37,9 @@ export default function ReviewDetail() {
   const [authorLikedReviews,setAuthorLikedReviews]=useState<LikedReview[]>([]);
   const [likedPeople,setLikedPeople]=useState<LikedPerson[]>([]);
   const likedPeopleScroll=useRef<ScrollView>(null);
-  const reviewScroll=useRef<ScrollView>(null);
-  const [repliesTop,setRepliesTop]=useState(0);
 
   const load=useCallback(async()=>{
-    setLoading(true);setError('');setMyProfile(null);setLikedPeople([]);setReplyPeople({});setReplies([]);setRepliesExpanded(false);setReleaseYear('');setAlbumId('');setAuthorLikedSong(false);
+    setLoading(true);setError('');setMyProfile(null);setLikedPeople([]);setReplyPeople({});setReplies([]);setReleaseYear('');setAlbumId('');setAuthorLikedSong(false);
     try {
       const [{data:auth,error:authError},{data:row,error:reviewError}]=await Promise.all([
         supabase.auth.getUser(),
@@ -182,7 +179,7 @@ export default function ReviewDetail() {
         </View>
       </> : <View style={styles.emptyLikedPeopleDivider} />}
       <View style={styles.reviewLinksRow}>
-        <TouchableOpacity style={styles.replyButton} onPress={()=>{if(replies.length){const expand=!repliesExpanded;setRepliesExpanded(expand);setReplyOpen(false);if(expand)requestAnimationFrame(()=>reviewScroll.current?.scrollTo({y:Math.max(0,repliesTop-18),animated:true}));}else{setReplyOpen(value=>!value);}}}>
+        <TouchableOpacity style={styles.replyButton} onPress={()=>router.push({pathname:'/review/[id]/comments',params:{id:String(review.id)}} as any)}>
           <Text style={styles.replyButtonText}>{replies.length?`${replies.length} ${replies.length===1?'comment':'comments'}`:'Reply'}</Text>
         </TouchableOpacity>
         <TouchableOpacity disabled={!(albumId||(review.item_type==='album'?review.item_id:''))} style={[styles.albumButton,!(albumId||(review.item_type==='album'?review.item_id:''))&&styles.albumButtonDisabled]} onPress={()=>{const targetAlbumId=albumId||(review.item_type==='album'?review.item_id:'');if(targetAlbumId)router.push({pathname:'/album/[id]',params:{id:targetAlbumId}} as any);}}>
@@ -202,18 +199,7 @@ export default function ReviewDetail() {
           </View>
         </View>
       </View>}
-      {repliesExpanded&&<View onLayout={event=>setRepliesTop(event.nativeEvent.layout.y)}>
-      {replies.map(reply=>{
-        const person=replyPeople[reply.user_id];
-        return <View key={reply.id} style={styles.replyRow}>
-          {person?.avatar_url?<Image source={{uri:person.avatar_url}} style={styles.replyAvatar}/>:<View style={styles.replyAvatar}/>}
-          <View style={{flex:1}}>
-            <Text style={styles.replyUsername}>{person?.username||'listener'}</Text>
-            <Text style={styles.replyText}>{reply.reply_text}</Text>
-          </View>
-        </View>;
-      })}
-      </View>}
+
     </ScrollView>
     </KeyboardAvoidingView>
   </View>;
