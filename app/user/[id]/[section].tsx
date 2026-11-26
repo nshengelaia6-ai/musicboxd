@@ -143,7 +143,12 @@ export default function UserCategoryScreen() {
                 updated_at: item.updated_at || item.created_at,
               }))
             : (itemsResult.data || []) as ProfileItem[];
-          setItems(visibleItems);
+          setItems(section === 'reviews'
+            ? visibleItems.filter((entry: ProfileItem) => {
+                const text = entry.data?.review ?? entry.data?.review_text ?? '';
+                return typeof text === 'string' && text.trim().length > 0;
+              })
+            : visibleItems);
           setUsername(profileResult.data?.username || 'User');
         }
       } catch (err) {
