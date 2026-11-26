@@ -1,8 +1,9 @@
 import { useAppTheme } from '@/context/ThemeContext';
+import { addMusicItemToList, loadUserMusicLists } from '@/utils/musicLists';
 import { supabase } from '@/utils/supabase';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 type Review = {
   id:string; user_id:string; item_type:string; item_id:string; item_name:string;
@@ -27,6 +28,13 @@ export default function ReviewDetail() {
   const [userId,setUserId]=useState('');
   const [likes,setLikes]=useState(0);
   const [liked,setLiked]=useState(false);
+  const [menuVisible,setMenuVisible]=useState(false);
+  const [listModalVisible,setListModalVisible]=useState(false);
+  const [editModalVisible,setEditModalVisible]=useState(false);
+  const [editText,setEditText]=useState('');
+  const [userLists,setUserLists]=useState<any[]>([]);
+  const [listsLoading,setListsLoading]=useState(false);
+  const [actionLoading,setActionLoading]=useState(false);
   const [sending,setSending]=useState(false);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
@@ -124,6 +132,109 @@ export default function ReviewDetail() {
     finally{setSending(false);}
   }
 
+
+  const isOwnReview = !!userId && review?.user_id === userId;
+
+  async function openListPicker() {
+    setMenuVisible(false);
+    if (!userId) {
+      Alert.alert('Sign in required', 'Sign in to add music to your lists.');
+      return;
+    }
+    setListsLoading(true);
+    setListModalVisible(true);
+    try {
+      const lists = await loadUserMusicLists();
+      setUserLists(Array.isArray(lists) ? lists : []);
+    } catch (e: any) {
+      setListModalVisible(false);
+      Alert.alert('Could not load lists', e?.message || 'Please try again.');
+    } finally {
+      setListsLoading(false);
+    }
+  }
+
+  async function addReviewItemToList(list: any) {
+    if (!review || actionLoading) return;
+    setActionLoading(true);
+    try {
+      const item = {
+        id: review.item_id,
+        type: review.item_type === 'album' ? 'album' as const : 'track' as const,
+        name: review.item_name,
+        artist: review.artist_name,
+        cover: review.cover_url,
+        albumId: albumId || undefined,
+      };
+      const result = await addMusicItemToList(String(list.id), item);
+      setListModalVisible(false);
+      Alert.alert(result.added ? 'Added to list' : 'Already in list', result.added ? 'The music has been added to ' + (list.name || 'your list') + '.' : 'This music is already in that list.');
+    } catch (e: any) {
+      Alert.alert('Could not add to list', e?.message || 'Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function shareReview() {
+    if (!review) return;
+    setMenuVisible(false);
+    try {
+      const username = author?.username || 'Someone';
+      const kind = review.item_type === 'album' ? 'album' : 'song';
+      const message = username + "'s review of " + review.item_name + (review.artist_name ? ' by ' + review.artist_name : '') + '\n' + 'https://musicboxd.app/review/' + review.id;
+      await Share.share({ title: 'Musicboxd review', message });
+    } catch (e: any) {
+      Alert.alert('Could not share review', e?.message || 'Please try again.');
+    }
+  }
+
+  function startEditing() {
+    if (!review || !isOwnReview) return;
+    setMenuVisible(false);
+    setEditText(review.review_text || '');
+    setEditModalVisible(true);
+  }
+
+  async function saveReviewEdit() {
+    if (!review || !isOwnReview || actionLoading) return;
+    setActionLoading(true);
+    try {
+      const value = editText.trim();
+      const { error: updateError } = await supabase.from('music_reviews').update({ review_text: value }).eq('id', review.id).eq('user_id', userId);
+      if (updateError) throw updateError;
+      setReview({ ...review, review_text: value });
+      setEditModalVisible(false);
+    } catch (e: any) {
+      Alert.alert('Could not save review', e?.message || 'Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  function deleteReview() {
+    if (!review || !isOwnReview) return;
+    setMenuVisible(false);
+    Alert.alert('Delete review?', 'This review will be permanently deleted.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        try {
+          const { error: deleteError } = await supabase.from('music_reviews').delete().eq('id', review.id).eq('user_id', userId);
+          if (deleteError) throw deleteError;
+          router.back();
+        } catch (e: any) {
+          Alert.alert('Could not delete review', e?.message || 'Please try again.');
+        }
+      }},
+    ]);
+  }
+
+  function reportReview() {
+    setMenuVisible(false);
+    Alert.alert('Report this review', 'Review reporting is not connected yet. No report has been sent.');
+  }
+
+
   if(loading)return <View style={[styles.screen,{backgroundColor}]}><ActivityIndicator color={accentColor} style={{marginTop:80}}/></View>;
   if(!review)return <View style={[styles.screen,{backgroundColor}]}><View style={styles.header}><TouchableOpacity onPress={()=>router.back()}><Text style={styles.back}>‹</Text></TouchableOpacity><Text style={styles.headerTitle}>REVIEW</Text><View style={{width:30}}/></View><Text style={styles.error}>{error||'Review not found.'}</Text></View>;
 
@@ -131,7 +242,7 @@ export default function ReviewDetail() {
     <View style={styles.header}>
       <TouchableOpacity onPress={()=>router.back()}><Text style={styles.back}>‹</Text></TouchableOpacity>
       <Text style={styles.headerTitle}>REVIEW</Text>
-      <View style={{width:30}}/>
+      <TouchableOpacity style={styles.menuButton} onPress={()=>setMenuVisible(true)} accessibilityLabel="Review options"><Text style={styles.menuDots}>•••</Text></TouchableOpacity>
     </View>
     <KeyboardAvoidingView style={styles.keyboardArea} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={0}>
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
@@ -202,12 +313,56 @@ export default function ReviewDetail() {
 
     </ScrollView>
     </KeyboardAvoidingView>
+
+    <Modal transparent visible={menuVisible} animationType="fade" onRequestClose={()=>setMenuVisible(false)}>
+      <TouchableOpacity activeOpacity={1} style={styles.menuBackdrop} onPress={()=>setMenuVisible(false)}>
+        <View style={styles.menuPanel}>
+          {isOwnReview ? <>
+            <TouchableOpacity style={styles.menuItem} onPress={startEditing}><Text style={styles.menuItemText}>Edit review</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={deleteReview}><Text style={[styles.menuItemText,{color:'#ff7777'}]}>Delete review</Text></TouchableOpacity>
+            <View style={styles.menuDivider}/>
+          </> : null}
+          <TouchableOpacity style={styles.menuItem} onPress={()=>void openListPicker()}><Text style={styles.menuItemText}>Add {review.item_type === 'album' ? 'album' : 'song'} to list</Text></TouchableOpacity>
+          {!isOwnReview&&<TouchableOpacity style={styles.menuItem} onPress={reportReview}><Text style={styles.menuItemText}>Report this review</Text></TouchableOpacity>}
+          <TouchableOpacity style={styles.menuItem} onPress={()=>void shareReview()}><Text style={styles.menuItemText}>Share</Text></TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+
+    <Modal transparent visible={listModalVisible} animationType="slide" onRequestClose={()=>setListModalVisible(false)}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.sheet}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>Add to list</Text>
+            <TouchableOpacity onPress={()=>setListModalVisible(false)}><Text style={styles.sheetClose}>×</Text></TouchableOpacity>
+          </View>
+          {listsLoading ? <ActivityIndicator color={accentColor} style={{padding:24}}/> :
+            userLists.length ? userLists.map((list:any)=><TouchableOpacity key={String(list.id)} style={styles.listChoice} disabled={actionLoading} onPress={()=>void addReviewItemToList(list)}>
+              <Text style={styles.listChoiceText}>{list.name || 'Untitled list'}</Text><Text style={styles.listChoiceArrow}>›</Text>
+            </TouchableOpacity>) :
+            <Text style={styles.emptyLists}>You haven't created any lists yet.</Text>}
+        </View>
+      </View>
+    </Modal>
+
+    <Modal transparent visible={editModalVisible} animationType="fade" onRequestClose={()=>setEditModalVisible(false)}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.editPanel}>
+          <Text style={styles.sheetTitle}>Edit review</Text>
+          <TextInput value={editText} onChangeText={setEditText} placeholder="Write your review..." placeholderTextColor="#777" multiline maxLength={5000} style={styles.editInput}/>
+          <View style={styles.editActions}>
+            <TouchableOpacity onPress={()=>setEditModalVisible(false)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
+            <TouchableOpacity disabled={actionLoading} onPress={()=>void saveReviewEdit()} style={[styles.saveButton,{backgroundColor:accentColor,opacity:actionLoading?0.6:1}]}><Text style={styles.saveButtonText}>{actionLoading?'Saving...':'Save'}</Text></TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   </View>;
 }
 
 const styles=StyleSheet.create({
   screen:{flex:1},keyboardArea:{flex:1},header:{height:104,paddingTop:58,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#252525'},
-  back:{color:'#fff',fontSize:32,width:30},headerTitle:{color:'#fff',fontSize:16,fontWeight:'700',letterSpacing:1.5},
+  back:{color:'#fff',fontSize:32,width:30},headerTitle:{color:'#fff',fontSize:16,fontWeight:'700',letterSpacing:1.5},menuButton:{width:34,height:34,alignItems:'flex-end',justifyContent:'center'},menuDots:{color:'#ddd',fontSize:19,letterSpacing:2},menuBackdrop:{flex:1,alignItems:'flex-end',paddingTop:100,paddingRight:16,backgroundColor:'rgba(0,0,0,0.28)'},menuPanel:{minWidth:205,backgroundColor:'#292929',borderRadius:9,paddingVertical:6,borderWidth:1,borderColor:'#3a3a3a'},menuItem:{paddingHorizontal:16,paddingVertical:12},menuItemText:{color:'#eee',fontSize:14},menuDivider:{height:1,backgroundColor:'#444',marginVertical:4},modalBackdrop:{flex:1,justifyContent:'center',padding:22,backgroundColor:'rgba(0,0,0,0.65)'},sheet:{backgroundColor:'#242424',borderRadius:12,padding:18,maxHeight:'70%'},sheetHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},sheetTitle:{color:'#fff',fontSize:17,fontWeight:'700'},sheetClose:{color:'#aaa',fontSize:28,lineHeight:30},listChoice:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingVertical:14,borderTopWidth:1,borderTopColor:'#383838'},listChoiceText:{color:'#eee',fontSize:14},listChoiceArrow:{color:'#aaa',fontSize:23},emptyLists:{color:'#999',fontSize:13,paddingVertical:18},editPanel:{backgroundColor:'#242424',borderRadius:12,padding:18},editInput:{marginTop:14,minHeight:130,maxHeight:220,textAlignVertical:'top',borderWidth:1,borderColor:'#444',borderRadius:8,padding:12,color:'#fff',fontSize:14},editActions:{flexDirection:'row',justifyContent:'flex-end',alignItems:'center',gap:18,marginTop:16},cancelText:{color:'#aaa',fontSize:14},saveButton:{paddingHorizontal:18,paddingVertical:10,borderRadius:6},saveButtonText:{color:'#fff',fontSize:13,fontWeight:'700'},
   content:{padding:18,paddingBottom:50},
   reviewSide:{flex:1,minWidth:0},titleBlock:{flexDirection:'row',alignItems:'flex-start',justifyContent:'space-between',gap:12,marginBottom:14},titleHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12},
   songHeading:{flex:1,minWidth:0},titleRow:{flexDirection:'row',alignItems:'baseline',flexWrap:'wrap',columnGap:8,rowGap:3},
