@@ -295,11 +295,74 @@ export default function TrackPage() {
       const selected = activityRatingSelectionRef.current;
       const currentTrack = trackRef.current;
       if (selected <= 0 || !currentTrack) return;
-      router.push({ pathname: '/review/new', params: {
-        albumId: String(currentTrack.id), albumName: currentTrack.name, albumArtist: (currentTrack.artists || []).map((person: any) => person.name).join(', '),
-        albumCover: currentTrack.album?.images?.[0]?.url || '', itemType: 'track',
-        parentAlbumId: String(currentTrack.album?.id || ''), currentRating: String(selected),
-      } } as any);
+      void (async () => {
+        const savedAt = new Date().toISOString();
+        const trackArtist = (currentTrack.artists || []).map((person: any) => person.name).join(', ');
+        const trackCover = currentTrack.album?.images?.[0]?.url || '';
+        const parentId = String(currentTrack.album?.id || '');
+        const diaryEntry = {
+          id: `track-${String(currentTrack.id)}`,
+          itemId: String(currentTrack.id),
+          name: String(currentTrack.name || ''),
+          artist: trackArtist,
+          cover: trackCover,
+          type: 'track',
+          albumId: parentId,
+          rating: selected,
+          date: savedAt,
+          review: '',
+        };
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { error: ratingError } = await supabase.from('music_reviews').upsert({
+              user_id: user.id,
+              item_type: 'track',
+              item_id: String(currentTrack.id),
+              parent_album_id: parentId || null,
+              item_name: String(currentTrack.name || ''),
+              artist_name: trackArtist,
+              cover_url: trackCover,
+              rating: selected,
+              review_text: '',
+              updated_at: savedAt,
+            }, { onConflict: 'user_id,item_type,item_id' });
+            if (ratingError) throw ratingError;
+            const { error: diaryError } = await supabase.from('public_profile_items').upsert({
+              user_id: user.id,
+              section: 'diary',
+              item_key: String(currentTrack.id),
+              data: diaryEntry,
+              updated_at: savedAt,
+            }, { onConflict: 'user_id,section,item_key' });
+            if (diaryError) throw diaryError;
+          }
+
+          const diaryRaw = await AsyncStorage.getItem('diary_entries');
+          const diaryEntries = diaryRaw ? JSON.parse(diaryRaw) : [];
+          const diaryIndex = diaryEntries.findIndex((entry: any) =>
+            String(entry.itemId || entry.id) === String(currentTrack.id) && entry.type === 'track'
+          );
+          if (diaryIndex >= 0) diaryEntries[diaryIndex] = { ...diaryEntries[diaryIndex], ...diaryEntry };
+          else diaryEntries.unshift(diaryEntry);
+          await AsyncStorage.setItem('diary_entries', JSON.stringify(diaryEntries));
+
+          const listenedRaw = await AsyncStorage.getItem('listened');
+          const listenedItems = listenedRaw ? JSON.parse(listenedRaw) : [];
+          const listenedIndex = listenedItems.findIndex((entry: any) => String(entry.id) === String(currentTrack.id) && entry.type === 'track');
+          const listenedEntry = { id: String(currentTrack.id), name: currentTrack.name, artist: trackArtist, cover: trackCover, albumId: parentId, type: 'track', rating: selected, date: savedAt };
+          if (listenedIndex >= 0) listenedItems[listenedIndex] = { ...listenedItems[listenedIndex], ...listenedEntry };
+          else listenedItems.unshift(listenedEntry);
+          await AsyncStorage.setItem('listened', JSON.stringify(listenedItems));
+
+          if (user) await recordActivity('listened', String(currentTrack.id), { ...listenedEntry, review: '' });
+          setMyActivity(current => current.filter((entry: any) => !(entry.activity_type === 'reviewed' && String(entry.item_key) === String(currentTrack.id))));
+          Alert.alert('Rating saved', 'Your rating was added to your Diary and shared with friends.');
+        } catch (saveError: any) {
+          console.error('Could not save track rating:', saveError);
+          Alert.alert('Could not save rating', saveError?.message || 'Please try again.');
+        }
+      })();
     },
   })).current;
 
