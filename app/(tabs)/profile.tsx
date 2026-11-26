@@ -699,10 +699,10 @@ if (Array.isArray(sourceAlbums)) {
                         accessibilityLabel="Open review"
                         hitSlop={6}
                       >
-                        <Svg width={14} height={14} viewBox="0 0 14 14">
-                          <Line x1="1.5" y1="3" x2="12.5" y2="3" stroke="#9BA7B2" strokeWidth="1.5" strokeLinecap="round" />
-                          <Line x1="1.5" y1="7" x2="12.5" y2="7" stroke="#9BA7B2" strokeWidth="1.5" strokeLinecap="round" />
-                          <Line x1="1.5" y1="11" x2="12.5" y2="11" stroke="#9BA7B2" strokeWidth="1.5" strokeLinecap="round" />
+                        <Svg width={11} height={11} viewBox="0 0 14 14">
+                          <Line x1="2" y1="3" x2="12" y2="3" stroke="#9BA7B2" strokeWidth="1.2" strokeLinecap="round" />
+                          <Line x1="2" y1="7" x2="12" y2="7" stroke="#9BA7B2" strokeWidth="1.2" strokeLinecap="round" />
+                          <Line x1="2" y1="11" x2="12" y2="11" stroke="#9BA7B2" strokeWidth="1.2" strokeLinecap="round" />
                         </Svg>
                       </TouchableOpacity>
                     )}
