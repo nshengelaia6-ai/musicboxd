@@ -4,6 +4,7 @@ import { SectionList, Image, StyleSheet, Text, TouchableOpacity, View, ActivityI
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { supabase } from '@/utils/supabase';
+import { flushPendingActivities } from '@/utils/activity';
 
 type DiaryEntry = {
   id: string;
@@ -65,6 +66,51 @@ export default function DiaryScreen() {
 
         const reviewsData = await AsyncStorage.getItem('reviews');
         reviews = reviewsData ? JSON.parse(reviewsData) : [];
+      }
+
+      // Use append-only listened activity events as the Diary source when available.
+      // This preserves repeated listens instead of collapsing them into one row per item.
+      const targetUserId = isOtherProfile ? String(userId) : authData.user?.id;
+      if (targetUserId) {
+        if (!isOtherProfile) await flushPendingActivities();
+
+        const { data: listenedEvents, error: listenedEventsError } = await supabase
+          .from('user_activity')
+          .select('id,item_key,data,created_at')
+          .eq('user_id', targetUserId)
+          .eq('activity_type', 'listened')
+          .order('created_at', { ascending: false })
+          .limit(500);
+
+        if (!listenedEventsError && listenedEvents?.length) {
+          const legacyByItem = new Map(
+            entries.map(entry => [String(entry.itemId || entry.id), entry])
+          );
+          const eventEntries: DiaryEntry[] = listenedEvents.map((event: any) => {
+            const data = event.data || {};
+            const itemId = String(data.id || event.item_key || '');
+            const legacy = legacyByItem.get(itemId);
+            return {
+              id: String(event.id),
+              itemId,
+              name: String(data.name || data.title || legacy?.name || 'Unknown'),
+              artist: String(data.artist || data.artist_name || data.artistName || legacy?.artist || ''),
+              cover: String(data.cover || data.cover_url || data.image || legacy?.cover || ''),
+              type: data.type === 'track' || legacy?.type === 'track' ? 'track' : 'album',
+              albumId: String(data.albumId || data.parentAlbumId || legacy?.albumId || ''),
+              rating: Number(data.rating) || legacy?.rating || 0,
+              date: String(data.date || event.created_at || ''),
+              review: String(data.review || legacy?.review || ''),
+            };
+          });
+          const eventItemIds = new Set(eventEntries.map(entry => String(entry.itemId || entry.id)));
+          const legacyOnlyEntries = entries.filter(
+            entry => !eventItemIds.has(String(entry.itemId || entry.id))
+          );
+          entries = [...eventEntries, ...legacyOnlyEntries];
+        } else if (listenedEventsError) {
+          console.warn('Could not load Diary listening events; using saved Diary entries:', listenedEventsError);
+        }
       }
 
       const enriched = entries.map(entry => {
