@@ -93,6 +93,21 @@ export default function ArtistPage() {
           .maybeSingle();
         if (followError) throw followError;
         isFollowed = !!cloudFollow;
+        if (!isFollowed) {
+          const followedData = await AsyncStorage.getItem('followed_artists');
+          const followedArtists = followedData ? JSON.parse(followedData) : [];
+          const legacyFollow = followedArtists.find((item: any) => String(item.id) === String(artistData.id));
+          if (legacyFollow) {
+            const { error: migrateError } = await supabase.from('artist_follows').upsert({
+              user_id: user.id,
+              artist_id: String(artistData.id),
+              artist_name: String(legacyFollow.name || artistData.name || ''),
+              artist_image: String(legacyFollow.image || artistData.images?.[0]?.url || ''),
+            }, { onConflict: 'user_id,artist_id' });
+            if (migrateError) throw migrateError;
+            isFollowed = true;
+          }
+        }
       } else {
         const followedData = await AsyncStorage.getItem('followed_artists');
         const followedArtists = followedData ? JSON.parse(followedData) : [];
