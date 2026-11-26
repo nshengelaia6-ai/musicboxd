@@ -37,6 +37,8 @@ export default function ReviewDetail() {
   const [authorLikedReviews,setAuthorLikedReviews]=useState<LikedReview[]>([]);
   const [likedPeople,setLikedPeople]=useState<LikedPerson[]>([]);
   const likedPeopleScroll=useRef<ScrollView>(null);
+  const reviewScroll=useRef<ScrollView>(null);
+  const [repliesTop,setRepliesTop]=useState(0);
 
   const load=useCallback(async()=>{
     setLoading(true);setError('');setMyProfile(null);setLikedPeople([]);setReplyPeople({});setReplies([]);setReleaseYear('');setAlbumId('');setAuthorLikedSong(false);
@@ -179,8 +181,8 @@ export default function ReviewDetail() {
         </View>
       </> : <View style={styles.emptyLikedPeopleDivider} />}
       <View style={styles.reviewLinksRow}>
-        <TouchableOpacity style={styles.replyButton} onPress={()=>setReplyOpen(value=>!value)}>
-          <Text style={styles.replyButtonText}>Reply</Text>
+        <TouchableOpacity style={styles.replyButton} onPress={()=>{if(replies.length){setReplyOpen(false);reviewScroll.current?.scrollTo({y:Math.max(0,repliesTop-18),animated:true});}else{setReplyOpen(value=>!value);}}}>
+          <Text style={styles.replyButtonText}>{replies.length?`${replies.length} ${replies.length===1?'comment':'comments'}`:'Reply'}</Text>
         </TouchableOpacity>
         <TouchableOpacity disabled={!(albumId||(review.item_type==='album'?review.item_id:''))} style={[styles.albumButton,!(albumId||(review.item_type==='album'?review.item_id:''))&&styles.albumButtonDisabled]} onPress={()=>{const targetAlbumId=albumId||(review.item_type==='album'?review.item_id:'');if(targetAlbumId)router.push({pathname:'/album/[id]',params:{id:targetAlbumId}} as any);}}>
           <Text style={styles.albumButtonText}>Album</Text>
@@ -199,6 +201,7 @@ export default function ReviewDetail() {
           </View>
         </View>
       </View>}
+      <View onLayout={event=>setRepliesTop(event.nativeEvent.layout.y)}>
       {replies.map(reply=>{
         const person=replyPeople[reply.user_id];
         return <View key={reply.id} style={styles.replyRow}>
@@ -209,6 +212,7 @@ export default function ReviewDetail() {
           </View>
         </View>;
       })}
+      </View>
     </ScrollView>
     </KeyboardAvoidingView>
   </View>;
