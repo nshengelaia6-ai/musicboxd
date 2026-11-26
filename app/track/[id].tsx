@@ -218,22 +218,24 @@ export default function TrackPage() {
       setListened(listenedItems.some((item: any) => String(item.id) === String(id) && item.type === 'track'));
       setWantToListen(wantItems.some((item: any) => String(item.id) === String(id) && item.type === 'track'));
 
-      const [{ data: reviewRows, error: reviewError, count }, { data: ratingRows, error: ratingError }] = await Promise.all([
+      const [{ data: reviewRows, error: reviewError }, { data: ratingRows, error: ratingError }] = await Promise.all([
         supabase.from('music_reviews')
-          .select('id,user_id,rating,review_text,created_at,updated_at', { count: 'exact' })
+          .select('id,user_id,rating,review_text,created_at,updated_at')
           .eq('item_type', 'track')
           .eq('item_id', String(id))
+          .not('review_text', 'is', null)
+          .neq('review_text', '')
           .order('updated_at', { ascending: false })
           .limit(3),
         supabase.from('music_reviews')
-          .select('rating')
+          .select('rating,review_text')
           .eq('item_type', 'track')
           .eq('item_id', String(id)),
       ]);
       if (reviewError) throw reviewError;
       if (ratingError) throw ratingError;
       const ratings = ratingRows || [];
-      setReviewCount(count || 0);
+      setReviewCount(ratings.filter((row: any) => typeof row.review_text === 'string' && row.review_text.trim().length > 0).length);
       const ratedReviews = ratings.filter((row: any) => Number(row.rating) > 0);
       setRatingCount(ratedReviews.length);
       setAverageRating(ratedReviews.length
@@ -250,7 +252,7 @@ export default function TrackPage() {
       if (profilesError) throw profilesError;
       const profileMap: Record<string, any> = {};
       (profiles || []).forEach((person: any) => { profileMap[person.id] = person; });
-      setReviews(reviewRows || []);
+      setReviews((reviewRows || []).filter((row: any) => typeof row.review_text === 'string' && row.review_text.trim().length > 0));
       setPeople(profileMap);
     } catch (e: any) {
       console.error('Track page load failed:', e);
