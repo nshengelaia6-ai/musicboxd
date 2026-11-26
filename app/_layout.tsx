@@ -62,6 +62,10 @@ export default function RootLayout() {
             name="find-people"
             options={{ headerShown: false }}
           />
+          <Stack.Screen
+            name="notifications"
+            options={{ headerShown: false }}
+          />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
