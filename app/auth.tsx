@@ -200,13 +200,7 @@ export default function AuthScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.topBar}>
-          <View style={styles.brandRow}>
-            <View style={styles.brandIcon}>
-              <View style={styles.brandIconInner} />
-            </View>
-
-            <Text style={styles.brandName}>musicboxd</Text>
-          </View>
+          <Text style={styles.brandName}>Musicboxd</Text>
         </View>
 
         <View style={styles.center}>
@@ -674,34 +668,17 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   topBar: {
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingBottom: 22,
     borderBottomWidth: 1,
     borderBottomColor: '#2b323a',
   },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  brandIcon: {
-    width: 25,
-    height: 25,
-    borderRadius: 6,
-    backgroundColor: '#527da9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandIconInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#fff',
-  },
   brandName: {
-    color: '#f0f2f4',
-    fontSize: 21,
+    color: 'white',
+    fontSize: 25,
     fontWeight: '800',
-    letterSpacing: -0.7,
+    letterSpacing: -0.6,
   },
   center: {
     flexGrow: 1,
