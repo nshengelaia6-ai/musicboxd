@@ -30,6 +30,7 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const currentYear = new Date().getFullYear();
 
@@ -253,7 +254,9 @@ export default function AuthScreen() {
                   <Text style={styles.label}>USERNAME *</Text>
 
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, focusedField === 'username' && styles.inputFocused]}
+                    onFocus={() => setFocusedField('username')}
+                    onBlur={() => setFocusedField(null)}
                     value={username}
                     onChangeText={setUsername}
                     placeholder="Choose a username"
@@ -502,7 +505,9 @@ export default function AuthScreen() {
               <Text style={styles.label}>EMAIL</Text>
 
               <TextInput
-                style={styles.input}
+                style={[styles.input, focusedField === 'email' && styles.inputFocused]}
+                onFocus={() => setFocusedField('email')}
+                onBlur={() => setFocusedField(null)}
                 value={email}
                 onChangeText={setEmail}
                 placeholder="you@example.com"
@@ -519,7 +524,9 @@ export default function AuthScreen() {
               <Text style={styles.label}>PASSWORD</Text>
 
               <TextInput
-                style={styles.input}
+                style={[styles.input, focusedField === 'password' && styles.inputFocused]}
+                onFocus={() => setFocusedField('password')}
+                onBlur={() => setFocusedField(null)}
                 value={password}
                 onChangeText={setPassword}
                 placeholder="Enter your password"
@@ -542,7 +549,9 @@ export default function AuthScreen() {
                 <Text style={styles.label}>CONFIRM PASSWORD</Text>
 
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, focusedField === 'confirmPassword' && styles.inputFocused]}
+                  onFocus={() => setFocusedField('confirmPassword')}
+                  onBlur={() => setFocusedField(null)}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   placeholder="Enter your password again"
@@ -613,7 +622,11 @@ export default function AuthScreen() {
             <Pressable
               testID="auth-submit-button"
               accessibilityRole="button"
-              style={[styles.submitButton, loading && styles.disabled]}
+              style={({ pressed }) => [
+                styles.submitButton,
+                pressed && !loading && styles.submitButtonPressed,
+                loading && styles.disabled,
+              ]}
               onPress={handleSubmit}
               disabled={loading}
             >
@@ -749,6 +762,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     outlineStyle: 'none',
   } as any,
+  inputFocused: {
+    borderColor: '#729bc5',
+  },
   dateRow: {
     flexDirection: 'row',
     gap: 8,
@@ -827,6 +843,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#527da9',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  submitButtonPressed: {
+    backgroundColor: '#426b95',
+    opacity: 0.92,
   },
   disabled: {
     opacity: 0.6,
