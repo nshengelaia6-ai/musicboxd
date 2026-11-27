@@ -1,7 +1,6 @@
 
 import { supabase } from '@/utils/supabase';
 import { Picker } from '@react-native-picker/picker';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { createElement, useState } from 'react';
 import {
@@ -32,8 +31,6 @@ export default function AuthScreen() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const currentYear = new Date().getFullYear();
 
@@ -526,82 +523,42 @@ export default function AuthScreen() {
             <View style={styles.field}>
               <Text style={styles.label}>PASSWORD</Text>
 
-              <View style={[
-                styles.passwordInputShell,
-                focusedField === 'password' && styles.inputFocused,
-              ]}>
-                <TextInput
-                  style={styles.passwordInput}
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Enter your password"
-                  placeholderTextColor="#74818c"
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  autoComplete={
-                    mode === 'login'
-                      ? 'current-password'
-                      : 'new-password'
-                  }
-                  editable={!loading}
-                  onSubmitEditing={handleSubmit}
-                  returnKeyType="go"
-                />
-                <Pressable
-                  onPress={() => setShowPassword(value => !value)}
-                  disabled={loading}
-                  style={styles.passwordToggle}
-                  accessibilityRole="button"
-                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  <Ionicons
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color="#9ca8b3"
-                  />
-                </Pressable>
-              </View>
+              <TextInput
+                style={[styles.input, focusedField === 'password' && styles.inputFocused]}
+                onFocus={() => setFocusedField('password')}
+                onBlur={() => setFocusedField(null)}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Enter your password"
+                placeholderTextColor="#74818c"
+                secureTextEntry
+                autoCapitalize="none"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                editable={!loading}
+                onSubmitEditing={handleSubmit}
+                returnKeyType="go"
+              />
             </View>
 
             {mode === 'signup' && (
               <View style={styles.field}>
                 <Text style={styles.label}>CONFIRM PASSWORD</Text>
 
-                <View style={[
-                  styles.passwordInputShell,
-                  focusedField === 'confirmPassword' && styles.inputFocused,
-                ]}>
-                  <TextInput
-                    style={styles.passwordInput}
-                    onFocus={() => setFocusedField('confirmPassword')}
-                    onBlur={() => setFocusedField(null)}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    placeholder="Enter your password again"
-                    placeholderTextColor="#74818c"
-                    secureTextEntry={!showConfirmPassword}
-                    autoCapitalize="none"
-                    autoComplete="new-password"
-                    editable={!loading}
-                    onSubmitEditing={handleSubmit}
-                    returnKeyType="go"
-                  />
-                  <Pressable
-                    onPress={() => setShowConfirmPassword(value => !value)}
-                    disabled={loading}
-                    style={styles.passwordToggle}
-                    accessibilityRole="button"
-                    accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
-                  >
-                    <Ionicons
-                      name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
-                      size={20}
-                      color="#9ca8b3"
-                    />
-                  </Pressable>
-                </View>
+                <TextInput
+                  style={[styles.input, focusedField === 'confirmPassword' && styles.inputFocused]}
+                  onFocus={() => setFocusedField('confirmPassword')}
+                  onBlur={() => setFocusedField(null)}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Enter your password again"
+                  placeholderTextColor="#74818c"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoComplete="new-password"
+                  editable={!loading}
+                  onSubmitEditing={handleSubmit}
+                  returnKeyType="go"
+                />
               </View>
             )}
 
@@ -804,31 +761,6 @@ const styles = StyleSheet.create({
   inputFocused: {
     borderColor: '#729bc5',
   },
-  passwordInputShell: {
-    width: '100%',
-    height: 47,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1d2329',
-    borderWidth: 1,
-    borderColor: '#414d58',
-    borderRadius: 5,
-  },
-  passwordInput: {
-    flex: 1,
-    height: '100%',
-    color: '#f4f6f8',
-    paddingHorizontal: 14,
-    fontSize: 14,
-    outlineStyle: 'none',
-  } as any,
-  passwordToggle: {
-    height: '100%',
-    paddingHorizontal: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
   dateRow: {
     flexDirection: 'row',
     gap: 8,
