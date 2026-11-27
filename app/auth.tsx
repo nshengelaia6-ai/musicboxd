@@ -556,7 +556,7 @@ export default function AuthScreen() {
                   accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                 >
                   <Text style={styles.passwordToggleText}>
-                    {showPassword ? 'Hide' : 'Show'}
+                    {showPassword ? '🙈' : '👁️'}
                   </Text>
                 </Pressable>
               </View>
@@ -593,7 +593,7 @@ export default function AuthScreen() {
                     accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
                   >
                     <Text style={styles.passwordToggleText}>
-                      {showConfirmPassword ? 'Hide' : 'Show'}
+                      {showConfirmPassword ? '🙈' : '👁️'}
                     </Text>
                   </Pressable>
                 </View>
