@@ -1,6 +1,7 @@
 
 import { supabase } from '@/utils/supabase';
 import { Picker } from '@react-native-picker/picker';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { createElement, useState } from 'react';
 import {
@@ -555,9 +556,11 @@ export default function AuthScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  <Text style={styles.passwordToggleText}>
-                    {showPassword ? '🙈' : '👁️'}
-                  </Text>
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color="#9ca8b3"
+                  />
                 </Pressable>
               </View>
             </View>
@@ -592,9 +595,11 @@ export default function AuthScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
                   >
-                    <Text style={styles.passwordToggleText}>
-                      {showConfirmPassword ? '🙈' : '👁️'}
-                    </Text>
+                    <Ionicons
+                      name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color="#9ca8b3"
+                    />
                   </Pressable>
                 </View>
               </View>
@@ -823,11 +828,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  passwordToggleText: {
-    color: '#729bc5',
-    fontSize: 12,
-    fontWeight: '600',
-  },
+
   dateRow: {
     flexDirection: 'row',
     gap: 8,
